@@ -27,6 +27,30 @@ type VenueDecisionKind = "shortlisted" | "visited" | "quoted" | "decided" | "pas
 type VenueQuestionStatus = "open" | "answered" | "wont_answer";
 type RsvpStatus = "pending" | "yes" | "no" | "maybe";
 type GuestSide = "groom" | "bride" | "both";
+type TaskStatus = "not_started" | "in_progress" | "blocked" | "done" | "na";
+type TaskPhase =
+  | "pre_12_months"
+  | "months_9_12"
+  | "months_6_9"
+  | "months_3_6"
+  | "months_1_3"
+  | "final_month"
+  | "final_week"
+  | "day_of"
+  | "post_wedding";
+type TaskOwner = "couple" | "planner" | "groom" | "bride" | "family" | "vendor";
+type TaskCategory =
+  | "venue"
+  | "vendor"
+  | "attire"
+  | "paperwork"
+  | "guest"
+  | "logistics"
+  | "design"
+  | "ritual"
+  | "finance"
+  | "honeymoon"
+  | "other";
 
 export type Database = {
   public: {
@@ -432,6 +456,70 @@ export type Database = {
           output_tokens: number | null;
           cost_usd: number | null;
           error: string | null;
+        }>;
+        Relationships: [];
+      };
+      planning_tasks: {
+        Row: {
+          id: string;
+          workspace_id: string;
+          org_id: string;
+          category: TaskCategory;
+          phase: TaskPhase;
+          sort_order: number;
+          title: string;
+          description: string | null;
+          status: TaskStatus;
+          owner: TaskOwner;
+          months_before: number | null;
+          due_date: string | null;
+          auto_derive_kind: string | null;
+          notes: string | null;
+          done_at: string | null;
+          done_by: string | null;
+          related_kind: string | null;
+          related_id: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          workspace_id: string;
+          org_id: string;
+          category: TaskCategory;
+          phase: TaskPhase;
+          sort_order?: number;
+          title: string;
+          description?: string | null;
+          status?: TaskStatus;
+          owner?: TaskOwner;
+          months_before?: number | null;
+          due_date?: string | null;
+          auto_derive_kind?: string | null;
+          notes?: string | null;
+          done_at?: string | null;
+          done_by?: string | null;
+          related_kind?: string | null;
+          related_id?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<{
+          category: TaskCategory;
+          phase: TaskPhase;
+          sort_order: number;
+          title: string;
+          description: string | null;
+          status: TaskStatus;
+          owner: TaskOwner;
+          months_before: number | null;
+          due_date: string | null;
+          auto_derive_kind: string | null;
+          notes: string | null;
+          done_at: string | null;
+          done_by: string | null;
+          related_kind: string | null;
+          related_id: string | null;
         }>;
         Relationships: [];
       };

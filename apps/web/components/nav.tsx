@@ -5,7 +5,9 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   Briefcase,
   Calculator,
+  CheckSquare,
   Clock,
+  Globe,
   Heart,
   LogOut,
   MapPin,
@@ -21,7 +23,9 @@ import { cn } from "@/lib/utils";
 
 const links: { href: string; label: string; icon: LucideIcon }[] = [
   { href: "/", label: "Dashboard", icon: Sparkles },
+  { href: "/plan", label: "Plan", icon: CheckSquare },
   { href: "/venues", label: "Venues", icon: MapPin },
+  { href: "/map", label: "Map", icon: Globe },
   { href: "/vendors", label: "Vendors", icon: Briefcase },
   { href: "/guests", label: "Guests", icon: UserCheck },
   { href: "/pricing", label: "Full pricing", icon: Calculator },
