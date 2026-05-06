@@ -1,0 +1,34 @@
+{
+  "name": "wedding-os",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@9.15.9",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @wedding-os/web dev",
+    "build": "pnpm --filter @wedding-os/web build",
+    "start": "pnpm --filter @wedding-os/web start",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck",
+    "db:start": "supabase start",
+    "db:stop": "supabase stop",
+    "db:reset": "supabase db reset",
+    "db:diff": "supabase db diff",
+    "db:push": "supabase db push",
+    "db:types": "supabase gen types typescript --local > packages/db/src/types.gen.ts",
+    "db:seed": "tsx supabase/seed/seed.ts",
+    "db:ingest-photos": "tsx supabase/seed/ingest_photos.ts"
+  },
+  "devDependencies": {
+    "@supabase/supabase-js": "^2.46.1",
+    "@types/node": "^22.9.0",
+    "@types/pg": "^8.20.0",
+    "dotenv": "^16.4.5",
+    "pg": "^8.20.0",
+    "supabase": "^1.219.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3"
+  }
+}

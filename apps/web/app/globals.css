@@ -1,0 +1,58 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Warm cream background — wedding stationery feel */
+    --background: 36 38% 96%;
+    --foreground: 20 18% 14%;
+    --card: 0 0% 100%;
+    --card-foreground: 20 18% 14%;
+    /* Rose-amber primary — warmer than the previous brown */
+    --primary: 12 48% 38%;
+    --primary-foreground: 36 38% 97%;
+    --secondary: 32 28% 92%;
+    --secondary-foreground: 20 18% 14%;
+    --muted: 32 22% 93%;
+    --muted-foreground: 20 12% 42%;
+    --accent: 18 60% 50%;
+    --accent-foreground: 36 38% 97%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 30 22% 86%;
+    --input: 30 22% 86%;
+    --ring: 12 48% 38%;
+    --radius: 0.875rem;
+  }
+
+  .dark {
+    --background: 20 14% 8%;
+    --foreground: 36 38% 96%;
+    --card: 20 14% 11%;
+    --card-foreground: 36 38% 96%;
+    --primary: 36 38% 92%;
+    --primary-foreground: 20 18% 14%;
+    --secondary: 20 10% 18%;
+    --secondary-foreground: 36 38% 96%;
+    --muted: 20 10% 18%;
+    --muted-foreground: 30 10% 65%;
+    --accent: 18 60% 55%;
+    --accent-foreground: 20 18% 14%;
+    --destructive: 0 62% 45%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 20 10% 22%;
+    --input: 20 10% 22%;
+    --ring: 36 38% 80%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1, "ss01" 1;
+  }
+}
