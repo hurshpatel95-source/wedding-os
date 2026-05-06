@@ -28,6 +28,24 @@ type VenueQuestionStatus = "open" | "answered" | "wont_answer";
 type RsvpStatus = "pending" | "yes" | "no" | "maybe";
 type GuestSide = "groom" | "bride" | "both";
 type AiRole = "user" | "assistant";
+type IntakeSourceKind = "image" | "pdf" | "text" | "whatsapp_export";
+type IntakeStatus =
+  | "uploaded"
+  | "extracting"
+  | "extracted"
+  | "partial"
+  | "failed"
+  | "applied"
+  | "archived";
+type IntakeProposalKind = "default_price" | "override" | "new_line_item";
+type ProposalDecision = "pending" | "accepted" | "edited" | "rejected" | "needs_info";
+type ChangeActorKind = "user" | "ai_intake" | "excel_import" | "seed" | "manual_admin";
+type ChangeTarget =
+  | "default_price"
+  | "override_price"
+  | "override_included"
+  | "override_notes"
+  | "new_line_item";
 type TaskStatus = "not_started" | "in_progress" | "blocked" | "done" | "na";
 type TaskPhase =
   | "pre_12_months"
@@ -464,6 +482,165 @@ export type Database = {
           output_tokens: number | null;
           cost_usd: number | null;
           error: string | null;
+        }>;
+        Relationships: [];
+      };
+      pricing_intake_sources: {
+        Row: {
+          id: string;
+          org_id: string;
+          workspace_id: string;
+          template_id: string;
+          venue_id: string | null;
+          uploaded_by: string;
+          kind: IntakeSourceKind;
+          status: IntakeStatus;
+          storage_path: string | null;
+          mime_type: string | null;
+          byte_size: number | null;
+          raw_text: string | null;
+          source_label: string | null;
+          source_dated_at: string | null;
+          model: string | null;
+          claude_response: Json | null;
+          prompt_tokens: number | null;
+          output_tokens: number | null;
+          cost_usd: number | null;
+          error: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          org_id: string;
+          workspace_id: string;
+          template_id: string;
+          venue_id?: string | null;
+          uploaded_by: string;
+          kind: IntakeSourceKind;
+          status?: IntakeStatus;
+          storage_path?: string | null;
+          mime_type?: string | null;
+          byte_size?: number | null;
+          raw_text?: string | null;
+          source_label?: string | null;
+          source_dated_at?: string | null;
+          model?: string | null;
+          claude_response?: Json | null;
+          prompt_tokens?: number | null;
+          output_tokens?: number | null;
+          cost_usd?: number | null;
+          error?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<{
+          status: IntakeStatus;
+          model: string | null;
+          claude_response: Json | null;
+          prompt_tokens: number | null;
+          output_tokens: number | null;
+          cost_usd: number | null;
+          error: string | null;
+        }>;
+        Relationships: [];
+      };
+      pricing_intake_proposals: {
+        Row: {
+          id: string;
+          source_id: string;
+          kind: IntakeProposalKind;
+          matched_line_item_id: string | null;
+          proposed_category: string | null;
+          proposed_label: string | null;
+          proposed_description: string | null;
+          proposed_unit: PricingUnit | null;
+          proposed_tier: PricingTier | null;
+          proposed_unit_price: number | null;
+          proposed_currency: string | null;
+          proposed_included: boolean | null;
+          proposed_notes: string | null;
+          confidence: number;
+          rationale: string | null;
+          evidence: Json | null;
+          needs_info: string | null;
+          decision: ProposalDecision;
+          decided_by: string | null;
+          decided_at: string | null;
+          applied_change_log_id: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          source_id: string;
+          kind: IntakeProposalKind;
+          matched_line_item_id?: string | null;
+          proposed_category?: string | null;
+          proposed_label?: string | null;
+          proposed_description?: string | null;
+          proposed_unit?: PricingUnit | null;
+          proposed_tier?: PricingTier | null;
+          proposed_unit_price?: number | null;
+          proposed_currency?: string | null;
+          proposed_included?: boolean | null;
+          proposed_notes?: string | null;
+          confidence: number;
+          rationale?: string | null;
+          evidence?: Json | null;
+          needs_info?: string | null;
+          decision?: ProposalDecision;
+          decided_by?: string | null;
+          decided_at?: string | null;
+          applied_change_log_id?: string | null;
+          created_at?: string;
+        };
+        Update: Partial<{
+          decision: ProposalDecision;
+          decided_by: string | null;
+          decided_at: string | null;
+          applied_change_log_id: string | null;
+        }>;
+        Relationships: [];
+      };
+      pricing_change_log: {
+        Row: {
+          id: string;
+          org_id: string;
+          workspace_id: string | null;
+          template_id: string;
+          line_item_id: string | null;
+          venue_id: string | null;
+          target: ChangeTarget;
+          old_value: Json | null;
+          new_value: Json | null;
+          actor_kind: ChangeActorKind;
+          actor_user_id: string | null;
+          source_id: string | null;
+          proposal_id: string | null;
+          evidence: Json | null;
+          note: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          org_id: string;
+          workspace_id?: string | null;
+          template_id: string;
+          line_item_id?: string | null;
+          venue_id?: string | null;
+          target: ChangeTarget;
+          old_value?: Json | null;
+          new_value?: Json | null;
+          actor_kind: ChangeActorKind;
+          actor_user_id?: string | null;
+          source_id?: string | null;
+          proposal_id?: string | null;
+          evidence?: Json | null;
+          note?: string | null;
+          created_at?: string;
+        };
+        Update: Partial<{
+          note: string | null;
         }>;
         Relationships: [];
       };
