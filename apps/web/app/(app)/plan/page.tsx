@@ -13,13 +13,15 @@ export default async function PlanPage() {
   } = await supabase.auth.getUser();
 
   let workspaceId: string | null = null;
+  let orgId: string | null = null;
   if (user) {
     const { data: profile } = await supabase
       .from("users")
-      .select("workspace_id")
+      .select("workspace_id, org_id")
       .eq("id", user.id)
       .maybeSingle();
     workspaceId = profile?.workspace_id ?? null;
+    orgId = profile?.org_id ?? null;
   }
 
   const [{ data: workspace }, { data: rawTasks }] = await Promise.all([
@@ -89,7 +91,7 @@ export default async function PlanPage() {
         <Stat label="Progress" value={`${pct}%`} tone="muted" />
       </section>
 
-      <PlanBoard tasks={tasks} />
+      <PlanBoard tasks={tasks} workspaceId={workspaceId} orgId={orgId} />
     </div>
   );
 }

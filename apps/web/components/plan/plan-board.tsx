@@ -3,12 +3,21 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { format, parseISO } from "date-fns";
-import { Sparkles, Check, Circle, Clock, AlertCircle, X } from "lucide-react";
+import { Sparkles, Check, Circle, Clock, AlertCircle, X, Plus, Trash2, UserPlus } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -42,12 +51,21 @@ const STATUS_ICON: Record<TaskStatus, React.ComponentType<{ className?: string }
   na: X,
 };
 
-export function PlanBoard({ tasks }: { tasks: LiveTask[] }) {
+export function PlanBoard({
+  tasks,
+  workspaceId,
+  orgId,
+}: {
+  tasks: LiveTask[];
+  workspaceId: string | null;
+  orgId: string | null;
+}) {
   const router = useRouter();
   const [q, setQ] = useState("");
   const [category, setCategory] = useState<"all" | TaskCategory>("all");
   const [owner, setOwner] = useState<"all" | TaskOwner>("all");
   const [hideDone, setHideDone] = useState<boolean>(false);
+  const [addTaskPhase, setAddTaskPhase] = useState<TaskPhase | null>(null);
 
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
@@ -87,6 +105,15 @@ export function PlanBoard({ tasks }: { tasks: LiveTask[] }) {
     await supabase.from("planning_tasks").update(patch).eq("id", taskId);
     router.refresh();
   };
+
+  const deleteTask = async (taskId: string) => {
+    if (!confirm("Delete this task? This can't be undone.")) return;
+    const supabase = createClient();
+    await supabase.from("planning_tasks").delete().eq("id", taskId);
+    router.refresh();
+  };
+
+  const canAddTasks = Boolean(workspaceId && orgId);
 
   return (
     <div className="space-y-4">
@@ -147,7 +174,7 @@ export function PlanBoard({ tasks }: { tasks: LiveTask[] }) {
       <div className="space-y-6">
         {PHASE_ORDER.map((phase) => {
           const phaseTasks = grouped.get(phase) ?? [];
-          if (phaseTasks.length === 0) return null;
+          if (phaseTasks.length === 0 && !canAddTasks) return null;
           const phaseDone = phaseTasks.filter((t) => t.status === "done").length;
           return (
             <section key={phase} className="space-y-3">
@@ -163,14 +190,49 @@ export function PlanBoard({ tasks }: { tasks: LiveTask[] }) {
               <Card>
                 <CardContent className="divide-y divide-stone-100 p-0">
                   {phaseTasks.map((t) => (
-                    <TaskRow key={t.id} task={t} onUpdate={(p) => updateTask(t.id, p)} />
+                    <TaskRow
+                      key={t.id}
+                      task={t}
+                      onUpdate={(p) => updateTask(t.id, p)}
+                      onDelete={t.is_user_added ? () => deleteTask(t.id) : undefined}
+                    />
                   ))}
+                  {phaseTasks.length === 0 && (
+                    <div className="px-4 py-3 text-xs text-muted-foreground">
+                      No tasks in this phase yet.
+                    </div>
+                  )}
                 </CardContent>
               </Card>
+              {canAddTasks && (
+                <div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setAddTaskPhase(phase)}
+                    className="text-xs"
+                  >
+                    <Plus className="h-3.5 w-3.5" /> Add custom task
+                  </Button>
+                </div>
+              )}
             </section>
           );
         })}
       </div>
+
+      {addTaskPhase && workspaceId && orgId && (
+        <AddCustomTaskDialog
+          phase={addTaskPhase}
+          workspaceId={workspaceId}
+          orgId={orgId}
+          onClose={() => setAddTaskPhase(null)}
+          onSaved={() => {
+            setAddTaskPhase(null);
+            router.refresh();
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -178,16 +240,18 @@ export function PlanBoard({ tasks }: { tasks: LiveTask[] }) {
 function TaskRow({
   task,
   onUpdate,
+  onDelete,
 }: {
   task: LiveTask;
   onUpdate: (patch: { status?: TaskStatus; notes?: string | null; done_at?: string | null }) => void;
+  onDelete?: () => void;
 }) {
   const StatusIcon = STATUS_ICON[task.status];
   const isAuto = Boolean(task.auto_derive_kind);
   const isDerivedDone = isAuto && task.derived_done;
 
   return (
-    <div className="grid grid-cols-1 items-center gap-3 px-4 py-3 sm:grid-cols-[auto_minmax(0,1fr)_auto_auto_auto]">
+    <div className="grid grid-cols-1 items-center gap-3 px-4 py-3 sm:grid-cols-[auto_minmax(0,1fr)_auto_auto_auto_auto]">
       <button
         type="button"
         onClick={() =>
@@ -217,6 +281,12 @@ function TaskRow({
           <Badge variant="secondary" className="text-[10px]">
             {CATEGORY_LABEL[task.category as TaskCategory]}
           </Badge>
+          {task.is_user_added && (
+            <Badge variant="secondary" className="flex items-center gap-1 text-[10px]">
+              <UserPlus className="h-3 w-3" />
+              custom
+            </Badge>
+          )}
           {isDerivedDone && (
             <Badge variant="success" className="flex items-center gap-1 text-[10px]">
               <Sparkles className="h-3 w-3" />
@@ -266,6 +336,156 @@ function TaskRow({
           ))}
         </SelectContent>
       </Select>
+
+      {onDelete ? (
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onDelete}
+          title="Delete custom task"
+          className="h-8 w-8"
+        >
+          <Trash2 className="h-3.5 w-3.5 text-stone-400" />
+        </Button>
+      ) : (
+        <div className="hidden sm:block sm:w-8" aria-hidden />
+      )}
     </div>
+  );
+}
+
+function AddCustomTaskDialog({
+  phase,
+  workspaceId,
+  orgId,
+  onClose,
+  onSaved,
+}: {
+  phase: TaskPhase;
+  workspaceId: string;
+  orgId: string;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [category, setCategory] = useState<TaskCategory>("other");
+  const [owner, setOwner] = useState<TaskOwner>("couple");
+  const [dueDate, setDueDate] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSave = async () => {
+    if (!title.trim()) {
+      setError("Title is required");
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    const supabase = createClient();
+    const { error: insertErr } = await supabase.from("planning_tasks").insert({
+      workspace_id: workspaceId,
+      org_id: orgId,
+      title: title.trim(),
+      description: description.trim() || null,
+      phase,
+      category,
+      owner,
+      due_date: dueDate || null,
+      is_user_added: true,
+      sort_order: 9999,
+    });
+    if (insertErr) {
+      setError(insertErr.message);
+      setSaving(false);
+      return;
+    }
+    onSaved();
+  };
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle className="font-serif text-2xl font-light">
+            Add custom task
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div className="text-xs text-muted-foreground">
+            Adding to <span className="font-medium">{PHASE_LABEL[phase]}</span>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="ct-title">Title</Label>
+            <Input
+              id="ct-title"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="e.g. Marriage license appointment"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="ct-desc">Description</Label>
+            <Textarea
+              id="ct-desc"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={3}
+              placeholder="Optional notes."
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>Category</Label>
+              <Select value={category} onValueChange={(v) => setCategory(v as TaskCategory)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {(Object.keys(CATEGORY_LABEL) as TaskCategory[]).map((c) => (
+                    <SelectItem key={c} value={c}>
+                      {CATEGORY_LABEL[c]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Owner</Label>
+              <Select value={owner} onValueChange={(v) => setOwner(v as TaskOwner)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {(Object.keys(OWNER_LABEL) as TaskOwner[]).map((o) => (
+                    <SelectItem key={o} value={o}>
+                      {OWNER_LABEL[o]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="ct-due">Due date (optional)</Label>
+            <Input
+              id="ct-due"
+              type="date"
+              value={dueDate}
+              onChange={(e) => setDueDate(e.target.value)}
+            />
+          </div>
+          {error && <div className="text-xs text-rose-600">{error}</div>}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={saving}>
+            Cancel
+          </Button>
+          <Button onClick={handleSave} disabled={saving}>
+            Add task
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
