@@ -40,8 +40,35 @@ export async function updateSession(request: NextRequest) {
   }
 
   if (user && path === "/login") {
+    // Route signed-in users by org_role. Read defensively — pre-migration the
+    // column doesn't exist; we default to "/" in that case.
+    let destination = "/";
+    try {
+      const sb = supabase as unknown as {
+        from: (t: string) => {
+          select: (c: string) => {
+            eq: (
+              col: string,
+              val: string,
+            ) => {
+              maybeSingle: () => Promise<{
+                data: { org_role?: string | null } | null;
+              }>;
+            };
+          };
+        };
+      };
+      const { data: profile } = await sb
+        .from("users")
+        .select("org_role")
+        .eq("id", user.id)
+        .maybeSingle();
+      if (profile?.org_role === "org_admin") destination = "/admin";
+    } catch {
+      // ignore — default destination is "/"
+    }
     const url = request.nextUrl.clone();
-    url.pathname = "/";
+    url.pathname = destination;
     return NextResponse.redirect(url);
   }
 

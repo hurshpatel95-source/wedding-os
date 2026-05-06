@@ -10,6 +10,7 @@ export type Json =
   | Json[];
 
 type UserRole = "admin" | "couple";
+export type OrgRole = "org_admin" | "member";
 type VenueStatus = "shortlisted" | "visited" | "quoted" | "decided" | "passed";
 type IndoorOutdoor = "indoor" | "outdoor" | "both";
 type PricingUnit = "per_guest" | "per_event" | "flat" | "per_hour" | "per_day";
@@ -119,6 +120,7 @@ export type Database = {
           id: string;
           email: string;
           role: UserRole;
+          org_role: OrgRole;
           org_id: string;
           workspace_id: string;
           created_at: string;
@@ -127,6 +129,7 @@ export type Database = {
           id: string;
           email: string;
           role: UserRole;
+          org_role?: OrgRole;
           org_id: string;
           workspace_id: string;
           created_at?: string;
@@ -135,6 +138,7 @@ export type Database = {
           id?: string;
           email?: string;
           role?: UserRole;
+          org_role?: OrgRole;
           org_id?: string;
           workspace_id?: string;
           created_at?: string;
@@ -1161,11 +1165,234 @@ export type Database = {
         };
         Relationships: [];
       };
+      library_venues: {
+        Row: {
+          id: string;
+          org_id: string;
+          name: string;
+          slug: string | null;
+          address: string | null;
+          city: string | null;
+          region: string | null;
+          country: string | null;
+          lat: number | null;
+          lng: number | null;
+          capacity_seated: number | null;
+          capacity_standing: number | null;
+          hire_fee_eur: number | null;
+          hire_fee_notes: string | null;
+          spaces: unknown;
+          event_roles: EventRole[];
+          pros: string[];
+          cons: string[];
+          description: string | null;
+          internal_notes: string | null;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          org_id: string;
+          name: string;
+          slug?: string | null;
+          address?: string | null;
+          city?: string | null;
+          region?: string | null;
+          country?: string | null;
+          lat?: number | null;
+          lng?: number | null;
+          capacity_seated?: number | null;
+          capacity_standing?: number | null;
+          hire_fee_eur?: number | null;
+          hire_fee_notes?: string | null;
+          spaces?: unknown;
+          event_roles?: EventRole[];
+          pros?: string[];
+          cons?: string[];
+          description?: string | null;
+          internal_notes?: string | null;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<{
+          org_id: string;
+          name: string;
+          slug: string | null;
+          address: string | null;
+          city: string | null;
+          region: string | null;
+          country: string | null;
+          lat: number | null;
+          lng: number | null;
+          capacity_seated: number | null;
+          capacity_standing: number | null;
+          hire_fee_eur: number | null;
+          hire_fee_notes: string | null;
+          spaces: unknown;
+          event_roles: EventRole[];
+          pros: string[];
+          cons: string[];
+          description: string | null;
+          internal_notes: string | null;
+          created_by: string | null;
+        }>;
+        Relationships: [];
+      };
+      library_venue_media: {
+        Row: {
+          id: string;
+          library_venue_id: string;
+          kind: "photo" | "video";
+          storage_path: string | null;
+          sort_order: number;
+          alt: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          library_venue_id: string;
+          kind: "photo" | "video";
+          storage_path?: string | null;
+          sort_order?: number;
+          alt?: string | null;
+          created_at?: string;
+        };
+        Update: Partial<{
+          library_venue_id: string;
+          kind: "photo" | "video";
+          storage_path: string | null;
+          sort_order: number;
+          alt: string | null;
+        }>;
+        Relationships: [];
+      };
+      library_vendors: {
+        Row: {
+          id: string;
+          org_id: string;
+          name: string;
+          category: string;
+          contact_name: string | null;
+          contact_email: string | null;
+          contact_phone: string | null;
+          default_quoted_price_eur: number | null;
+          notes: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          org_id: string;
+          name: string;
+          category: string;
+          contact_name?: string | null;
+          contact_email?: string | null;
+          contact_phone?: string | null;
+          default_quoted_price_eur?: number | null;
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<{
+          org_id: string;
+          name: string;
+          category: string;
+          contact_name: string | null;
+          contact_email: string | null;
+          contact_phone: string | null;
+          default_quoted_price_eur: number | null;
+          notes: string | null;
+        }>;
+        Relationships: [];
+      };
+      playbook_phases: {
+        Row: {
+          id: string;
+          org_id: string;
+          label: string;
+          sort_order: number;
+          anchor_kind: string | null;
+          anchor_value_int: number | null;
+        };
+        Insert: {
+          id?: string;
+          org_id: string;
+          label: string;
+          sort_order?: number;
+          anchor_kind?: string | null;
+          anchor_value_int?: number | null;
+        };
+        Update: Partial<{
+          org_id: string;
+          label: string;
+          sort_order: number;
+          anchor_kind: string | null;
+          anchor_value_int: number | null;
+        }>;
+        Relationships: [];
+      };
+      playbook_tasks: {
+        Row: {
+          id: string;
+          playbook_phase_id: string;
+          title: string;
+          description: string | null;
+          owner_default: string | null;
+          category: string | null;
+          sort_order: number;
+          auto_derive_kind: string | null;
+        };
+        Insert: {
+          id?: string;
+          playbook_phase_id: string;
+          title: string;
+          description?: string | null;
+          owner_default?: string | null;
+          category?: string | null;
+          sort_order?: number;
+          auto_derive_kind?: string | null;
+        };
+        Update: Partial<{
+          playbook_phase_id: string;
+          title: string;
+          description: string | null;
+          owner_default: string | null;
+          category: string | null;
+          sort_order: number;
+          auto_derive_kind: string | null;
+        }>;
+        Relationships: [];
+      };
+      workspace_branding: {
+        Row: {
+          workspace_id: string;
+          accent_hex: string;
+          logo_storage_path: string | null;
+          planner_display_name: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          workspace_id: string;
+          accent_hex?: string;
+          logo_storage_path?: string | null;
+          planner_display_name?: string | null;
+          updated_at?: string;
+        };
+        Update: Partial<{
+          accent_hex: string;
+          logo_storage_path: string | null;
+          planner_display_name: string | null;
+        }>;
+        Relationships: [];
+      };
     };
     Views: { [_ in never]: never };
     Functions: { [_ in never]: never };
     Enums: {
       user_role: UserRole;
+      org_role: OrgRole;
       venue_status: VenueStatus;
       indoor_outdoor: IndoorOutdoor;
       pricing_unit: PricingUnit;
