@@ -3,10 +3,12 @@
 The state of the build at end-of-session. Use this when context compresses
 or when picking the work back up cold.
 
-> **Last update — major: planner-OS pivot landed + public site + RSVP +
-> Estimator builder.** wedding-os is now a multi-tenant SaaS for wedding
-> planners (any planner). One org per planner, one workspace per couple
-> client. Today's work in chronological order:
+> **Last update — Sprint A + B + C shipped.** Production-safe, planner-CRM
+> complete, polish boundaries in place. wedding-os is now a real
+> multi-tenant SaaS — workspace impersonation works, library push happens
+> in onboarding, planner billing tracks itself, the public site has all
+> the standard guest sections, and security holes from the audit are
+> closed. Today's work in chronological order:
 >
 > - **Estimator** at `/estimator` — Astia's two PDFs as editable scenarios,
 >   side-by-side compare. Local-only.
@@ -25,9 +27,22 @@ or when picking the work back up cold.
 > - **Estimator builder** — `/estimator/new` clones a template + swaps
 >   venue hire fees by day-of-week. Compare extended to 2-3 scenarios.
 > - **Co-pilot markdown** — bullets, bold, code, tables now render.
+> - **Sprint A**: anon RLS lockdown on guests, story_html XSS fix
+>   (Markdown-only), AI cost caps ($5/day, 50 calls/day, 15MB upload),
+>   couple-marks-deposits-paid, Co-pilot context expansion (estimates,
+>   payments, decisions, task names, guest names), public-site editor at
+>   /settings/public-site with registry/travel/hotel/dress/FAQ/schedule,
+>   /w/<slug> renders all those sections, dashboard "Due in next 2 weeks"
+>   actionable card.
+> - **Sprint B**: workspace impersonation (org_admin can View-as a
+>   client, banner + exit), library vendors MVP+ (website, IG, rating,
+>   tags, lead-time, price band), planner billing surface (/admin/billing
+>   + couple read-only on /payments), onboarding wizard with bulk
+>   library push (one click for workspace + N venues + N vendors).
+> - **Sprint C**: root loading.tsx + error.tsx + not-found.tsx, magic-link
+>   expiry → /login?error=expired with friendly banner.
 >
-> ~50 routes, 18 SQL migrations, 7 logins. See "Planner-OS architecture"
-> section below for the full layout.
+> ~60 routes, 23 SQL migrations, 7 logins. Production-safe.
 
 ---
 
@@ -176,6 +191,14 @@ Hosting: **Railway** (auto-deploys from GitHub `main`).
 17. `20260506000013_org_admin_workspaces_visibility.sql` — additive RLS so org_admins can read every workspace in their org (needed for the picker, /admin/clients roster, push-to-workspace)
 18. `20260506000014_plan_customization.sql` — `planning_tasks.phase_id` (FK to playbook_phases) + `planning_tasks.is_user_added` boolean default false
 19. `20260506000015_public_site.sql` — `workspaces.public_slug` + `workspaces.story_html` + `guests.rsvp_token` + 5 anon RLS policies (workspaces/venues/guests/venue_photos public-read gated on slug; guests update gated by API-layer token match)
+20. `20260506000016_friday_hire_rate.sql` — `venues.hire_fee_friday_eur` so estimator builder can reflect Friday-specific rates
+21. `20260506000017_seating.sql` — `floor_plans` (per-event venue + table_count + seats_per_table) + `seating_assignments` (guest_id + table_number) for the seating organizer
+22. `20260506000018_seating_rules.sql` — `guests.cant_sit_with_guest_ids[]` + `guests.must_sit_with_guest_ids[]` for constraint-aware auto-arrange
+23. `20260506000019_lock_anon_rls.sql` — **SECURITY** drops the wide-open anon SELECT/UPDATE on guests; RSVP traffic now goes through service-role server-side with API-layer token match
+24. `20260506000020_public_site_sections.sql` — workspaces gain `registry_url`, `registry_label`, `travel_md`, `hotel_block_md`, `dress_code_md`, `faq` jsonb, `schedule` jsonb, `public_hero_storage_path`, `public_published_at`
+25. `20260506000021_workspace_impersonation.sql` — `active_workspace_overrides` table + redefined `auth_workspace_id()` so org_admins can View-as a client transparently
+26. `20260506000022_library_vendors_plus.sql` — library_vendors gain website, instagram, planner_rating (1-5), default_contract_path, tags[] (GIN-indexed), lead_time_days, price_band enum
+27. `20260506000023_planner_invoices.sql` — track what couples owe THE PLANNER (retainers, milestone fees), distinct from /payments which is vendor-side
 
 **Pattern**: every workspace-scoped table has RLS with `workspace_id = auth_workspace_id()`. Admin-only workspace writes use `auth_is_admin()`. Org-scoped tables (library/playbook) use `auth_org_role() = 'org_admin'`. Sensitive features (pricing intake, vendors) are admin-only on read+write.
 
@@ -428,6 +451,14 @@ wedding-os/
 ## Recent commits (most recent first)
 
 ```
+00cf5d2 Sprint B-4: onboarding wizard with bulk library push
+a478af3 Sprint B+C: planner CRM completeness + production polish
+1971c01 Sprint A: security hardening + public site editor + dashboard action card
+c3ad3d1 Restore couple vendor tracking — add Astia, log deposits
+ae36e83 Estimator builder fixes — Friday rate, dynamic unit label, MSL shortfall
+81ccef2 Seating constraints — can't / must sit with + auto-arrange
+1ea80e5 Seating organizer — floor plans + table assignment
+3cb5ce4 Vendor CRM split: admin gets full CRM, couples get read-only updates
 96ff7c2 Co-pilot markdown rendering — bullets, bold, code, tables
 f696cf6 Estimator builder + N-scenario compare
 491a4f3 Public wedding site + guest RSVP self-serve
