@@ -176,6 +176,7 @@ export type Database = {
           hire_fee_weekend_eur: number | null;
           hire_fee_weekday_eur: number | null;
           hire_fee_sunday_eur: number | null;
+          hire_fee_friday_eur: number | null;
           minimum_pax_weekend: number | null;
           minimum_pax_sunday: number | null;
           minimum_pax_weekday: number | null;
@@ -212,6 +213,7 @@ export type Database = {
           hire_fee_weekend_eur?: number | null;
           hire_fee_weekday_eur?: number | null;
           hire_fee_sunday_eur?: number | null;
+          hire_fee_friday_eur?: number | null;
           minimum_pax_weekend?: number | null;
           minimum_pax_sunday?: number | null;
           minimum_pax_weekday?: number | null;
@@ -248,6 +250,7 @@ export type Database = {
           hire_fee_weekend_eur?: number | null;
           hire_fee_weekday_eur?: number | null;
           hire_fee_sunday_eur?: number | null;
+          hire_fee_friday_eur?: number | null;
           minimum_pax_weekend?: number | null;
           minimum_pax_sunday?: number | null;
           minimum_pax_weekday?: number | null;

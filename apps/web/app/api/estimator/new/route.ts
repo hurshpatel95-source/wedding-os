@@ -27,6 +27,11 @@ interface VenueLite {
   hire_fee_weekend_eur: number | null;
   hire_fee_sunday_eur: number | null;
   hire_fee_weekday_eur: number | null;
+  hire_fee_friday_eur: number | null;
+  minimum_pax_weekend: number | null;
+  minimum_pax_sunday: number | null;
+  minimum_pax_weekday: number | null;
+  shortfall_per_pax_eur: number | null;
 }
 
 const DAY_NAMES = [
@@ -39,35 +44,111 @@ const DAY_NAMES = [
   "Sat",
 ];
 
+function dayShort(iso: string): string {
+  try {
+    const d = parseISO(iso);
+    return DAY_NAMES[d.getDay()];
+  } catch {
+    return "";
+  }
+}
+
 function dateLabel(iso: string): string {
   try {
     const d = parseISO(iso);
-    const dayName = DAY_NAMES[d.getDay()];
-    return `${dayName} ${format(d, "MMM d, yyyy")}`;
+    return `${DAY_NAMES[d.getDay()]} ${format(d, "MMM d, yyyy")}`;
   } catch {
     return iso;
   }
 }
 
-function pickHireFee(date: string, venue: VenueLite | null): number | null {
-  if (!venue) return null;
+function pickHireFee(
+  date: string,
+  venue: VenueLite | null,
+): { fee: number | null; matched: boolean } {
+  if (!venue) return { fee: null, matched: false };
   try {
     const d = parseISO(date);
     const dow = d.getDay();
-    if (dow === 0)
-      return (
-        venue.hire_fee_sunday_eur ?? venue.hire_fee_weekend_eur ?? venue.hire_fee_weekday_eur ?? null
-      );
-    if (dow === 6)
-      return (
-        venue.hire_fee_weekend_eur ?? venue.hire_fee_sunday_eur ?? venue.hire_fee_weekday_eur ?? null
-      );
-    return (
-      venue.hire_fee_weekday_eur ?? venue.hire_fee_weekend_eur ?? venue.hire_fee_sunday_eur ?? null
-    );
+    // Sun
+    if (dow === 0) {
+      if (venue.hire_fee_sunday_eur != null)
+        return { fee: Number(venue.hire_fee_sunday_eur), matched: true };
+    }
+    // Sat
+    if (dow === 6) {
+      if (venue.hire_fee_weekend_eur != null)
+        return { fee: Number(venue.hire_fee_weekend_eur), matched: true };
+    }
+    // Fri
+    if (dow === 5) {
+      if (venue.hire_fee_friday_eur != null)
+        return { fee: Number(venue.hire_fee_friday_eur), matched: true };
+    }
+    // Fall back to weekday for Mon-Thu (and Fri/Sat/Sun if their slot is null)
+    if (venue.hire_fee_weekday_eur != null)
+      return { fee: Number(venue.hire_fee_weekday_eur), matched: false };
+    return { fee: null, matched: false };
+  } catch {
+    return { fee: null, matched: false };
+  }
+}
+
+/** When the venue charges per-day-of-week minimums, compute any shortfall
+ * for the booking and return a synthetic line item. Currently models MSL's
+ * Saturday-only premium (min 280 guests × shortfall_per_pax). Returns null
+ * if no shortfall applies. */
+function shortfallLine(
+  date: string,
+  guestCount: number,
+  venue: VenueLite | null,
+  prefix: string,
+): EstimateLine | null {
+  if (!venue || !venue.shortfall_per_pax_eur) return null;
+  const perPax = Number(venue.shortfall_per_pax_eur);
+  if (!perPax) return null;
+  let dow: number;
+  try {
+    dow = parseISO(date).getDay();
   } catch {
     return null;
   }
+  let minimum: number | null = null;
+  let dayWord = "";
+  if (dow === 0 && venue.minimum_pax_sunday) {
+    minimum = venue.minimum_pax_sunday;
+    dayWord = "Sun";
+  } else if (dow === 6 && venue.minimum_pax_weekend) {
+    minimum = venue.minimum_pax_weekend;
+    dayWord = "Sat";
+  } else if (
+    dow >= 1 &&
+    dow <= 5 &&
+    venue.minimum_pax_weekday
+  ) {
+    minimum = venue.minimum_pax_weekday;
+    dayWord = "weekday";
+  }
+  if (!minimum || guestCount >= minimum) return null;
+
+  const gap = minimum - guestCount;
+  const total = gap * perPax;
+  return {
+    id: `${prefix}-shortfall-${Date.now()}`,
+    label: `${venue.name} ${dayWord} guest-count shortfall`,
+    unit_label: `${gap} pax × €${perPax}`,
+    unit: "per_guest",
+    qty: gap,
+    unit_price_eur: perPax,
+    astha_eur: total,
+    override_eur: null,
+    included: true,
+    notes: `Auto-calculated: ${venue.name} ${dayWord} minimum is ${minimum} guests, you're at ${guestCount}.`,
+    user_added: false,
+    evidence: {
+      quote: `${venue.name} ${dayWord} minimum spend ${minimum} pax (€${perPax}/pax shortfall)`,
+    },
+  };
 }
 
 /** Clone a template estimate, swap section labels + dates + venue hire lines. */
@@ -85,9 +166,9 @@ function transformTemplate(
     const dLabel = date ? dateLabel(date) : s.date_label;
 
     const newLines: EstimateLine[] = s.lines.map((l) => {
-      // For the first "hire" line in a venue section, swap the price using
-      // the new venue's hire fee for that date (if available). Heuristic:
-      // line label contains "hire".
+      // For the first "hire" line in a venue section, swap the price + unit
+      // label using the new venue's hire fee for that date (if available).
+      // Heuristic: line label contains "hire". Skip VAT and SGAE/SIAE lines.
       if (
         venue &&
         date &&
@@ -95,19 +176,34 @@ function transformTemplate(
         !/\bvat\b/i.test(l.label) &&
         !/sgae|siae/i.test(l.label)
       ) {
-        const fee = pickHireFee(date, venue);
+        const { fee, matched } = pickHireFee(date, venue);
+        const day = dayShort(date);
+        const newUnitLabel = matched
+          ? `flat (${day})`
+          : `flat (${day} · est)`;
         if (fee != null) {
           return {
             ...l,
             id: `${l.id}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-            label: l.label.replace(/Casa Del Mar|MSL.*|Xalet.*/i, venue.name),
+            label: `${venue.name} venue hire`,
+            unit_label: newUnitLabel,
             astha_eur: fee,
             override_eur: null,
-            evidence: l.evidence
-              ? { ...l.evidence, quote: `${venue.name} day-rate hire` }
-              : { quote: `${venue.name} day-rate hire` },
+            evidence: matched
+              ? { quote: `${venue.name} day-rate hire (${day})` }
+              : {
+                  quote: `${venue.name} ${day} rate not set — using weekday fallback`,
+                },
           };
         }
+        // No fee set on venue at all — leave the template's price but flag
+        return {
+          ...l,
+          id: `${l.id}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          label: `${venue.name} venue hire`,
+          unit_label: `flat (${day} · template carry-over)`,
+          override_eur: null,
+        };
       }
       // Otherwise: clone with a fresh id but keep all template defaults.
       return {
@@ -117,6 +213,35 @@ function transformTemplate(
         included: l.included && !l.tbc, // re-default opt-out items as off
       };
     });
+
+    // Auto-inject minimum-spend shortfall line if the venue has one for
+    // this day-of-week and the guest count is below it.
+    if (venue && date) {
+      const sl = shortfallLine(date, inputs.guest_count, venue, s.id);
+      if (sl) {
+        // Insert AFTER the venue-hire/SGAE/VAT block — find the last
+        // "venue hire" / "SGAE" / "VAT" line and splice in there.
+        const lastBlockIdx = (() => {
+          let idx = -1;
+          for (let i = 0; i < newLines.length; i += 1) {
+            const lbl = newLines[i].label.toLowerCase();
+            if (
+              lbl.includes("hire") ||
+              lbl.includes("sgae") ||
+              lbl.includes("siae") ||
+              lbl.includes("vat")
+            )
+              idx = i;
+          }
+          return idx;
+        })();
+        if (lastBlockIdx >= 0) {
+          newLines.splice(lastBlockIdx + 1, 0, sl);
+        } else {
+          newLines.unshift(sl);
+        }
+      }
+    }
 
     let label = s.label;
     if (isSangeet && sangeetVenue) {
@@ -216,7 +341,7 @@ export async function POST(request: NextRequest) {
     })
       .from("venues")
       .select(
-        "id, name, hire_fee_weekend_eur, hire_fee_sunday_eur, hire_fee_weekday_eur",
+        "id, name, hire_fee_weekend_eur, hire_fee_sunday_eur, hire_fee_weekday_eur, hire_fee_friday_eur, minimum_pax_weekend, minimum_pax_sunday, minimum_pax_weekday, shortfall_per_pax_eur",
       )
       .in("id", venueIds);
     venues = data ?? [];

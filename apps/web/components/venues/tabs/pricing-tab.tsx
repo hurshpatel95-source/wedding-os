@@ -33,6 +33,7 @@ export function PricingTab({
   const [error, setError] = useState<string | null>(null);
 
   const [weekend, setWeekend] = useState(venue.hire_fee_weekend_eur?.toString() ?? "");
+  const [friday, setFriday] = useState(venue.hire_fee_friday_eur?.toString() ?? "");
   const [sunday, setSunday] = useState(venue.hire_fee_sunday_eur?.toString() ?? "");
   const [weekday, setWeekday] = useState(venue.hire_fee_weekday_eur?.toString() ?? "");
   const [minWeekend, setMinWeekend] = useState(venue.minimum_pax_weekend?.toString() ?? "");
@@ -55,6 +56,7 @@ export function PricingTab({
       .from("venues")
       .update({
         hire_fee_weekend_eur: weekend ? Number(weekend) : null,
+        hire_fee_friday_eur: friday ? Number(friday) : null,
         hire_fee_sunday_eur: sunday ? Number(sunday) : null,
         hire_fee_weekday_eur: weekday ? Number(weekday) : null,
         minimum_pax_weekend: minWeekend ? Number(minWeekend) : null,
@@ -85,10 +87,11 @@ export function PricingTab({
               <CardTitle className="font-serif">Hire fees</CardTitle>
             </CardHeader>
             <CardContent>
-              <dl className="grid grid-cols-3 gap-4 text-sm">
-                <RateCell label="Weekend (Sat)" value={venue.hire_fee_weekend_eur} />
+              <dl className="grid grid-cols-2 gap-4 text-sm md:grid-cols-4">
+                <RateCell label="Saturday" value={venue.hire_fee_weekend_eur} />
+                <RateCell label="Friday" value={venue.hire_fee_friday_eur} />
                 <RateCell label="Sunday" value={venue.hire_fee_sunday_eur} />
-                <RateCell label="Weekday" value={venue.hire_fee_weekday_eur} />
+                <RateCell label="Mon-Thu" value={venue.hire_fee_weekday_eur} />
               </dl>
               {(venue.minimum_pax_weekend || venue.minimum_pax_sunday) && (
                 <div className="mt-4 rounded-md border bg-amber-50 p-3 text-sm">
@@ -158,13 +161,22 @@ export function PricingTab({
           <CardTitle className="font-serif">Hire fees</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
             <div className="grid gap-1.5">
-              <Label>Weekend (Sat) €</Label>
+              <Label>Saturday €</Label>
               <Input
                 inputMode="decimal"
                 value={weekend}
                 onChange={(e) => setWeekend(e.target.value.replace(/[^\d.]/g, ""))}
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label>Friday €</Label>
+              <Input
+                inputMode="decimal"
+                value={friday}
+                onChange={(e) => setFriday(e.target.value.replace(/[^\d.]/g, ""))}
+                placeholder="often = Sun"
               />
             </div>
             <div className="grid gap-1.5">
@@ -176,7 +188,7 @@ export function PricingTab({
               />
             </div>
             <div className="grid gap-1.5">
-              <Label>Weekday €</Label>
+              <Label>Mon-Thu €</Label>
               <Input
                 inputMode="decimal"
                 value={weekday}
