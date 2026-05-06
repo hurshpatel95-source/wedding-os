@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
+  Bot,
   Briefcase,
   Calculator,
   Calendar,
@@ -26,6 +27,7 @@ import { cn } from "@/lib/utils";
 
 const links: { href: string; label: string; icon: LucideIcon }[] = [
   { href: "/", label: "Dashboard", icon: Sparkles },
+  { href: "/assistant", label: "Co-pilot", icon: Bot },
   { href: "/plan", label: "Plan", icon: CheckSquare },
   { href: "/venues", label: "Venues", icon: MapPin },
   { href: "/map", label: "Map", icon: Globe },

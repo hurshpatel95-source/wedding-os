@@ -27,6 +27,7 @@ type VenueDecisionKind = "shortlisted" | "visited" | "quoted" | "decided" | "pas
 type VenueQuestionStatus = "open" | "answered" | "wont_answer";
 type RsvpStatus = "pending" | "yes" | "no" | "maybe";
 type GuestSide = "groom" | "bride" | "both";
+type AiRole = "user" | "assistant";
 type TaskStatus = "not_started" | "in_progress" | "blocked" | "done" | "na";
 type TaskPhase =
   | "pre_12_months"
@@ -463,6 +464,81 @@ export type Database = {
           output_tokens: number | null;
           cost_usd: number | null;
           error: string | null;
+        }>;
+        Relationships: [];
+      };
+      ai_conversations: {
+        Row: {
+          id: string;
+          workspace_id: string;
+          user_id: string;
+          title: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          workspace_id: string;
+          user_id: string;
+          title?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<{
+          title: string | null;
+        }>;
+        Relationships: [];
+      };
+      ai_messages: {
+        Row: {
+          id: string;
+          conversation_id: string;
+          role: AiRole;
+          content: string;
+          model: string | null;
+          input_tokens: number | null;
+          output_tokens: number | null;
+          cache_read_tokens: number | null;
+          cache_creation_tokens: number | null;
+          cost_usd: number | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          conversation_id: string;
+          role: AiRole;
+          content: string;
+          model?: string | null;
+          input_tokens?: number | null;
+          output_tokens?: number | null;
+          cache_read_tokens?: number | null;
+          cache_creation_tokens?: number | null;
+          cost_usd?: number | null;
+          created_at?: string;
+        };
+        Update: Partial<{
+          content: string;
+        }>;
+        Relationships: [];
+      };
+      ai_usage_daily: {
+        Row: {
+          workspace_id: string;
+          user_id: string;
+          day: string;
+          message_count: number;
+          total_cost_usd: number;
+        };
+        Insert: {
+          workspace_id: string;
+          user_id: string;
+          day: string;
+          message_count?: number;
+          total_cost_usd?: number;
+        };
+        Update: Partial<{
+          message_count: number;
+          total_cost_usd: number;
         }>;
         Relationships: [];
       };
