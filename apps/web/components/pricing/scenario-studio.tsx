@@ -54,6 +54,7 @@ type Venue = Pick<
   | "event_roles"
   | "planner_notes"
   | "hero_photo_url"
+  | "spaces"
 >;
 
 type EventRole = Database["public"]["Enums"]["event_role"];
@@ -666,7 +667,25 @@ function EventSlotEditor({
             <Label>Venue</Label>
             <Select
               value={slot.venue_id ?? "none"}
-              onValueChange={(v) => onChange({ venue_id: v === "none" ? null : v })}
+              onValueChange={(v) => {
+                const newVenueId = v === "none" ? null : v;
+                const newVenue = newVenueId
+                  ? venues.find((vn) => vn.id === newVenueId)
+                  : null;
+                // If the picked venue has a composite-spaces breakdown, copy
+                // it onto the event slot with all spaces selected by default.
+                // Cleared back to undefined when venue is unset / no spaces.
+                const venueSpaces = newVenue?.spaces;
+                const newSpaces =
+                  venueSpaces && venueSpaces.length > 0
+                    ? venueSpaces.map((s) => ({
+                        label: s.label,
+                        price_eur: Number(s.price_eur),
+                        selected: true,
+                      }))
+                    : undefined;
+                onChange({ venue_id: newVenueId, spaces: newSpaces });
+              }}
               disabled={!slot.enabled}
             >
               <SelectTrigger>

@@ -51,6 +51,13 @@ type TaskCategory =
   | "finance"
   | "honeymoon"
   | "other";
+type VenueDateStatus =
+  | "available"
+  | "tentative"
+  | "held_by_us"
+  | "booked_by_us"
+  | "unavailable"
+  | "unknown";
 
 export type Database = {
   public: {
@@ -805,6 +812,45 @@ export type Database = {
         };
         Relationships: [];
       };
+      venue_date_marks: {
+        Row: {
+          id: string;
+          workspace_id: string;
+          venue_id: string;
+          date: string;
+          status: VenueDateStatus;
+          notes: string | null;
+          source: string | null;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          workspace_id: string;
+          venue_id: string;
+          date: string;
+          status?: VenueDateStatus;
+          notes?: string | null;
+          source?: string | null;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          workspace_id?: string;
+          venue_id?: string;
+          date?: string;
+          status?: VenueDateStatus;
+          notes?: string | null;
+          source?: string | null;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: { [_ in never]: never };
     Functions: { [_ in never]: never };
@@ -819,6 +865,7 @@ export type Database = {
       venue_question_status: VenueQuestionStatus;
       rsvp_status: RsvpStatus;
       guest_side: GuestSide;
+      venue_date_status: VenueDateStatus;
     };
     CompositeTypes: { [_ in never]: never };
   };

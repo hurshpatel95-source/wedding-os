@@ -175,6 +175,16 @@ function computeHireForEvent(
     const count = ev.spaces.filter((s) => s.selected).length;
     return { amount: sum, note: `${count} of ${ev.spaces.length} spaces selected` };
   }
+  // Backstop: venue HAS composite spaces but the event slot didn't seed any
+  // — sum the venue's spaces (all assumed selected). This catches the case
+  // where you pick MSL via the venue dropdown on a fresh scenario.
+  if (profile?.spaces && profile.spaces.length > 0) {
+    const sum = profile.spaces.reduce((a, s) => a + s.price_eur, 0);
+    return {
+      amount: sum,
+      note: `Composite — all ${profile.spaces.length} spaces (whole venue)`,
+    };
+  }
   if (!profile) return { amount: 0, note: "No venue selected" };
 
   let amount: number | null | undefined = null;
