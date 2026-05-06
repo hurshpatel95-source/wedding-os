@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { LibraryVendorForm } from "@/components/admin-library/vendors/library-vendor-form";
+import { PushVendorButton } from "@/components/admin-push";
 import {
   VENDOR_CATEGORY_ICON,
   VENDOR_CATEGORY_LABEL,
@@ -44,6 +45,12 @@ export default async function EditLibraryVendorPage({
 
   if (!vendor) notFound();
 
+  // Workspaces in this org so the planner can push the vendor to a client
+  const { data: workspaces } = await supabase
+    .from("workspaces")
+    .select("id, name")
+    .order("created_at", { ascending: true });
+
   const Icon = VENDOR_CATEGORY_ICON[vendor.category];
 
   return (
@@ -57,6 +64,26 @@ export default async function EditLibraryVendorPage({
           Back to vendors
         </Link>
       </div>
+
+      {(workspaces ?? []).length > 0 && (
+        <Card className="border-rose-200 bg-gradient-to-br from-rose-50/60 via-white to-amber-50/60">
+          <CardContent className="space-y-3 py-4">
+            <div>
+              <div className="text-[10px] uppercase tracking-[0.2em] text-stone-500">
+                Send to a client
+              </div>
+              <p className="mt-1 text-sm text-stone-700">
+                Clones this vendor into the selected workspace. The library
+                copy stays untouched.
+              </p>
+            </div>
+            <PushVendorButton
+              libraryVendorId={vendor.id}
+              workspaces={workspaces ?? []}
+            />
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>

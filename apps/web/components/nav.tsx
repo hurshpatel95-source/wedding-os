@@ -49,11 +49,17 @@ export function Nav({
   role: _role,
   workspaceName,
   weddingDate,
+  plannerDisplayName,
+  plannerLogoUrl,
+  accentHex,
 }: {
   userEmail: string | null;
   role: "admin" | "couple" | null;
   workspaceName?: string | null;
   weddingDate?: string | null;
+  plannerDisplayName?: string | null;
+  plannerLogoUrl?: string | null;
+  accentHex?: string | null;
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -86,18 +92,32 @@ export function Nav({
       <div className="container flex h-16 items-center justify-between gap-6">
         {/* Left: logo + workspace title */}
         <Link href="/" className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-rose-400 to-amber-600 shadow-sm">
-            <Heart className="h-4 w-4 text-white" fill="white" />
-          </div>
+          {plannerLogoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={plannerLogoUrl}
+              alt={plannerDisplayName ?? "Planner logo"}
+              className="h-9 w-9 rounded-full object-cover shadow-sm"
+            />
+          ) : (
+            <div
+              className="flex h-9 w-9 items-center justify-center rounded-full shadow-sm"
+              style={{
+                background: accentHex
+                  ? `linear-gradient(135deg, ${accentHex}, #d97706)`
+                  : "linear-gradient(135deg, #fb7185, #d97706)",
+              }}
+            >
+              <Heart className="h-4 w-4 text-white" fill="white" />
+            </div>
+          )}
           <div className="leading-none">
             <div className="font-serif text-lg font-medium tracking-tight">
               {workspaceName ?? "Hursh & Co."}
             </div>
-            {subtitleParts.length > 0 && (
-              <div className="mt-1 text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
-                {subtitleParts.join(" · ")}
-              </div>
-            )}
+            <div className="mt-1 text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+              {[plannerDisplayName, ...subtitleParts].filter(Boolean).join(" · ") || "Wedding portal"}
+            </div>
           </div>
         </Link>
 
@@ -114,9 +134,14 @@ export function Nav({
                 className={cn(
                   "flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors",
                   active
-                    ? "bg-stone-900 text-white shadow-sm"
+                    ? "text-white shadow-sm"
                     : "text-stone-600 hover:text-stone-900",
                 )}
+                style={
+                  active
+                    ? { background: accentHex ?? "#1c1917" }
+                    : undefined
+                }
               >
                 <Icon className="h-3.5 w-3.5" />
                 {l.label}
@@ -162,9 +187,14 @@ export function Nav({
               className={cn(
                 "flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors",
                 active
-                  ? "bg-stone-900 text-white"
+                  ? "text-white"
                   : "border border-stone-200 bg-white/60 text-stone-600",
               )}
+              style={
+                active
+                  ? { background: accentHex ?? "#1c1917" }
+                  : undefined
+              }
             >
               <Icon className="h-3 w-3" />
               {l.label}

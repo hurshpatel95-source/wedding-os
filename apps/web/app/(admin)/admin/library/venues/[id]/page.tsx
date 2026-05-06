@@ -8,6 +8,8 @@ import {
   type MediaItem,
 } from "@/components/admin-library/venues/library-venue-media-manager";
 import { LibraryVenueDeleteButton } from "@/components/admin-library/venues/library-venue-delete-button";
+import { PushVenueButton } from "@/components/admin-push";
+import { Card, CardContent } from "@/components/ui/card";
 import { LIBRARY_MEDIA_BUCKET } from "@/lib/library-venue-types";
 import type { Database } from "@wedding-os/db";
 
@@ -31,6 +33,14 @@ export default async function AdminLibraryVenueDetailPage({
     .maybeSingle();
 
   if (!venue) notFound();
+
+  // Fetch all org workspaces so the planner can push this library venue
+  // into a specific client. RLS policy `workspaces_org_admin_read` lets
+  // org_admins see every workspace in their org.
+  const { data: workspaces } = await supabase
+    .from("workspaces")
+    .select("id, name")
+    .order("created_at", { ascending: true });
 
   const { data: mediaRows } = await supabase
     .from("library_venue_media")
@@ -89,6 +99,29 @@ export default async function AdminLibraryVenueDetailPage({
           </p>
         )}
       </header>
+
+      {(workspaces ?? []).length > 0 && (
+        <Card className="border-rose-200 bg-gradient-to-br from-rose-50/60 via-white to-amber-50/60">
+          <CardContent className="space-y-3 py-4">
+            <div className="flex items-baseline justify-between gap-3">
+              <div>
+                <div className="text-[10px] uppercase tracking-[0.2em] text-stone-500">
+                  Send to a client
+                </div>
+                <p className="mt-1 text-sm text-stone-700">
+                  Clones this venue + all its photos into the selected
+                  workspace. Edits in the client&apos;s shortlist won&apos;t
+                  affect this library copy.
+                </p>
+              </div>
+            </div>
+            <PushVenueButton
+              libraryVenueId={venue.id}
+              workspaces={workspaces ?? []}
+            />
+          </CardContent>
+        </Card>
+      )}
 
       <section>
         <LibraryVenueMediaManager venueId={venue.id} initialMedia={items} />
