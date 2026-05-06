@@ -55,6 +55,7 @@ type Venue = Pick<
   | "planner_notes"
   | "hero_photo_url"
   | "spaces"
+  | "hire_fee_notes"
 >;
 
 type EventRole = Database["public"]["Enums"]["event_role"];
@@ -109,6 +110,24 @@ function dayFromDate(dateStr: string | null | undefined): DayKind | null {
   } catch {
     return null;
   }
+}
+
+// Source of truth = venue.spaces (admin-edited). slot.spaces only contributes
+// the per-space `selected` state. Spaces newly added on the venue appear in
+// effectiveSpaces with selected=false so the user opts in.
+function getEffectiveSpaces(
+  slotSpaces: { label: string; price_eur: number; selected: boolean }[] | undefined,
+  venueSpaces: { label: string; price_eur: number }[] | undefined,
+): { label: string; price_eur: number; selected: boolean }[] {
+  if (!venueSpaces || venueSpaces.length === 0) return slotSpaces ?? [];
+  return venueSpaces.map((vs) => {
+    const existing = slotSpaces?.find((s) => s.label === vs.label);
+    return {
+      label: vs.label,
+      price_eur: Number(vs.price_eur),
+      selected: existing?.selected ?? false,
+    };
+  });
 }
 
 const cryptoId = () =>
@@ -539,21 +558,6 @@ function ActiveScenarioEditor({
                 events: s.events.map((e2, idx) => (idx === i ? { ...e2, ...patch } : e2)),
               }))
             }
-            onChangeSpace={(idx, sel) =>
-              updateActive((s) => ({
-                ...s,
-                events: s.events.map((e2, ix) => {
-                  if (ix !== i) return e2;
-                  if (!e2.spaces) return e2;
-                  return {
-                    ...e2,
-                    spaces: e2.spaces.map((sp, j) =>
-                      j === idx ? { ...sp, selected: sel } : sp,
-                    ),
-                  };
-                }),
-              }))
-            }
           />
         ))}
 
@@ -614,7 +618,6 @@ function EventSlotEditor({
   toDisplay,
   calcLine,
   onChange,
-  onChangeSpace,
 }: {
   slot: EventSlot;
   venues: Venue[];
@@ -624,7 +627,6 @@ function EventSlotEditor({
   toDisplay: (eur: number) => number;
   calcLine: { hire_eur: number; catering_subtotal_eur: number; shortfall_eur: number; net_eur: number; hire_note?: string; shortfall_note?: string } | null;
   onChange: (patch: Partial<EventSlot>) => void;
-  onChangeSpace: (idx: number, selected: boolean) => void;
 }) {
   const matches = EVENT_ROLE_FOR_SLOT[slot.key];
   const compatible = venues.filter((v) =>
@@ -632,6 +634,14 @@ function EventSlotEditor({
   );
   const venue = slot.venue_id ? venues.find((v) => v.id === slot.venue_id) ?? null : null;
   const profile = venue ? VENUE_HIRE[venue.name] : undefined;
+  // Live merge: render based on venue.spaces, overlay slot.spaces selections.
+  const effectiveSpaces = getEffectiveSpaces(slot.spaces, venue?.spaces);
+  const wholeVenueTotal = effectiveSpaces.reduce((a, s) => a + s.price_eur, 0);
+
+  const toggleSpace = (idx: number, selected: boolean) => {
+    const next = effectiveSpaces.map((s, i) => (i === idx ? { ...s, selected } : s));
+    onChange({ spaces: next });
+  };
 
   const guests = linked ? globalGuests : slot.guests;
 
@@ -767,30 +777,41 @@ function EventSlotEditor({
           </div>
         )}
 
-        {/* Spaces breakdown (e.g., MSL) */}
-        {slot.spaces && slot.spaces.length > 0 && slot.enabled && (
+        {/* Spaces breakdown — sourced from venue.spaces (live), selections from slot.spaces */}
+        {effectiveSpaces.length > 0 && slot.enabled && (
           <div className="rounded-lg border border-stone-200 bg-stone-50/50 p-3">
             <div className="mb-2 flex items-center justify-between text-[11px] uppercase tracking-[0.2em] text-stone-500">
               <span>Spaces breakdown</span>
-              <span>{slot.spaces.filter((s) => s.selected).length} of {slot.spaces.length} selected</span>
+              <span>
+                {effectiveSpaces.filter((s) => s.selected).length} of {effectiveSpaces.length}{" "}
+                selected
+              </span>
             </div>
             <ul className="space-y-1.5">
-              {slot.spaces.map((sp, idx) => (
-                <li key={idx} className="flex items-center justify-between text-sm">
+              {effectiveSpaces.map((sp, idx) => (
+                <li key={`${sp.label}-${idx}`} className="flex items-center justify-between text-sm">
                   <label className="flex cursor-pointer items-center gap-2">
                     <input
                       type="checkbox"
                       checked={sp.selected}
-                      onChange={(e) => onChangeSpace(idx, e.target.checked)}
+                      onChange={(e) => toggleSpace(idx, e.target.checked)}
                     />
                     {sp.label}
                   </label>
-                  <span className={cn("font-medium", !sp.selected && "text-stone-400 line-through")}>
+                  <span
+                    className={cn("font-medium", !sp.selected && "text-stone-400 line-through")}
+                  >
                     {formatMoney(toDisplay(sp.price_eur), currency)}
                   </span>
                 </li>
               ))}
             </ul>
+            <div className="mt-2 border-t border-stone-200 pt-1.5 text-xs text-stone-500">
+              Whole venue (all {effectiveSpaces.length}) ={" "}
+              <span className="font-medium text-stone-700">
+                {formatMoney(toDisplay(wholeVenueTotal), currency)}
+              </span>
+            </div>
           </div>
         )}
 
@@ -861,9 +882,9 @@ function EventSlotEditor({
           </div>
         )}
 
-        {profile?.notes && (
+        {(venue?.hire_fee_notes || profile?.notes) && (
           <p className="rounded bg-stone-50 px-2 py-1.5 text-xs italic text-stone-500">
-            {profile.notes}
+            {venue?.hire_fee_notes || profile?.notes}
           </p>
         )}
       </CardContent>
