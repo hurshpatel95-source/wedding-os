@@ -32,7 +32,10 @@ export function VendorPricingTab({
   role: "admin" | "couple" | null;
 }) {
   const router = useRouter();
+  // Couples need to edit quotes + deposits to track their own payments
+  // (they pay the planner directly). Admin-only fields stay gated below.
   const isAdmin = role === "admin";
+  const canEditPricing = role === "admin" || role === "couple";
   const [editingQuote, setEditingQuote] = useState(false);
   const [editingDeposit, setEditingDeposit] = useState(false);
   const [editingFinal, setEditingFinal] = useState(false);
@@ -107,7 +110,7 @@ export function VendorPricingTab({
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0">
             <CardTitle className="font-serif">Quoted price</CardTitle>
-            {isAdmin && !editingQuote && (
+            {canEditPricing && !editingQuote && (
               <Button
                 type="button"
                 variant="ghost"
@@ -161,7 +164,7 @@ export function VendorPricingTab({
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0">
             <CardTitle className="font-serif">Deposit</CardTitle>
-            {isAdmin && !editingDeposit && (
+            {canEditPricing && !editingDeposit && (
               <Button
                 type="button"
                 variant="ghost"
@@ -237,7 +240,7 @@ export function VendorPricingTab({
                     }
                   />
                 </div>
-                {isAdmin && !vendor.deposit_paid_at && vendor.deposit_amount_eur != null && (
+                {canEditPricing && !vendor.deposit_paid_at && vendor.deposit_amount_eur != null && (
                   <Button
                     type="button"
                     variant="outline"
@@ -258,7 +261,7 @@ export function VendorPricingTab({
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0">
             <CardTitle className="font-serif">Final balance</CardTitle>
-            {isAdmin && !editingFinal && (
+            {canEditPricing && !editingFinal && (
               <Button
                 type="button"
                 variant="ghost"
@@ -334,7 +337,7 @@ export function VendorPricingTab({
                     }
                   />
                 </div>
-                {isAdmin && !vendor.final_paid_at && vendor.final_balance_eur != null && (
+                {canEditPricing && !vendor.final_paid_at && vendor.final_balance_eur != null && (
                   <Button
                     type="button"
                     variant="outline"

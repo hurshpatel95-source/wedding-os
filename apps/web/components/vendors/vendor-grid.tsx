@@ -414,28 +414,27 @@ function VendorCard({
             )}
           </div>
 
-          {/* Pricing + deposit alerts are CRM. Couples just see name + status. */}
-          {isAdmin && (
-            <div className="mt-auto flex items-center justify-between border-t border-stone-100 pt-3 text-sm">
-              <div className="text-stone-700">
-                {vendor.quoted_price_eur != null ? (
-                  <span className="font-medium">
-                    {formatMoney(Number(vendor.quoted_price_eur), "EUR")}
-                  </span>
-                ) : (
-                  <span className="text-xs uppercase tracking-wider text-stone-400">
-                    No quote yet
-                  </span>
-                )}
-              </div>
-              {depositSoon && (
-                <span className="flex items-center gap-1.5 text-xs text-amber-700">
-                  <span className="inline-block h-2 w-2 rounded-full bg-amber-500" />
-                  Deposit due soon
+          {/* Quote + deposit alert visible to admins (CRM) AND couples
+              (their own payment tracking). */}
+          <div className="mt-auto flex items-center justify-between border-t border-stone-100 pt-3 text-sm">
+            <div className="text-stone-700">
+              {vendor.quoted_price_eur != null ? (
+                <span className="font-medium">
+                  {formatMoney(Number(vendor.quoted_price_eur), "EUR")}
+                </span>
+              ) : (
+                <span className="text-xs uppercase tracking-wider text-stone-400">
+                  No quote yet
                 </span>
               )}
             </div>
-          )}
+            {depositSoon && (
+              <span className="flex items-center gap-1.5 text-xs text-amber-700">
+                <span className="inline-block h-2 w-2 rounded-full bg-amber-500" />
+                Deposit due soon
+              </span>
+            )}
+          </div>
         </CardContent>
       </Card>
     </Link>

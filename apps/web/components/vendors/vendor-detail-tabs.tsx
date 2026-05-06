@@ -31,8 +31,10 @@ export function VendorDetailTabs({
     <Tabs defaultValue="overview">
       <TabsList className="flex-wrap">
         <TabsTrigger value="overview">Overview</TabsTrigger>
-        {/* Pricing/Tasks/Files are CRM tabs — admin only. Couples just see Overview. */}
-        {isAdmin && <TabsTrigger value="pricing">Pricing</TabsTrigger>}
+        {/* Pricing tab is enabled for couples too — they need to edit
+            their own quotes and deposit tracking. Tasks + Files stay
+            admin-only since those are planner-internal workflows. */}
+        <TabsTrigger value="pricing">Pricing</TabsTrigger>
         {isAdmin && (
           <TabsTrigger value="tasks">
             Tasks ({openTaskCount}/{initialTasks.length})
@@ -46,11 +48,9 @@ export function VendorDetailTabs({
       <TabsContent value="overview">
         <VendorOverviewTab vendor={vendor} role={role} />
       </TabsContent>
-      {isAdmin && (
-        <TabsContent value="pricing">
-          <VendorPricingTab vendor={vendor} role={role} />
-        </TabsContent>
-      )}
+      <TabsContent value="pricing">
+        <VendorPricingTab vendor={vendor} role={role} />
+      </TabsContent>
       {isAdmin && (
         <TabsContent value="tasks">
           <VendorTasksTab

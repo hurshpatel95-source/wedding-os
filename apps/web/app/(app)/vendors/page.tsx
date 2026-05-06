@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { VendorGrid } from "@/components/vendors/vendor-grid";
+import { VendorCreateButton } from "@/components/vendors/vendor-create-button";
 import type { VendorRow } from "@/lib/vendor-types";
 
 export const dynamic = "force-dynamic";
@@ -77,18 +78,22 @@ export default async function VendorsPage() {
 
   return (
     <div className="space-y-6">
-      <header>
-        <div className="text-[11px] uppercase tracking-[0.25em] text-stone-500">
-          Wedding vendor updates
+      <header className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <div className="text-[11px] uppercase tracking-[0.25em] text-stone-500">
+            Your wedding vendors
+          </div>
+          <h1 className="mt-1 font-serif text-4xl font-light tracking-tight md:text-5xl">
+            Vendors
+          </h1>
+          <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
+            Add anyone you&apos;re paying — Astia, photographer, florist, DJ,
+            transport. Track quotes and deposits here. Your planner&apos;s
+            internal CRM (contacts, RFP outreach, internal notes) stays in
+            their admin view.
+          </p>
         </div>
-        <h1 className="mt-1 font-serif text-4xl font-light tracking-tight md:text-5xl">
-          Vendors
-        </h1>
-        <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-          Florists, photo + video, DJs, MUAs, transport — every team working on
-          your wedding. Your planner manages contact details and quotes; you
-          see who&apos;s on the team and where each booking stands.
-        </p>
+        <VendorCreateButton />
       </header>
 
       <VendorGrid vendors={list} role="couple" />

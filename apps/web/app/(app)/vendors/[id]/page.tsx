@@ -107,16 +107,20 @@ export default async function VendorDetailPage({ params }: { params: { id: strin
             )}
           </div>
         </div>
-        {isAdmin && (
-          <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2">
+          {/* Compose-with-AI is a planner workflow (Gmail integration)
+              and stays admin-only. Edit is open to couples too — they
+              need to update vendors they own (planner, photographer
+              they booked directly, etc.). */}
+          {isAdmin && (
             <VendorComposeButton
               vendorId={vendor.id}
               vendorName={vendor.name}
               vendorEmail={vendor.contact_email}
             />
-            <VendorEditButton vendor={vendor} />
-          </div>
-        )}
+          )}
+          <VendorEditButton vendor={vendor} />
+        </div>
       </header>
 
       <VendorDetailTabs
