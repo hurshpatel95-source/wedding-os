@@ -3,12 +3,26 @@
 The state of the build at end-of-session. Use this when context compresses
 or when picking the work back up cold.
 
-> **Last update — Sprint A + B + C shipped.** Production-safe, planner-CRM
-> complete, polish boundaries in place. wedding-os is now a real
-> multi-tenant SaaS — workspace impersonation works, library push happens
-> in onboarding, planner billing tracks itself, the public site has all
-> the standard guest sections, and security holes from the audit are
-> closed. Today's work in chronological order:
+> **STRATEGIC PIVOT (session-end May 2026).** Hursh's plan: build wedding-os
+> for his own wedding first, get Astha's acceptance, then sell to ANY
+> wedding planner (Aisle Planner / Honeybook competitor). Resend / DNS /
+> Stripe are deferred until Astha actually reviews the tool. Astia is a
+> sales channel + design partner, not the only customer.
+>
+> **End-of-session state**: production-safe, planner-CRM-complete, polish
+> boundaries in place, **analytics dashboard live**. Multi-tenant SaaS
+> with workspace impersonation, library push in onboarding, billing
+> surface, cross-client task inbox, public wedding site, guest RSVP,
+> Co-pilot multi-thread, toasts, error/loading/not-found pages, the
+> works.
+>
+> **23 migrations · ~70 routes · 25+ seed scripts · ~30 commits this
+> session.** Library has 20 venues + 51 venue-photos + 23 web-sourced
+> photos in library-media bucket. Build clean, types clean, deployed
+> to Railway.
+>
+> Last commits in chronological order this session (newest at top of
+> "Recent commits" below):
 >
 > - **Estimator** at `/estimator` — Astia's two PDFs as editable scenarios,
 >   side-by-side compare. Local-only.
@@ -147,6 +161,10 @@ Hosting: **Railway** (auto-deploys from GitHub `main`).
 | Route | Purpose |
 |---|---|
 | `/admin` | Studio dashboard — stat cards (clients / library size / activity) |
+| `/admin/inbox` | Cross-client task inbox — overdue + due-soon + per-client roll-up |
+| `/admin/analytics` | KPIs — Revenue YTD, Outstanding, Active clients, Avg budget, Monthly cashflow chart, Vendor mix |
+| `/admin/billing` | Cross-client invoice roster — outstanding/overdue/collected stats, +new invoice form |
+| `/admin/vendors` | Full vendor CRM (Gmail integration banner) |
 | `/admin/library` | Hub linking to venues + vendors |
 | `/admin/library/venues` | Venue library — grid, search, filter, sort |
 | `/admin/library/venues/[id]` | Edit venue + media manager (drop-folder upload) |
@@ -451,6 +469,12 @@ wedding-os/
 ## Recent commits (most recent first)
 
 ```
+[next]   Studio analytics page + extensive snapshot handoff (THIS commit)
+7e84c6b Toasts (sonner) + per-client billing tab + dashboard estimated total
+f692727 Co-pilot multi-thread sidebar + library empty-state polish
+9e50310 Cross-client inbox + empty-state polish + mobile fixes
+6bad289 Add 23 web-sourced venue photos to library-media
+87e7480 Seed 14 library venues from Astia's V3 venue proposal PDF
 00cf5d2 Sprint B-4: onboarding wizard with bulk library push
 a478af3 Sprint B+C: planner CRM completeness + production polish
 1971c01 Sprint A: security hardening + public site editor + dashboard action card
@@ -499,6 +523,42 @@ f5e62fe Initial commit — wedding-os Sprint 1-3 + vendor module
 ```
 
 ---
+
+## Strategic vision (locked in this session)
+
+Hursh is building wedding-os in stages:
+
+1. **Phase 1 (now)**: Build for his own wedding. He's couple AND admin. The dogfood is the proof.
+2. **Phase 2**: Show Astha. Get her acceptance. She becomes design partner + first paying / fee-reducing customer.
+3. **Phase 3**: Sell to ANY wedding planner — competitor to Aisle Planner / Honeybook / Plannit. Multi-tenant architecture is already there.
+
+**Defer until Astha reviews:**
+- Resend integration (needs HER domain DNS)
+- Stripe (Phase 8)
+- Real /signup flow + marketing site
+- WhatsApp Cloud API
+
+**Things she'll see when she logs in (`astha@astiaevents.com` / `Wedding2027!`):**
+- `/admin` studio dashboard
+- `/admin/inbox` — cross-client task inbox (most-used daily landing page)
+- `/admin/analytics` — revenue + budgets + vendor mix
+- `/admin/library/venues` — **20 venues already seeded** with hero photos for ~9 of them (Casa Del Mar, MSL, Marina Port Vell, Xalet del Nin, Torre dels Lleons, La Baronia, Bell Recó, Can Ramonet, Masia Cabellut, El Convent, Casa Santa Clotilde, Hoxton, Eurostars, ME Sitges Terramar, ME Barcelona; missing photos: W Hotel, ME Bcn, Torre Melina Gran Melia, Hotel Santa Marta, Jardin Santa Clotilde)
+- `/admin/library/vendors` — empty (Hursh doesn't have her real vendor list; she'll fill this in)
+- `/admin/playbook` — 9 phases × 73 tasks of master plan
+- `/admin/clients` — currently 1 (Hursh + Nisha); she clicks "View as workspace" → couple shell
+- `/admin/billing` — empty (no invoices yet); she can add her retainer invoice
+- `/admin/vendors` — workspace-level CRM with Gmail banner
+
+**What Hursh wants Astha to feel**: that the tool actually saves her time on the workflows she does every day. Library + onboarding wizard + billing + cross-client inbox are the value props.
+
+## Open feature ideas (post-Astha-review backlog)
+
+- **SEO analytics + marketing agent** — lead gen for Astha's website (her own marketing-agent connector). Big ask, deferred.
+- **Lead capture page** — public sign-up for new planners. Phase 8.
+- **Calendar bookings / Calendly-like integration** — couples can self-book consults
+- **"Call now / Book now" CTAs** on the public wedding site
+- **Per-client revenue analytics drilldown** (currently aggregate only)
+- **Year-over-year invoice trends** (the existing chart is rolling 12 months)
 
 ## How to pick up cold (next session)
 
