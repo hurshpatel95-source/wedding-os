@@ -3,22 +3,30 @@
 The state of the build at end-of-session. Use this when context compresses
 or when picking the work back up cold.
 
-> **Last update — major: planner-OS pivot landed.** wedding-os is now
-> architected as a multi-tenant SaaS for wedding planners (any planner,
-> not Astia-branded). One org per planner, one workspace per couple
-> client. Two completed waves of parallel-agent work shipped today:
+> **Last update — major: planner-OS pivot landed + public site + RSVP +
+> Estimator builder.** wedding-os is now a multi-tenant SaaS for wedding
+> planners (any planner). One org per planner, one workspace per couple
+> client. Today's work in chronological order:
 >
-> - **Estimator** at `/estimator` — couple-side honest budget seeded from
->   Astia's two PDFs (Casa+MSL €222,686 / Casa+Xalet €229,726), inline
->   edit, side-by-side compare view. Local-only — no master template push.
-> - **Wave 1 — Foundation slab** — `org_role` enum + 6 new tables (library
->   venues/vendors/media, playbook phases/tasks, workspace branding) + `/admin`
->   route shell with auth gate. Astha + Hursh-admin migrated to `org_admin`.
-> - **Wave 2 — 5 parallel agents** — Library Venues + Library Vendors +
->   Playbook editor + `/plan` customization + Client roster + Branding
->   editor + New-client onboarding + push-to-workspace components.
+> - **Estimator** at `/estimator` — Astia's two PDFs as editable scenarios,
+>   side-by-side compare. Local-only.
+> - **Wave 1 + Wave 2 (planner-OS)** — `org_role` + 6 new tables, `/admin`
+>   shell with library, playbook, vendor CRM, client roster + branding,
+>   new-client onboarding with magic-link, push-to-workspace.
+> - **Vendor CRM split** — `/admin/vendors` is full CRM (Gmail banner moved
+>   here); `/vendors` couple-side stripped to read-only updates with no
+>   contact info, prices, or deposit indicators.
+> - **Library media byte-copy** — 39 photos + 12 videos copied from
+>   `venue-photos` to `library-media` bucket with correct kind tagging.
+> - **Public wedding site** at `/w/<slug>` — anon-readable, lead-venue
+>   cards, hero photo, RSVP CTA. Astia can text guests the link.
+> - **Guest RSVP** at `/rsvp/<token>` — per-guest token-keyed self-serve.
+>   yes/no/maybe + dietary + allergies + notes. Updates `overall_rsvp`.
+> - **Estimator builder** — `/estimator/new` clones a template + swaps
+>   venue hire fees by day-of-week. Compare extended to 2-3 scenarios.
+> - **Co-pilot markdown** — bullets, bold, code, tables now render.
 >
-> 35+ routes, 14 SQL migrations, 7 logins. See "Planner-OS architecture"
+> ~50 routes, 18 SQL migrations, 7 logins. See "Planner-OS architecture"
 > section below for the full layout.
 
 ---
@@ -106,9 +114,18 @@ Hosting: **Railway** (auto-deploys from GitHub `main`).
 | `/timeline` | Day-of run-of-show editor + `/timeline/print` for vendor PDF |
 | `/settings/pricing` | Template control room — line items + recent intakes + change log + AI intake CTA |
 | `/settings/pricing/intake` | **AI Pricing intake wizard** — drop screenshot/PDF/text → Claude extracts → review → apply |
-| `/estimator` | **Estimator** — list of planner-PDF-seeded budget scenarios |
+| `/estimator` | **Estimator** — list of planner-PDF-seeded + custom-built budget scenarios |
+| `/estimator/new` | Wizard — pick dates + venues + template, generates new estimate with venue-aware hire fees |
 | `/estimator/[id]` | Builder — section-grouped lines, inline price override, toggle, auto-save |
-| `/estimator/compare` | Side-by-side compare of two scenarios with line-by-line deltas |
+| `/estimator/compare` | Side-by-side — supports 2 or 3 scenarios via `?ids=a,b,c` |
+
+### Public routes (no auth)
+
+| Route | Purpose |
+|---|---|
+| `/w/[slug]` | Public wedding site for guests — share-ready, lead venues, RSVP CTA |
+| `/rsvp/[token]` | Guest self-serve RSVP — per-guest UUID token, updates `overall_rsvp` + dietary |
+| `/api/rsvp/[token]` | GET fetches guest by token, PATCH updates RSVP fields |
 
 ### Planner-OS admin routes (org_admin only)
 
@@ -158,6 +175,7 @@ Hosting: **Railway** (auto-deploys from GitHub `main`).
 16. `20260506000012_planner_os.sql` — **MAJOR**: `org_role` enum + `users.org_role` + 6 org-scoped tables (`library_venues`, `library_venue_media`, `library_vendors`, `playbook_phases`, `playbook_tasks`, `workspace_branding`) + `library-media` bucket + RLS gated on `auth_org_role() = 'org_admin'`
 17. `20260506000013_org_admin_workspaces_visibility.sql` — additive RLS so org_admins can read every workspace in their org (needed for the picker, /admin/clients roster, push-to-workspace)
 18. `20260506000014_plan_customization.sql` — `planning_tasks.phase_id` (FK to playbook_phases) + `planning_tasks.is_user_added` boolean default false
+19. `20260506000015_public_site.sql` — `workspaces.public_slug` + `workspaces.story_html` + `guests.rsvp_token` + 5 anon RLS policies (workspaces/venues/guests/venue_photos public-read gated on slug; guests update gated by API-layer token match)
 
 **Pattern**: every workspace-scoped table has RLS with `workspace_id = auth_workspace_id()`. Admin-only workspace writes use `auth_is_admin()`. Org-scoped tables (library/playbook) use `auth_org_role() = 'org_admin'`. Sensitive features (pricing intake, vendors) are admin-only on read+write.
 
@@ -240,6 +258,9 @@ Hosting: **Railway** (auto-deploys from GitHub `main`).
 12. **Estimator is local-only.** Per-couple budget edits at `/estimator/[id]` NEVER push to the master pricing template or to /pricing scenario inputs. The Estimator is the "honest budget" view; /pricing is the "compare venue options" view. Same data world, different jobs.
 13. **`org_role` is the planner-vs-couple axis** (`org_admin | member`), distinct from the legacy `role` (`admin | couple`). Org-scoped tables (library_*, playbook_*) gate on `auth_org_role() = 'org_admin'`. Workspace-scoped tables still gate on `auth_role()`. Both columns coexist; the data migration set them in sync.
 14. **Library is org-scoped, workspace is per-couple.** A planner builds their library once (venues, vendors, playbook); each new client workspace receives a CLONE of selected library items via `/api/admin/push/*`. Edits to a workspace copy do not affect the library, and vice-versa. This is the reuse model that makes the SaaS work.
+15. **Vendor CRM is admin-only**. `/admin/vendors` shows full CRM + Gmail integration banner. `/vendors` couple-side strips contact info, prices, deposit indicators, and the Pricing/Tasks/Files tabs. Couples see vendor name + status pill + last update + public web/Instagram links. Org_admins are auto-redirected from `/vendors` → `/admin/vendors` on sign-in.
+16. **Public site is anon-RLS-gated by `workspaces.public_slug`.** No public_slug → workspace is invisible to anon. With slug, anon can read workspace + venues + venue_photos (no pricing/CRM data). Guests are reachable to anon by `rsvp_token` UUID — but the API layer is the actual gate, not RLS (RLS just allows the row by row, the WHERE clause is what isolates).
+17. **Estimator builder clones a template, swaps the hire-fee line.** `/api/estimator/new` takes name + dates + venue picks + a `base_template_id`, copies all line items from the template (so you keep Astha's full Astia pricing structure), and replaces the hire-fee line in the venue-bound sections with the venue's day-of-week hire fee from `venues.hire_fee_*_eur`. Couple gets a fresh editable scenario in seconds.
 
 ---
 
@@ -280,7 +301,7 @@ Hosting: **Railway** (auto-deploys from GitHub `main`).
 ## Next-up backlog (ordered by my recommendation)
 
 ### Quick wins
-1. **Markdown rendering in Co-pilot** (~10 min) — adds polish where you'll spend the most time
+1. ✅ **Markdown rendering in Co-pilot** — done in commit `96ff7c2`. react-markdown + remark-gfm.
 2. **Recent conversations sidebar** in /assistant (~15 min) — multi-thread support
 3. **Loading skeletons** across pages (~45 min) — first-load polish
 4. **Toast notifications** for save/error feedback (~30 min)
@@ -293,8 +314,8 @@ Hosting: **Railway** (auto-deploys from GitHub `main`).
 9. **Dashboard widget for Co-pilot** — embed a quick-prompt input on `/` so people discover it (~30 min)
 
 ### Bigger
-10. **Public wedding website** — public route at `/w/[slug]` with logistics + RSVP link, no login required (~4–6 hr). Generated from existing workspace data.
-11. **Guest self-serve RSVP** — token-based public page, each guest gets a personal link (~3–4 hr). Saves Astha hours of manual entry.
+10. ✅ **Public wedding website** — done in commit `491a4f3`. `/w/<slug>`, anon-readable, lead-venue cards, RSVP CTA.
+11. ✅ **Guest self-serve RSVP** — done in commit `491a4f3`. `/rsvp/<token>` token-keyed page, updates `overall_rsvp` + dietary + allergies + notes.
 12. **Gmail integration** (Phase 2) — Gmail OAuth, monitor inbound vendor emails, auto-status-flip vendors when quotes arrive (~2–3 days). Callout banners already in place hyping it.
 13. **Resend integration** — actual email send-from-app instead of just drafts (~half day, needs Resend account + DNS)
 14. **WhatsApp Cloud API** — Astha's primary channel. Phase 2/3 from earlier plan. Needs Meta Business verification + dedicated WA number.
@@ -407,6 +428,11 @@ wedding-os/
 ## Recent commits (most recent first)
 
 ```
+96ff7c2 Co-pilot markdown rendering — bullets, bold, code, tables
+f696cf6 Estimator builder + N-scenario compare
+491a4f3 Public wedding site + guest RSVP self-serve
+3cb5ce4 Vendor CRM split: admin gets full CRM, couples get read-only updates
+aa0acd2 SNAPSHOT: planner-OS follow-ups complete (push wiring, seeds, branding)
 853dc6c Planner-OS follow-ups: push buttons, seeds, couple-shell branding
 88a5f1d SNAPSHOT: capture Estimator + Wave 1 + Wave 2 (planner-OS pivot)
 db4863a Merge Wave 2 Agent E — New-client onboarding + push-to-workspace components
