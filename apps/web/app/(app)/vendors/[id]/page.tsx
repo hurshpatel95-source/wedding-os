@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Badge } from "@/components/ui/badge";
 import { VendorDetailTabs } from "@/components/vendors/vendor-detail-tabs";
 import { VendorEditButton } from "@/components/vendors/vendor-edit-button";
+import { VendorComposeButton } from "@/components/email/vendor-compose-button";
 import {
   VENDOR_CATEGORY_ICON,
   VENDOR_CATEGORY_LABEL,
@@ -106,7 +107,16 @@ export default async function VendorDetailPage({ params }: { params: { id: strin
             )}
           </div>
         </div>
-        {isAdmin && <VendorEditButton vendor={vendor} />}
+        {isAdmin && (
+          <div className="flex flex-wrap gap-2">
+            <VendorComposeButton
+              vendorId={vendor.id}
+              vendorName={vendor.name}
+              vendorEmail={vendor.contact_email}
+            />
+            <VendorEditButton vendor={vendor} />
+          </div>
+        )}
       </header>
 
       <VendorDetailTabs

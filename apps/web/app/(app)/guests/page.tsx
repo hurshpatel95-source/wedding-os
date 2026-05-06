@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import { GuestList } from "@/components/guests/guest-list";
 import { GuestCreateButton } from "@/components/guests/guest-create-button";
+import { GuestComposeButton } from "@/components/email/guest-compose-button";
 import type { Database } from "@wedding-os/db";
 
 export const dynamic = "force-dynamic";
@@ -77,7 +78,20 @@ export default async function GuestsPage() {
           </p>
         </div>
         {isAdmin && (
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            <GuestComposeButton
+              defaultKind="guest_save_the_date"
+              label="Save-the-date"
+              variant="outline"
+            />
+            {pending > 0 && (
+              <GuestComposeButton
+                defaultKind="guest_rsvp_nudge"
+                defaultFilter={{ rsvp: "pending" }}
+                label={`Nudge ${pending} pending`}
+                variant="outline"
+              />
+            )}
             <Link href="/guests/import">
               <Button variant="outline">
                 <Upload className="h-4 w-4" /> Import from Excel

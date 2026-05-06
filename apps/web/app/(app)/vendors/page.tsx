@@ -1,6 +1,8 @@
+import { Mail, Sparkles, Zap } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { VendorGrid } from "@/components/vendors/vendor-grid";
 import { VendorCreateButton } from "@/components/vendors/vendor-create-button";
+import { Badge } from "@/components/ui/badge";
 import type { VendorRow } from "@/lib/vendor-types";
 
 export const dynamic = "force-dynamic";
@@ -69,6 +71,42 @@ export default async function VendorsPage() {
         </div>
         {role === "admin" && <VendorCreateButton />}
       </header>
+
+      {role === "admin" && (
+        <div className="rounded-2xl border border-rose-200 bg-gradient-to-br from-rose-50 via-white to-amber-50 p-5 shadow-sm">
+          <div className="flex flex-wrap items-start gap-4">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-rose-100 text-rose-700">
+              <Zap className="h-5 w-5" />
+            </div>
+            <div className="flex-1 space-y-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="font-serif text-lg">
+                  Gmail integration · coming soon
+                </h3>
+                <Badge variant="muted" className="text-[10px]">
+                  Phase 2
+                </Badge>
+              </div>
+              <p className="max-w-3xl text-sm text-stone-600">
+                Connect Astia's Gmail and wedding-os will{" "}
+                <span className="font-medium text-stone-900">monitor incoming vendor emails</span>,{" "}
+                <span className="font-medium text-stone-900">auto-update vendor statuses</span> when
+                a quote arrives, and route every thread to the right client. For now: open any
+                vendor and click <Sparkles className="inline h-3 w-3 align-text-top" /> Compose with
+                AI to get a Claude-drafted email you can paste into Gmail.
+              </p>
+            </div>
+            <a
+              href="https://forms.gle/wedding-os-gmail-waitlist"
+              className="inline-flex items-center gap-1 rounded-full border border-rose-300 bg-white px-3 py-1.5 text-xs font-medium text-rose-800 hover:bg-rose-50"
+              onClick={(e) => e.preventDefault()}
+            >
+              <Mail className="h-3 w-3" />
+              Join the beta list
+            </a>
+          </div>
+        </div>
+      )}
 
       <VendorGrid vendors={list} role={role} />
     </div>
