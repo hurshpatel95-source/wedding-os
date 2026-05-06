@@ -352,6 +352,8 @@ export type Database = {
           added_by: string | null;
           imported_from: string | null;
           rsvp_token: string;
+          cant_sit_with_guest_ids: string[];
+          must_sit_with_guest_ids: string[];
           created_at: string;
           updated_at: string;
         };
@@ -378,6 +380,8 @@ export type Database = {
           added_by?: string | null;
           imported_from?: string | null;
           rsvp_token?: string;
+          cant_sit_with_guest_ids?: string[];
+          must_sit_with_guest_ids?: string[];
           created_at?: string;
           updated_at?: string;
         };
@@ -404,6 +408,8 @@ export type Database = {
           added_by: string | null;
           imported_from: string | null;
           rsvp_token: string;
+          cant_sit_with_guest_ids: string[];
+          must_sit_with_guest_ids: string[];
         }>;
         Relationships: [];
       };

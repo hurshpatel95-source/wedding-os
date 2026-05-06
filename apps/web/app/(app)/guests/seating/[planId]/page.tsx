@@ -16,6 +16,8 @@ interface GuestRow {
   overall_rsvp: string;
   dietary: string | null;
   notes: string | null;
+  cant_sit_with_guest_ids: string[] | null;
+  must_sit_with_guest_ids: string[] | null;
 }
 
 export default async function SeatingDetailPage({
@@ -52,7 +54,7 @@ export default async function SeatingDetailPage({
   const { data: guestsRaw } = (await supabase
     .from("guests")
     .select(
-      "id, full_name, side, household_id, is_household_head, overall_rsvp, dietary, notes",
+      "id, full_name, side, household_id, is_household_head, overall_rsvp, dietary, notes, cant_sit_with_guest_ids, must_sit_with_guest_ids",
     )
     .order("full_name", { ascending: true })) as unknown as {
     data: GuestRow[] | null;
