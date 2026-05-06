@@ -3,11 +3,23 @@
 The state of the build at end-of-session. Use this when context compresses
 or when picking the work back up cold.
 
-> Last update: spaces-breakdown live-merge fix (commit `aa46531`). When
-> Hursh added a 5th space ("Extra hour", €1,000) to MSL via the venue
-> editor, scenarios still showed the old 4 because they held a snapshot.
-> Now scenarios render from `venue.spaces` (live truth) and overlay
-> `event.spaces` selections — added spaces appear unchecked, opt-in.
+> **Last update — major: planner-OS pivot landed.** wedding-os is now
+> architected as a multi-tenant SaaS for wedding planners (any planner,
+> not Astia-branded). One org per planner, one workspace per couple
+> client. Two completed waves of parallel-agent work shipped today:
+>
+> - **Estimator** at `/estimator` — couple-side honest budget seeded from
+>   Astia's two PDFs (Casa+MSL €222,686 / Casa+Xalet €229,726), inline
+>   edit, side-by-side compare view. Local-only — no master template push.
+> - **Wave 1 — Foundation slab** — `org_role` enum + 6 new tables (library
+>   venues/vendors/media, playbook phases/tasks, workspace branding) + `/admin`
+>   route shell with auth gate. Astha + Hursh-admin migrated to `org_admin`.
+> - **Wave 2 — 5 parallel agents** — Library Venues + Library Vendors +
+>   Playbook editor + `/plan` customization + Client roster + Branding
+>   editor + New-client onboarding + push-to-workspace components.
+>
+> 35+ routes, 14 SQL migrations, 7 logins. See "Planner-OS architecture"
+> section below for the full layout.
 
 ---
 
@@ -94,10 +106,37 @@ Hosting: **Railway** (auto-deploys from GitHub `main`).
 | `/timeline` | Day-of run-of-show editor + `/timeline/print` for vendor PDF |
 | `/settings/pricing` | Template control room — line items + recent intakes + change log + AI intake CTA |
 | `/settings/pricing/intake` | **AI Pricing intake wizard** — drop screenshot/PDF/text → Claude extracts → review → apply |
+| `/estimator` | **Estimator** — list of planner-PDF-seeded budget scenarios |
+| `/estimator/[id]` | Builder — section-grouped lines, inline price override, toggle, auto-save |
+| `/estimator/compare` | Side-by-side compare of two scenarios with line-by-line deltas |
+
+### Planner-OS admin routes (org_admin only)
+
+| Route | Purpose |
+|---|---|
+| `/admin` | Studio dashboard — stat cards (clients / library size / activity) |
+| `/admin/library` | Hub linking to venues + vendors |
+| `/admin/library/venues` | Venue library — grid, search, filter, sort |
+| `/admin/library/venues/[id]` | Edit venue + media manager (drop-folder upload) |
+| `/admin/library/venues/new` | Create venue (with optional AI brochure intake) |
+| `/admin/library/vendors` | Vendor library grouped by category |
+| `/admin/library/vendors/[id]` | Edit vendor |
+| `/admin/library/vendors/new` | Create vendor |
+| `/admin/playbook` | Master playbook editor — phases + tasks templates |
+| `/admin/playbook/phases/[id]` | Phase drill-in detail |
+| `/admin/clients` | CRM-style roster of couple workspaces |
+| `/admin/clients/[id]` | Drill-in tabs: Overview / Branding / Activity / Settings |
+| `/admin/clients/[id]/branding` | Per-couple accent color + logo + planner display name |
+| `/admin/clients/new` | Create new client workspace + couple invite (magic link) |
+| `/admin/settings` | Wave-2 placeholder |
+
+### Planner-OS API routes
+
+`/api/admin/library/venues/*` (POST/PATCH/DELETE + media + brochure intake), `/api/admin/library/vendors/*`, `/api/admin/playbook/{phases,tasks,apply}`, `/api/admin/clients/[id]/branding`, `/api/admin/clients/[id]/branding/logo`, `/api/admin/clients/new`, `/api/admin/push/{library-venue,library-vendor,playbook}`.
 
 ---
 
-## Schema — 11 migrations
+## Schema — 14 migrations
 
 `supabase/migrations/`:
 
@@ -115,8 +154,12 @@ Hosting: **Railway** (auto-deploys from GitHub `main`).
 12. `20260506000008_venue_availability.sql` — venue_date_marks + 6-status enum
 13. `20260506000009_ai_assistant.sql` — ai_conversations + ai_messages + ai_usage_daily
 14. `20260506000010_pricing_intake.sql` — pricing_intake_sources + pricing_intake_proposals + pricing_change_log + private `pricing-intake` bucket
+15. `20260506000011_budget_estimates.sql` — `budget_estimates` table for /estimator (per-couple JSONB blob, RLS open to workspace members)
+16. `20260506000012_planner_os.sql` — **MAJOR**: `org_role` enum + `users.org_role` + 6 org-scoped tables (`library_venues`, `library_venue_media`, `library_vendors`, `playbook_phases`, `playbook_tasks`, `workspace_branding`) + `library-media` bucket + RLS gated on `auth_org_role() = 'org_admin'`
+17. `20260506000013_org_admin_workspaces_visibility.sql` — additive RLS so org_admins can read every workspace in their org (needed for the picker, /admin/clients roster, push-to-workspace)
+18. `20260506000014_plan_customization.sql` — `planning_tasks.phase_id` (FK to playbook_phases) + `planning_tasks.is_user_added` boolean default false
 
-**Pattern**: every workspace-scoped table has RLS with `workspace_id = auth_workspace_id()`. Admin-only writes use `and auth_is_admin()`. Sensitive features (pricing intake, vendors) are admin-only on read+write.
+**Pattern**: every workspace-scoped table has RLS with `workspace_id = auth_workspace_id()`. Admin-only workspace writes use `auth_is_admin()`. Org-scoped tables (library/playbook) use `auth_org_role() = 'org_admin'`. Sensitive features (pricing intake, vendors) are admin-only on read+write.
 
 ---
 
@@ -194,6 +237,9 @@ Hosting: **Railway** (auto-deploys from GitHub `main`).
 9. **Currency**: EUR base everywhere; USD toggle on calculator + spend tracker via `NEXT_PUBLIC_FX_EUR_USD` static rate.
 10. **VAT split**: 21% venue / 10% F&B + accom — Spanish IVA rates baked into scenario calc engine.
 11. **Spaces source-of-truth = `venue.spaces`** (admin-edited, DB). `event.spaces` only holds the per-space `selected` state. Adding/removing/repricing spaces on a venue propagates to every scenario without touching scenario data. Implemented via `getEffectiveSpaces()` merge in `scenario-studio.tsx`.
+12. **Estimator is local-only.** Per-couple budget edits at `/estimator/[id]` NEVER push to the master pricing template or to /pricing scenario inputs. The Estimator is the "honest budget" view; /pricing is the "compare venue options" view. Same data world, different jobs.
+13. **`org_role` is the planner-vs-couple axis** (`org_admin | member`), distinct from the legacy `role` (`admin | couple`). Org-scoped tables (library_*, playbook_*) gate on `auth_org_role() = 'org_admin'`. Workspace-scoped tables still gate on `auth_role()`. Both columns coexist; the data migration set them in sync.
+14. **Library is org-scoped, workspace is per-couple.** A planner builds their library once (venues, vendors, playbook); each new client workspace receives a CLONE of selected library items via `/api/admin/push/*`. Edits to a workspace copy do not affect the library, and vice-versa. This is the reuse model that makes the SaaS work.
 
 ---
 
@@ -250,6 +296,14 @@ Hosting: **Railway** (auto-deploys from GitHub `main`).
 13. **Resend integration** — actual email send-from-app instead of just drafts (~half day, needs Resend account + DNS)
 14. **WhatsApp Cloud API** — Astha's primary channel. Phase 2/3 from earlier plan. Needs Meta Business verification + dedicated WA number.
 15. **Mood board / inspiration** — Pinterest-style image collection per theme (~3 hr)
+
+### Planner-OS follow-ups (post-Wave-2)
+16. **Wire push-buttons into library/client pages** — Agent E built the `<PushVenueButton />` etc components in `components/admin-push/`. Library detail pages and client drill-in need to import + render them. ~30 min.
+17. **Apply branding to couple shell** — Agent D built the editor; the actual accent_hex + logo + planner_display_name should drive the couple's nav/layout look. ~1 hr.
+18. **Seed playbook from existing 73 planning_tasks** — port the existing seed into reusable `playbook_phases` + `playbook_tasks` so a fresh client gets the standard plan with one click. Script: `seed_playbook_template.ts`. ~30 min.
+19. **Seed library from existing 6 venues** — copy the demo venues into `library_venues` so a new client can pick from them. ~20 min.
+20. **Functional "View as workspace" picker** — currently a stub link to `/?as=<id>`. Needs server-side cookie or impersonation pattern so an org_admin actually sees that workspace's data. ~2 hr.
+21. **Phase 8 — Real SaaS (deferred)**: signup, Stripe, marketing site, Resend, WhatsApp.
 
 ### Won't-build (intentionally cut)
 - Family voting (user said no)
@@ -325,11 +379,16 @@ wedding-os/
 │   └── lib/src/{index.ts,pricing.ts}    # Cross-package shared
 ├── supabase/
 │   ├── config.toml
-│   ├── migrations/                      # 11 SQL files
-│   └── seed/                            # 18 helper scripts
+│   ├── migrations/                      # 14 SQL files
+│   └── seed/                            # 19 helper scripts
+├── apps/web/app/(admin)/                # planner-OS shell (org_admin only)
+│   ├── layout.tsx                        # auth gate + workspace picker stub
+│   └── admin/{library,playbook,clients,settings}/...
+├── apps/web/components/{admin-clients,admin-library,admin-playbook,admin-push}/
 ├── docs/
 │   ├── sprint-3-design.md               # AI Pricing intake architecture spec
 │   ├── lucia-strategic-memo.md          # 834-line product strategy from "Stellata CEO" persona
+│   ├── wave-2-briefs.md                 # parallel-agent dispatch briefs
 │   └── SESSION-SNAPSHOT.md              # this file
 ├── README.md
 ├── .env.example
@@ -343,6 +402,20 @@ wedding-os/
 ## Recent commits (most recent first)
 
 ```
+db4863a Merge Wave 2 Agent E — New-client onboarding + push-to-workspace components
+0819e8e Merge Wave 2 Agent A — Library Venues CRUD + media + AI brochure intake
+3e7f9a6 Merge Wave 2 Agent C — Playbook editor + /plan custom-task additions
+2c63352 Merge Wave 2 Agent D — Client roster + workspace branding
+44ca97c Merge Wave 2 Agent D — Client roster + workspace branding (initial)
+14b4829 Untrack tsconfig.tsbuildinfo (it's a build artifact, regenerated by tsc)
+327dc19 Merge Wave 2 Agent B — Library Vendors
+691b0fa Wave 1 follow-up: org_admin can read all workspaces in their org
+6040372 Merge Wave 1 — planner-OS foundation slab
+f13bc0e Ignore agent worktrees (.claude/worktrees/) and remove accidental commit
+5a84959 Wave 2 briefs — five parallel-agent briefs for planner-OS build-out
+7f50b58 Estimator: side-by-side compare view at /estimator/compare
+74357b3 Estimator — couple-side honest budget seeded from Astia's two PDFs
+e2e9c92 SNAPSHOT: add spaces live-merge fix + design decision #11
 aa46531 Scenario builder: spaces always reflect live venue data
 b05eae7 Add docs/SESSION-SNAPSHOT.md — full state of the build
 6556125 Fix /vendors 500 — onClick handler on <a> in server component
@@ -369,10 +442,11 @@ f5e62fe Initial commit — wedding-os Sprint 1-3 + vendor module
 2. `pnpm install` (if needed)
 3. `cp .env.example apps/web/.env.local` (already done — has all keys including `ANTHROPIC_API_KEY`)
 4. `pnpm dev` (or use the `wedding-os` preview server in `.claude/launch.json`)
-5. Sign in at http://localhost:3200/login as `hurshpatel@greenskynj.com` / `Wedding2027!`
-6. Read `docs/lucia-strategic-memo.md` if you want the strategic vision context
-7. Read `docs/sprint-3-design.md` if revisiting AI intake details
-8. Pick from the **Next-up backlog** above
+5. Sign in at http://localhost:3200/login as `hurshpatel@greenskynj.com` / `Wedding2027!` — lands on `/admin` (org_admin)
+6. Or sign in as `hurshpatel95@gmail.com` to see the couple shell + Estimator
+7. Read `docs/wave-2-briefs.md` to understand how the planner-OS sub-features are organized
+8. Read `docs/lucia-strategic-memo.md` if you want the strategic vision context
+9. Pick from the **Next-up backlog** above — the planner-OS follow-ups (16–20) are the most useful "make Wave 2 actually feel finished" work
 
 When applying a new migration: `SUPABASE_DB_URL='postgresql://postgres:gLtdK0Co8fMAp1pZ@db.dfyryyzizxcxtysduono.supabase.co:5432/postgres' ./node_modules/.bin/tsx supabase/seed/_apply_one.ts supabase/migrations/<file>.sql`
 
@@ -389,3 +463,8 @@ When applying a new migration: `SUPABASE_DB_URL='postgresql://postgres:gLtdK0Co8
 - **Wedding date is intentionally null** in the workspace until you pick between Sept 4/5/6/12/18. Dashboard countdown shows "TBD" until set. Once set, plan-page due dates auto-anchor.
 - **Astia's lead option** is Sept 11 Sangeet @ Casa Del Mar + Sept 12 Wedding @ MSL — already encoded in Scenario 3 + availability "tentative" marks.
 - **Spaces architecture**: `venue.spaces` (DB) is the source of truth for which spaces exist + their prices. `event.spaces` (in `pricing_scenarios.inputs`) only stores per-space `selected` booleans. The render-merge in `scenario-studio.tsx`'s `getEffectiveSpaces()` is what makes admin venue edits flow through to all scenarios automatically. Don't reverse this — it's the cleanest way to keep one editable source of truth.
+- **Estimator vs /pricing**: same data world (workspace), different jobs. Estimator is line-by-line "what we'll spend" with planner-PDF baselines + couple overrides. /pricing is event-bucketed "compare venue options". They do NOT share data — Estimator overrides stay in `budget_estimates.sections` JSONB. This was an explicit product call.
+- **Library is org, workspace is couple**. Once Wave 2 is fully wired, every new couple gets a CLONE from the library — not a reference. Edit the library, future clients get the new version; existing clients keep what they were given. Don't accidentally make library a reference relationship — that's a cardinal mistake the SaaS pivot avoids.
+- **`org_role` and `role` are different axes.** `role = 'admin' | 'couple'` is the legacy workspace-level distinction (it gates some existing UI like vendor compose-email). `org_role = 'org_admin' | 'member'` is the planner-vs-couple SaaS axis. Both columns exist on `users`; the data migration set them in sync. New code should prefer `org_role`. Don't try to rationalize them yet — wait until you have a second planner org.
+- **Wave 2 push components NOT YET WIRED into pages.** Agent E built `<PushVenueButton />` etc in `components/admin-push/` but Agent A's library detail page does NOT import them yet. Backlog item 16 is the integration step. Without it, the library is read-only — no way to send a venue to a client workspace from the UI (push API endpoints exist and work via curl).
+- **Wave 2 branding NOT YET WIRED into couple shell.** Agent D built the editor; the couple shell still uses the hardcoded rose/amber accent. Backlog 17.
