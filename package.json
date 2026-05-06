@@ -15,7 +15,8 @@
     "db:apply-migrations": "tsx supabase/seed/apply_migrations.ts",
     "db:seed": "tsx supabase/seed/seed.ts",
     "db:ingest-photos": "tsx supabase/seed/ingest_photos.ts",
-    "db:seed-scenarios": "tsx supabase/seed/seed_scenarios.ts"
+    "db:seed-scenarios": "tsx supabase/seed/seed_scenarios.ts",
+    "db:seed-timeline": "tsx supabase/seed/seed_timeline_template.ts"
   },
   "devDependencies": {
     "@supabase/supabase-js": "^2.46.1",

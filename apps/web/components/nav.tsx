@@ -5,11 +5,13 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   Briefcase,
   Calculator,
+  Clock,
   Heart,
   LogOut,
   MapPin,
   Settings,
   Sparkles,
+  UserCheck,
   Users,
 } from "lucide-react";
 import { differenceInCalendarDays, parseISO } from "date-fns";
@@ -21,8 +23,10 @@ const links: { href: string; label: string; icon: LucideIcon }[] = [
   { href: "/", label: "Dashboard", icon: Sparkles },
   { href: "/venues", label: "Venues", icon: MapPin },
   { href: "/vendors", label: "Vendors", icon: Briefcase },
+  { href: "/guests", label: "Guests", icon: UserCheck },
   { href: "/pricing", label: "Full pricing", icon: Calculator },
   { href: "/compare", label: "Compare", icon: Users },
+  { href: "/timeline", label: "Timeline", icon: Clock },
   { href: "/settings/pricing", label: "Pricing template", icon: Settings },
 ];
 

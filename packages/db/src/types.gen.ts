@@ -25,6 +25,8 @@ type EventRole =
   | "stay";
 type VenueDecisionKind = "shortlisted" | "visited" | "quoted" | "decided" | "passed" | "note";
 type VenueQuestionStatus = "open" | "answered" | "wont_answer";
+type RsvpStatus = "pending" | "yes" | "no" | "maybe";
+type GuestSide = "groom" | "bride" | "both";
 
 export type Database = {
   public: {
@@ -263,6 +265,176 @@ export type Database = {
         };
         Relationships: [];
       };
+      guests: {
+        Row: {
+          id: string;
+          workspace_id: string;
+          org_id: string;
+          full_name: string;
+          email: string | null;
+          phone: string | null;
+          side: GuestSide | null;
+          relationship: string | null;
+          household_id: string | null;
+          is_household_head: boolean;
+          address: string | null;
+          city: string | null;
+          region: string | null;
+          postal_code: string | null;
+          country: string | null;
+          dietary: string | null;
+          allergies: string | null;
+          notes: string | null;
+          overall_rsvp: RsvpStatus;
+          added_by: string | null;
+          imported_from: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          workspace_id: string;
+          org_id: string;
+          full_name: string;
+          email?: string | null;
+          phone?: string | null;
+          side?: GuestSide | null;
+          relationship?: string | null;
+          household_id?: string | null;
+          is_household_head?: boolean;
+          address?: string | null;
+          city?: string | null;
+          region?: string | null;
+          postal_code?: string | null;
+          country?: string | null;
+          dietary?: string | null;
+          allergies?: string | null;
+          notes?: string | null;
+          overall_rsvp?: RsvpStatus;
+          added_by?: string | null;
+          imported_from?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<{
+          id: string;
+          workspace_id: string;
+          org_id: string;
+          full_name: string;
+          email: string | null;
+          phone: string | null;
+          side: GuestSide | null;
+          relationship: string | null;
+          household_id: string | null;
+          is_household_head: boolean;
+          address: string | null;
+          city: string | null;
+          region: string | null;
+          postal_code: string | null;
+          country: string | null;
+          dietary: string | null;
+          allergies: string | null;
+          notes: string | null;
+          overall_rsvp: RsvpStatus;
+          added_by: string | null;
+          imported_from: string | null;
+        }>;
+        Relationships: [];
+      };
+      guest_event_invitations: {
+        Row: {
+          id: string;
+          guest_id: string;
+          event_role: EventRole;
+          is_invited: boolean;
+          rsvp: RsvpStatus;
+          table_assignment: string | null;
+          notes: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          guest_id: string;
+          event_role: EventRole;
+          is_invited?: boolean;
+          rsvp?: RsvpStatus;
+          table_assignment?: string | null;
+          notes?: string | null;
+          created_at?: string;
+        };
+        Update: Partial<{
+          id: string;
+          guest_id: string;
+          event_role: EventRole;
+          is_invited: boolean;
+          rsvp: RsvpStatus;
+          table_assignment: string | null;
+          notes: string | null;
+        }>;
+        Relationships: [];
+      };
+      guest_imports: {
+        Row: {
+          id: string;
+          workspace_id: string;
+          uploaded_by: string | null;
+          source_filename: string | null;
+          storage_path: string | null;
+          source_kind: "excel" | "csv" | "paste";
+          rows_total: number | null;
+          rows_imported: number | null;
+          rows_skipped: number | null;
+          claude_model: string | null;
+          claude_mapping: Json | null;
+          claude_confidence: number | null;
+          claude_request: Json | null;
+          claude_response: Json | null;
+          prompt_tokens: number | null;
+          output_tokens: number | null;
+          cost_usd: number | null;
+          status: string;
+          error: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          workspace_id: string;
+          uploaded_by?: string | null;
+          source_filename?: string | null;
+          storage_path?: string | null;
+          source_kind: "excel" | "csv" | "paste";
+          rows_total?: number | null;
+          rows_imported?: number | null;
+          rows_skipped?: number | null;
+          claude_model?: string | null;
+          claude_mapping?: Json | null;
+          claude_confidence?: number | null;
+          claude_request?: Json | null;
+          claude_response?: Json | null;
+          prompt_tokens?: number | null;
+          output_tokens?: number | null;
+          cost_usd?: number | null;
+          status?: string;
+          error?: string | null;
+          created_at?: string;
+        };
+        Update: Partial<{
+          status: string;
+          rows_total: number | null;
+          rows_imported: number | null;
+          rows_skipped: number | null;
+          claude_model: string | null;
+          claude_mapping: Json | null;
+          claude_confidence: number | null;
+          claude_request: Json | null;
+          claude_response: Json | null;
+          prompt_tokens: number | null;
+          output_tokens: number | null;
+          cost_usd: number | null;
+          error: string | null;
+        }>;
+        Relationships: [];
+      };
       venue_visits: {
         Row: {
           id: string;
@@ -491,6 +663,60 @@ export type Database = {
         };
         Relationships: [];
       };
+      timeline_items: {
+        Row: {
+          id: string;
+          workspace_id: string;
+          org_id: string;
+          event_role: EventRole;
+          occurs_at: string | null;
+          duration_minutes: number;
+          what: string;
+          who_responsible: string | null;
+          location: string | null;
+          vendor_id: string | null;
+          notes: string | null;
+          sort_order: number;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          workspace_id: string;
+          org_id: string;
+          event_role: EventRole;
+          occurs_at?: string | null;
+          duration_minutes?: number;
+          what: string;
+          who_responsible?: string | null;
+          location?: string | null;
+          vendor_id?: string | null;
+          notes?: string | null;
+          sort_order?: number;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          workspace_id?: string;
+          org_id?: string;
+          event_role?: EventRole;
+          occurs_at?: string | null;
+          duration_minutes?: number;
+          what?: string;
+          who_responsible?: string | null;
+          location?: string | null;
+          vendor_id?: string | null;
+          notes?: string | null;
+          sort_order?: number;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: { [_ in never]: never };
     Functions: { [_ in never]: never };
@@ -503,6 +729,8 @@ export type Database = {
       event_role: EventRole;
       venue_decision_kind: VenueDecisionKind;
       venue_question_status: VenueQuestionStatus;
+      rsvp_status: RsvpStatus;
+      guest_side: GuestSide;
     };
     CompositeTypes: { [_ in never]: never };
   };
