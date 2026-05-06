@@ -256,6 +256,9 @@ Hosting: **Railway** (auto-deploys from GitHub `main`).
 - **0 vendors yet** (no test data — admin adds via /vendors)
 - **0 guests yet** (admin imports via /guests/import)
 - **0 timeline items** (run `pnpm db:seed-timeline` for template)
+- **6 library_venues** (org-scoped, ported from demo venues via `db:seed-library`)
+- **9 playbook_phases + 73 playbook_tasks** (Astia's master template, via `db:seed-playbook`)
+- **1 workspace_branding row** with `accent_hex='#9d174d'` and `planner_display_name='Astia Events'` — drives the couple shell's nav theme
 
 ---
 
@@ -298,12 +301,14 @@ Hosting: **Railway** (auto-deploys from GitHub `main`).
 15. **Mood board / inspiration** — Pinterest-style image collection per theme (~3 hr)
 
 ### Planner-OS follow-ups (post-Wave-2)
-16. **Wire push-buttons into library/client pages** — Agent E built the `<PushVenueButton />` etc components in `components/admin-push/`. Library detail pages and client drill-in need to import + render them. ~30 min.
-17. **Apply branding to couple shell** — Agent D built the editor; the actual accent_hex + logo + planner_display_name should drive the couple's nav/layout look. ~1 hr.
-18. **Seed playbook from existing 73 planning_tasks** — port the existing seed into reusable `playbook_phases` + `playbook_tasks` so a fresh client gets the standard plan with one click. Script: `seed_playbook_template.ts`. ~30 min.
-19. **Seed library from existing 6 venues** — copy the demo venues into `library_venues` so a new client can pick from them. ~20 min.
+16. ✅ **Wire push-buttons into library pages** — done in commit `853dc6c`. `PushVenueButton` + `PushVendorButton` render on `/admin/library/venues/[id]` and `/admin/library/vendors/[id]` with workspace picker.
+17. ✅ **Apply branding to couple shell** — done in commit `853dc6c`. `app/(app)/layout.tsx` fetches `workspace_branding`, passes accent_hex + logoUrl + planner_display_name down to nav. Active pill + heart-icon gradient now use accent_hex; planner display name in subtitle.
+18. ✅ **Seed playbook from existing 73 planning_tasks** — done. `db:seed-playbook` script ran successfully → 9 phases + 73 tasks live in playbook for Astia's org.
+19. ✅ **Seed library from existing 6 venues** — done. `db:seed-library` ran → 6 library_venues live (Casa Del Mar, Marina Port Vell, MSL, ME Barcelona, ME Sitges Terramar, Xalet Del Nin). Photos NOT byte-copied — paths reference the workspace's `venue-photos` bucket; planner can re-upload via `/admin/library/venues/[id]` if they want bytes in `library-media`.
 20. **Functional "View as workspace" picker** — currently a stub link to `/?as=<id>`. Needs server-side cookie or impersonation pattern so an org_admin actually sees that workspace's data. ~2 hr.
-21. **Phase 8 — Real SaaS (deferred)**: signup, Stripe, marketing site, Resend, WhatsApp.
+21. **Drag-to-reorder library media** — current up/down arrows work but DnD would be nicer. Needs `@dnd-kit/core`. ~45 min.
+22. **Push buttons inside `/admin/clients/[id]`** — currently you push FROM library detail; would also be useful to push FROM client drill-in (one client receives N venues). ~30 min.
+23. **Phase 8 — Real SaaS (deferred)**: signup, Stripe, marketing site, Resend, WhatsApp.
 
 ### Won't-build (intentionally cut)
 - Family voting (user said no)
@@ -402,6 +407,8 @@ wedding-os/
 ## Recent commits (most recent first)
 
 ```
+853dc6c Planner-OS follow-ups: push buttons, seeds, couple-shell branding
+88a5f1d SNAPSHOT: capture Estimator + Wave 1 + Wave 2 (planner-OS pivot)
 db4863a Merge Wave 2 Agent E — New-client onboarding + push-to-workspace components
 0819e8e Merge Wave 2 Agent A — Library Venues CRUD + media + AI brochure intake
 3e7f9a6 Merge Wave 2 Agent C — Playbook editor + /plan custom-task additions
@@ -466,5 +473,6 @@ When applying a new migration: `SUPABASE_DB_URL='postgresql://postgres:gLtdK0Co8
 - **Estimator vs /pricing**: same data world (workspace), different jobs. Estimator is line-by-line "what we'll spend" with planner-PDF baselines + couple overrides. /pricing is event-bucketed "compare venue options". They do NOT share data — Estimator overrides stay in `budget_estimates.sections` JSONB. This was an explicit product call.
 - **Library is org, workspace is couple**. Once Wave 2 is fully wired, every new couple gets a CLONE from the library — not a reference. Edit the library, future clients get the new version; existing clients keep what they were given. Don't accidentally make library a reference relationship — that's a cardinal mistake the SaaS pivot avoids.
 - **`org_role` and `role` are different axes.** `role = 'admin' | 'couple'` is the legacy workspace-level distinction (it gates some existing UI like vendor compose-email). `org_role = 'org_admin' | 'member'` is the planner-vs-couple SaaS axis. Both columns exist on `users`; the data migration set them in sync. New code should prefer `org_role`. Don't try to rationalize them yet — wait until you have a second planner org.
-- **Wave 2 push components NOT YET WIRED into pages.** Agent E built `<PushVenueButton />` etc in `components/admin-push/` but Agent A's library detail page does NOT import them yet. Backlog item 16 is the integration step. Without it, the library is read-only — no way to send a venue to a client workspace from the UI (push API endpoints exist and work via curl).
-- **Wave 2 branding NOT YET WIRED into couple shell.** Agent D built the editor; the couple shell still uses the hardcoded rose/amber accent. Backlog 17.
+- **Push components ARE wired now** (commit `853dc6c`). `/admin/library/venues/[id]` and `/admin/library/vendors/[id]` render the push picker. Pushing a venue clones the row + photo references into the target workspace; existing demo workspace already has the venues so test pushes won't duplicate-key — pick a fresh workspace via `/admin/clients/new`.
+- **Couple shell branding IS wired now** (commit `853dc6c`). `accent_hex` drives the active-pill background + heart icon gradient. Planner_display_name shows in subtitle. Logo uploads on `/admin/clients/[id]/branding` flow through. Falls back gracefully if no branding row exists.
+- **Library photos are path-references, not bytes**. `db:seed-library` set `library_venue_media.storage_path` to the same paths as the workspace's `venue-photos` rows, but the bytes live in `venue-photos` not `library-media`. The signed-URL helper in the media manager will return broken URLs. Real fix: re-upload via the venue detail page, or write a one-shot script to copy bytes between buckets. Documented above as known caveat.
