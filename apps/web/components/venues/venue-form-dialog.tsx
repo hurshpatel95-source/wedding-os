@@ -58,6 +58,8 @@ export interface VenueFormDialogProps {
     | "shortfall_per_pax_eur"
     | "spaces"
     | "hire_fee_notes"
+    | "pros"
+    | "cons"
   >;
   workspaceId?: string;
   orgId?: string;
@@ -116,6 +118,10 @@ export function VenueFormDialog({
   );
   const [hireFeeNotes, setHireFeeNotes] = useState<string>(venue?.hire_fee_notes ?? "");
 
+  // Pros & cons — stored as text[] arrays, edited as one-per-line text
+  const [prosText, setProsText] = useState<string>((venue?.pros ?? []).join("\n"));
+  const [consText, setConsText] = useState<string>((venue?.cons ?? []).join("\n"));
+
   const updateSpace = (i: number, patch: Partial<{ label: string; price_eur: number }>) => {
     setSpaces((prev) => prev.map((s, idx) => (idx === i ? { ...s, ...patch } : s)));
   };
@@ -154,6 +160,14 @@ export function VenueFormDialog({
       shortfall_per_pax_eur: shortfall ? Number(shortfall) : null,
       spaces: spaces.filter((s) => s.label.trim().length > 0),
       hire_fee_notes: hireFeeNotes.trim() || null,
+      pros: prosText
+        .split("\n")
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0),
+      cons: consText
+        .split("\n")
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0),
     };
 
     if (venue?.id) {
@@ -323,6 +337,38 @@ export function VenueFormDialog({
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
             />
+          </div>
+
+          {/* Pros & cons */}
+          <div className="space-y-3 rounded-lg border border-stone-200 bg-stone-50/40 p-4">
+            <div>
+              <h3 className="font-serif text-base">Pros &amp; cons</h3>
+              <p className="text-xs text-stone-500">
+                Quick gut-check bullets shown in the venue overview sidebar.
+              </p>
+            </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="grid gap-1.5">
+                <Label htmlFor="pros">Pros (one per line)</Label>
+                <Textarea
+                  id="pros"
+                  rows={5}
+                  placeholder={"Stunning sunset views\nFlexible layout"}
+                  value={prosText}
+                  onChange={(e) => setProsText(e.target.value)}
+                />
+              </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="cons">Cons (one per line)</Label>
+                <Textarea
+                  id="cons"
+                  rows={5}
+                  placeholder={"No on-site parking\nStrict noise curfew"}
+                  value={consText}
+                  onChange={(e) => setConsText(e.target.value)}
+                />
+              </div>
+            </div>
           </div>
 
           {/* Hire fees — drives the pricing engine */}

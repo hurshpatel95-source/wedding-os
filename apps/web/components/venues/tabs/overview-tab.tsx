@@ -1,11 +1,16 @@
 "use client";
 
+import { Check, X } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { Database } from "@wedding-os/db";
 
 type Venue = Database["public"]["Tables"]["venues"]["Row"];
 
 export function OverviewTab({ venue }: { venue: Venue }) {
+  const pros = venue.pros ?? [];
+  const cons = venue.cons ?? [];
+  const hasProsCons = pros.length > 0 || cons.length > 0;
+
   const facts: { label: string; value: string }[] = [
     {
       label: "Capacity",
@@ -54,6 +59,54 @@ export function OverviewTab({ venue }: { venue: Venue }) {
       </div>
 
       <div className="space-y-4">
+        <Card>
+          <CardHeader>
+            <CardTitle className="font-serif">Pros &amp; Cons</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4 text-sm">
+            {!hasProsCons ? (
+              <p className="text-muted-foreground">No pros / cons noted yet.</p>
+            ) : (
+              <>
+                <div>
+                  <div className="mb-1.5 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                    Pros
+                  </div>
+                  {pros.length === 0 ? (
+                    <p className="text-muted-foreground">—</p>
+                  ) : (
+                    <ul className="space-y-1.5">
+                      {pros.map((p, i) => (
+                        <li key={i} className="flex items-start gap-2">
+                          <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+                          <span>{p}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+                <div>
+                  <div className="mb-1.5 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                    Cons
+                  </div>
+                  {cons.length === 0 ? (
+                    <p className="text-muted-foreground">—</p>
+                  ) : (
+                    <ul className="space-y-1.5">
+                      {cons.map((c, i) => (
+                        <li key={i} className="flex items-start gap-2">
+                          <X className="mt-0.5 h-4 w-4 shrink-0 text-rose-600" />
+                          <span>{c}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+
         <Card>
           <CardHeader>
             <CardTitle className="font-serif">Contact</CardTitle>

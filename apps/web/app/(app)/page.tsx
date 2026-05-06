@@ -1,14 +1,67 @@
-import { differenceInCalendarDays, parseISO } from "date-fns";
+import { differenceInCalendarDays, formatDistanceToNow, parseISO } from "date-fns";
 import Link from "next/link";
 import { ArrowRight, Camera, MapPin, Sparkles, Users } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { STATUS_LABEL, STATUS_VARIANT } from "@/lib/venue-status";
 import { Badge } from "@/components/ui/badge";
 
+type ActivityTone = "rose" | "amber" | "emerald" | "stone";
+type ActivityKind =
+  | "note"
+  | "visit"
+  | "photo"
+  | "decision"
+  | "question"
+  | "answer"
+  | "vendor";
+
+interface ActivityEntry {
+  kind: ActivityKind;
+  label: string;
+  sub: string;
+  occurred_at: string;
+  tone: ActivityTone;
+}
+
+function excerpt(text: string, max = 60): string {
+  const t = text.trim().replace(/\s+/g, " ");
+  return t.length > max ? `${t.slice(0, max - 1)}…` : t;
+}
+
+function timeAgo(iso: string): string {
+  return formatDistanceToNow(new Date(iso), { addSuffix: true });
+}
+
 export default async function DashboardPage() {
   const supabase = createClient();
 
-  const [{ data: workspace }, { data: venues }, { count: notesCount }] = await Promise.all([
+  // `vendors` is not in the generated Database types yet; cast for that one call.
+  const sbVendors = supabase as unknown as {
+    from: (table: string) => {
+      select: (cols: string) => {
+        order: (
+          col: string,
+          opts: { ascending: boolean },
+        ) => {
+          limit: (
+            n: number,
+          ) => Promise<{ data: { id: string; name: string; created_at: string }[] | null }>;
+        };
+      };
+    };
+  };
+
+  const [
+    { data: workspace },
+    { data: venues },
+    { count: notesCount },
+    { data: recentNotes },
+    { data: recentVisits },
+    { data: recentPhotos },
+    { data: recentDecisions },
+    { data: recentQuestions },
+    { data: recentVendors },
+  ] = await Promise.all([
     supabase
       .from("workspaces")
       .select("name, wedding_date, base_currency")
@@ -22,6 +75,36 @@ export default async function DashboardPage() {
       .order("is_lead_pick", { ascending: false })
       .order("created_at", { ascending: true }),
     supabase.from("venue_notes").select("id", { count: "exact", head: true }),
+    supabase
+      .from("venue_notes")
+      .select("id, created_at, venue:venues(name)")
+      .order("created_at", { ascending: false })
+      .limit(5),
+    supabase
+      .from("venue_visits")
+      .select("id, visit_date, created_at, venue:venues(name)")
+      .order("created_at", { ascending: false })
+      .limit(5),
+    supabase
+      .from("venue_photos")
+      .select("id, created_at, venue:venues(name)")
+      .order("created_at", { ascending: false })
+      .limit(5),
+    supabase
+      .from("venue_decisions")
+      .select("id, kind, body, created_at, venue:venues(name)")
+      .order("created_at", { ascending: false })
+      .limit(5),
+    supabase
+      .from("venue_questions")
+      .select("id, body, status, answered_at, created_at, venue:venues(name)")
+      .order("created_at", { ascending: false })
+      .limit(5),
+    sbVendors
+      .from("vendors")
+      .select("id, name, created_at")
+      .order("created_at", { ascending: false })
+      .limit(5),
   ]);
 
   const daysUntil = workspace?.wedding_date
@@ -29,6 +112,84 @@ export default async function DashboardPage() {
     : null;
 
   const venueList = venues ?? [];
+
+  // Normalize the embedded venue join — supabase-js can return either an
+  // object or a single-element array depending on FK metadata.
+  const venueName = (v: unknown): string => {
+    if (!v) return "a venue";
+    if (Array.isArray(v)) return (v[0] as { name?: string } | undefined)?.name ?? "a venue";
+    return (v as { name?: string }).name ?? "a venue";
+  };
+
+  const activity: ActivityEntry[] = [];
+
+  for (const n of recentNotes ?? []) {
+    activity.push({
+      kind: "note",
+      label: "Note added",
+      sub: `${venueName((n as { venue: unknown }).venue)} · ${timeAgo(n.created_at)}`,
+      occurred_at: n.created_at,
+      tone: "rose",
+    });
+  }
+  for (const v of recentVisits ?? []) {
+    activity.push({
+      kind: "visit",
+      label: "Visit logged",
+      sub: `${venueName((v as { venue: unknown }).venue)} · ${v.visit_date}`,
+      occurred_at: v.created_at,
+      tone: "stone",
+    });
+  }
+  for (const p of recentPhotos ?? []) {
+    activity.push({
+      kind: "photo",
+      label: "Photo added",
+      sub: `${venueName((p as { venue: unknown }).venue)} · ${timeAgo(p.created_at)}`,
+      occurred_at: p.created_at,
+      tone: "stone",
+    });
+  }
+  for (const d of recentDecisions ?? []) {
+    activity.push({
+      kind: "decision",
+      label: `Decision: ${d.kind}`,
+      sub: `${venueName((d as { venue: unknown }).venue)} · ${excerpt(d.body)}`,
+      occurred_at: d.created_at,
+      tone: "emerald",
+    });
+  }
+  for (const q of recentQuestions ?? []) {
+    const name = venueName((q as { venue: unknown }).venue);
+    activity.push({
+      kind: "question",
+      label: "Question asked",
+      sub: `${excerpt(q.body)} · ${name}`,
+      occurred_at: q.created_at,
+      tone: "amber",
+    });
+    if (q.status === "answered" && q.answered_at) {
+      activity.push({
+        kind: "answer",
+        label: "Answered",
+        sub: `${name} · ${timeAgo(q.answered_at)}`,
+        occurred_at: q.answered_at,
+        tone: "emerald",
+      });
+    }
+  }
+  for (const vd of recentVendors ?? []) {
+    activity.push({
+      kind: "vendor",
+      label: "Vendor added",
+      sub: `${vd.name} · ${timeAgo(vd.created_at)}`,
+      occurred_at: vd.created_at,
+      tone: "stone",
+    });
+  }
+
+  activity.sort((a, b) => (a.occurred_at < b.occurred_at ? 1 : -1));
+  const recentActivity = activity.slice(0, 8);
 
   // Stats
   const venuesScouted = venueList.filter((v) =>
@@ -88,20 +249,17 @@ export default async function DashboardPage() {
           <div className="text-[11px] uppercase tracking-[0.2em] text-stone-500">
             Latest activity
           </div>
-          <ul className="mt-4 space-y-3 text-sm">
-            <ActivityItem
-              label="Notes updated"
-              sub="Across the venue shortlist · recent"
-            />
-            <ActivityItem
-              label="Photos uploaded"
-              sub="Latest visit · this week"
-            />
-            <ActivityItem
-              label="Visit logged"
-              sub="Scouting timeline · in progress"
-            />
-          </ul>
+          {recentActivity.length === 0 ? (
+            <p className="mt-4 text-sm text-stone-500">
+              Quiet so far — start by adding a note on a venue.
+            </p>
+          ) : (
+            <ul className="mt-4 space-y-3 text-sm">
+              {recentActivity.map((a, i) => (
+                <ActivityItem key={i} label={a.label} sub={a.sub} tone={a.tone} />
+              ))}
+            </ul>
+          )}
         </aside>
       </section>
 
@@ -179,10 +337,27 @@ function StatCard({
   );
 }
 
-function ActivityItem({ label, sub }: { label: string; sub: string }) {
+const TONE_BULLET: Record<ActivityTone, string> = {
+  rose: "bg-rose-600",
+  amber: "bg-amber-500",
+  emerald: "bg-emerald-600",
+  stone: "bg-stone-400",
+};
+
+function ActivityItem({
+  label,
+  sub,
+  tone = "rose",
+}: {
+  label: string;
+  sub: string;
+  tone?: ActivityTone;
+}) {
   return (
     <li className="flex items-start gap-2.5">
-      <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-rose-600" />
+      <span
+        className={`mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ${TONE_BULLET[tone]}`}
+      />
       <div>
         <div className="text-stone-900">{label}</div>
         <div className="mt-0.5 text-xs text-stone-500">{sub}</div>

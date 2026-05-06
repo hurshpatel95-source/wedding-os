@@ -15,27 +15,47 @@ export default async function VenueDetailPage({ params }: { params: { id: string
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const [{ data: venue }, { data: profile }, { data: visits }, { data: photos }, { data: notes }] =
-    await Promise.all([
-      supabase.from("venues").select("*").eq("id", params.id).maybeSingle(),
-      supabase.from("users").select("role").eq("id", user.id).maybeSingle(),
-      supabase
-        .from("venue_visits")
-        .select("*")
-        .eq("venue_id", params.id)
-        .order("visit_date", { ascending: false }),
-      supabase
-        .from("venue_photos")
-        .select("*")
-        .eq("venue_id", params.id)
-        .order("created_at", { ascending: false }),
-      supabase
-        .from("venue_notes")
-        .select("*, author:users!venue_notes_author_id_fkey(email)")
-        .eq("venue_id", params.id)
-        .order("pinned", { ascending: false })
-        .order("created_at", { ascending: false }),
-    ]);
+  const [
+    { data: venue },
+    { data: profile },
+    { data: visits },
+    { data: photos },
+    { data: notes },
+    { data: decisions },
+    { data: questions },
+  ] = await Promise.all([
+    supabase.from("venues").select("*").eq("id", params.id).maybeSingle(),
+    supabase.from("users").select("role").eq("id", user.id).maybeSingle(),
+    supabase
+      .from("venue_visits")
+      .select("*")
+      .eq("venue_id", params.id)
+      .order("visit_date", { ascending: false }),
+    supabase
+      .from("venue_photos")
+      .select("*")
+      .eq("venue_id", params.id)
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("venue_notes")
+      .select("*, author:users!venue_notes_author_id_fkey(email)")
+      .eq("venue_id", params.id)
+      .order("pinned", { ascending: false })
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("venue_decisions")
+      .select("*, decided_by_user:users!venue_decisions_decided_by_fkey(email)")
+      .eq("venue_id", params.id)
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("venue_questions")
+      .select(
+        "*, asked_by_user:users!venue_questions_asked_by_fkey(email), answered_by_user:users!venue_questions_answered_by_fkey(email)",
+      )
+      .eq("venue_id", params.id)
+      .order("status", { ascending: true })
+      .order("created_at", { ascending: false }),
+  ]);
 
   if (!venue) notFound();
 
@@ -62,6 +82,8 @@ export default async function VenueDetailPage({ params }: { params: { id: string
         visits={visits ?? []}
         photos={photos ?? []}
         notes={(notes ?? []) as never}
+        decisions={(decisions ?? []) as never}
+        questions={(questions ?? []) as never}
       />
     </div>
   );

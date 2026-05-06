@@ -23,6 +23,8 @@ type EventRole =
   | "reception"
   | "wedding"
   | "stay";
+type VenueDecisionKind = "shortlisted" | "visited" | "quoted" | "decided" | "passed" | "note";
+type VenueQuestionStatus = "open" | "answered" | "wont_answer";
 
 export type Database = {
   public: {
@@ -119,6 +121,8 @@ export type Database = {
           extra_hour_eur: number | null;
           spaces: { label: string; price_eur: number }[];
           hire_fee_notes: string | null;
+          pros: string[];
+          cons: string[];
           created_at: string;
           updated_at: string;
         };
@@ -153,6 +157,8 @@ export type Database = {
           extra_hour_eur?: number | null;
           spaces?: { label: string; price_eur: number }[];
           hire_fee_notes?: string | null;
+          pros?: string[];
+          cons?: string[];
           created_at?: string;
           updated_at?: string;
         };
@@ -187,8 +193,73 @@ export type Database = {
           extra_hour_eur?: number | null;
           spaces?: { label: string; price_eur: number }[];
           hire_fee_notes?: string | null;
+          pros?: string[];
+          cons?: string[];
           created_at?: string;
           updated_at?: string;
+        };
+        Relationships: [];
+      };
+      venue_decisions: {
+        Row: {
+          id: string;
+          venue_id: string;
+          kind: VenueDecisionKind;
+          body: string;
+          decided_by: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          venue_id: string;
+          kind: VenueDecisionKind;
+          body: string;
+          decided_by?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          venue_id?: string;
+          kind?: VenueDecisionKind;
+          body?: string;
+          decided_by?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      venue_questions: {
+        Row: {
+          id: string;
+          venue_id: string;
+          asked_by: string | null;
+          body: string;
+          answer: string | null;
+          answered_by: string | null;
+          answered_at: string | null;
+          status: VenueQuestionStatus;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          venue_id: string;
+          asked_by?: string | null;
+          body: string;
+          answer?: string | null;
+          answered_by?: string | null;
+          answered_at?: string | null;
+          status?: VenueQuestionStatus;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          venue_id?: string;
+          asked_by?: string | null;
+          body?: string;
+          answer?: string | null;
+          answered_by?: string | null;
+          answered_at?: string | null;
+          status?: VenueQuestionStatus;
+          created_at?: string;
         };
         Relationships: [];
       };
@@ -430,6 +501,8 @@ export type Database = {
       pricing_unit: PricingUnit;
       pricing_tier: PricingTier;
       event_role: EventRole;
+      venue_decision_kind: VenueDecisionKind;
+      venue_question_status: VenueQuestionStatus;
     };
     CompositeTypes: { [_ in never]: never };
   };

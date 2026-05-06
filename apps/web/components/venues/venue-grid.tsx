@@ -73,8 +73,8 @@ export function VenueGrid({ venues }: { venues: Venue[] }) {
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-3 rounded-lg border bg-card p-4 md:grid-cols-7">
-        <div className="space-y-1.5 md:col-span-2">
+      <div className="grid gap-3 rounded-lg border bg-card p-4 sm:grid-cols-2 lg:grid-cols-7">
+        <div className="space-y-1.5 sm:col-span-2 lg:col-span-2">
           <Label htmlFor="q">Search</Label>
           <Input id="q" placeholder="Name or address" value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
@@ -147,7 +147,7 @@ export function VenueGrid({ venues }: { venues: Venue[] }) {
             onChange={(e) => setMinCapacity(e.target.value.replace(/[^\d]/g, ""))}
           />
         </div>
-        <div className="space-y-1.5 md:col-span-1 md:col-start-6">
+        <div className="space-y-1.5 lg:col-start-7">
           <Label>Sort</Label>
           <Select value={sort} onValueChange={(v) => setSort(v as SortKey)}>
             <SelectTrigger>
