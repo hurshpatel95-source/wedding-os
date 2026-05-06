@@ -1092,8 +1092,8 @@ function VendorRollupCard({
             <a href="/vendors" className="underline">Vendors page</a>.
           </p>
         ) : (
-          <div className="overflow-hidden rounded-lg border border-stone-200">
-            <table className="w-full text-sm">
+          <div className="overflow-x-auto rounded-lg border border-stone-200">
+            <table className="w-full min-w-[640px] text-sm">
               <thead className="bg-stone-50 text-[10px] uppercase tracking-[0.15em] text-stone-500">
                 <tr>
                   <th className="px-3 py-2 text-left">Category</th>

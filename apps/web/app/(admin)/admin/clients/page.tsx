@@ -248,9 +248,18 @@ function EmptyState() {
         No clients yet
       </h2>
       <p className="mx-auto mt-3 max-w-sm text-sm text-stone-500">
-        Create your first couple workspace from the new-client flow once it
-        ships in the parallel brief.
+        Create your first couple workspace — pick library venues + vendors
+        to push, send a magic-link, and the couple can start using their
+        portal immediately.
       </p>
+      <div className="mt-5">
+        <a
+          href="/admin/clients/new"
+          className="inline-flex items-center gap-2 rounded-full bg-stone-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-stone-700"
+        >
+          + New client
+        </a>
+      </div>
     </div>
   );
 }
