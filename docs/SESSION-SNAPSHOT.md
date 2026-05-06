@@ -3,6 +3,12 @@
 The state of the build at end-of-session. Use this when context compresses
 or when picking the work back up cold.
 
+> Last update: spaces-breakdown live-merge fix (commit `aa46531`). When
+> Hursh added a 5th space ("Extra hour", €1,000) to MSL via the venue
+> editor, scenarios still showed the old 4 because they held a snapshot.
+> Now scenarios render from `venue.spaces` (live truth) and overlay
+> `event.spaces` selections — added spaces appear unchecked, opt-in.
+
 ---
 
 ## TL;DR
@@ -187,6 +193,7 @@ Hosting: **Railway** (auto-deploys from GitHub `main`).
 8. **Scenario 3 is the lead option** — Sept 11 (Sat) Sangeet @ Casa Del Mar + Sept 12 (Sun) Wedding @ MSL whole venue. Sun MSL min is 220 → no shortfall at 220 guests (vs €4,800 shortfall on Saturday).
 9. **Currency**: EUR base everywhere; USD toggle on calculator + spend tracker via `NEXT_PUBLIC_FX_EUR_USD` static rate.
 10. **VAT split**: 21% venue / 10% F&B + accom — Spanish IVA rates baked into scenario calc engine.
+11. **Spaces source-of-truth = `venue.spaces`** (admin-edited, DB). `event.spaces` only holds the per-space `selected` state. Adding/removing/repricing spaces on a venue propagates to every scenario without touching scenario data. Implemented via `getEffectiveSpaces()` merge in `scenario-studio.tsx`.
 
 ---
 
@@ -214,6 +221,7 @@ Hosting: **Railway** (auto-deploys from GitHub `main`).
 | `.next` cache occasionally corrupts on local dev (vendor-chunks errors) | low | `rm -rf apps/web/.next` + restart preview |
 | /vendors had a 500 (server-component onClick) — **fixed in commit `6556125`** | resolved | |
 | MSL spaces not auto-loading on fresh scenarios — **fixed in commit `c1a28fb`** | resolved | |
+| Admin-added spaces (e.g. MSL "Extra hour" €1k) didn't appear on existing scenarios — **fixed in commit `aa46531`** | resolved | Scenarios now read live from venue.spaces; selections preserved by label match. |
 | Mobile pass is partial (filter bars reflow, but scenario builder + tables could use more) | medium | One sweep across components/* would do it |
 | Magic-link emails rate-limited at ~3/hr on Supabase free tier | low | Use `gen_magic_link.ts` (admin API bypass) — already wired |
 | `supabase` CLI removed from devDependencies | by design | DB managed via `_apply_one.ts` instead |
@@ -335,6 +343,8 @@ wedding-os/
 ## Recent commits (most recent first)
 
 ```
+aa46531 Scenario builder: spaces always reflect live venue data
+b05eae7 Add docs/SESSION-SNAPSHOT.md — full state of the build
 6556125 Fix /vendors 500 — onClick handler on <a> in server component
 402de13 AI Pricing intake — drop screenshot/PDF/text, Claude extracts, admin reviews, applies
 a47f037 Co-pilot — workspace-aware AI chat with cost guardrails
@@ -378,3 +388,4 @@ When applying a new migration: `SUPABASE_DB_URL='postgresql://postgres:gLtdK0Co8
 - **`vendors` / `ai_*` / `pricing_intake_*` tables use cast pattern** in pages because they came after the initial Database types pass. RLS still enforced server-side; just bypassing the client-side type generic. Pattern: `supabase as unknown as { from: (t: string) => { select: ... } }`.
 - **Wedding date is intentionally null** in the workspace until you pick between Sept 4/5/6/12/18. Dashboard countdown shows "TBD" until set. Once set, plan-page due dates auto-anchor.
 - **Astia's lead option** is Sept 11 Sangeet @ Casa Del Mar + Sept 12 Wedding @ MSL — already encoded in Scenario 3 + availability "tentative" marks.
+- **Spaces architecture**: `venue.spaces` (DB) is the source of truth for which spaces exist + their prices. `event.spaces` (in `pricing_scenarios.inputs`) only stores per-space `selected` booleans. The render-merge in `scenario-studio.tsx`'s `getEffectiveSpaces()` is what makes admin venue edits flow through to all scenarios automatically. Don't reverse this — it's the cleanest way to keep one editable source of truth.
