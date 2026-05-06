@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Plus, Save, Send, X } from "lucide-react";
+import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -74,9 +75,13 @@ export function PublicSiteEditor({ initial, isPublished, publicSlug }: Props) {
       const data = await res.json();
       if (!res.ok) {
         setErr(data.error ?? "Couldn't save.");
+        toast.error(data.error ?? "Couldn't save.");
         return;
       }
       setSavedAt(Date.now());
+      if (publish === true) toast.success("Published — your URL is live");
+      else if (publish === false) toast.success("Unpublished — guests can't reach the site");
+      else toast.success("Site saved");
       router.refresh();
     } catch (e) {
       setErr((e as Error).message);

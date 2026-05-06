@@ -107,6 +107,41 @@ export default async function DashboardPage() {
       .limit(5),
   ]);
 
+  // ── Estimated total — pull from the most recent active budget estimate
+  // (couple's honest-budget view from /estimator). Falls back to first
+  // pricing scenario if no estimate exists yet.
+  let estimatedTotalEur: number | null = null;
+  try {
+    const sbEst = supabase as unknown as {
+      from: (t: string) => {
+        select: (c: string) => Promise<{
+          data: Array<{ baseline_total_eur: number | null }> | null;
+        }>;
+      };
+    };
+    const { data: estimates } = await sbEst
+      .from("budget_estimates")
+      .select("baseline_total_eur");
+    const totals = (estimates ?? [])
+      .map((e) => Number(e.baseline_total_eur ?? 0))
+      .filter((n) => Number.isFinite(n) && n > 0);
+    if (totals.length > 0) {
+      estimatedTotalEur = Math.min(...totals); // cheapest scenario = the floor
+    }
+  } catch {
+    estimatedTotalEur = null;
+  }
+  if (estimatedTotalEur == null) {
+    const { data: scen } = await supabase
+      .from("pricing_scenarios")
+      .select("calculated_total")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const t = Number((scen as { calculated_total: number | null } | null)?.calculated_total ?? 0);
+    if (t > 0) estimatedTotalEur = t;
+  }
+
   // ── Due-this-week ───────────────────────────────────────────────────
   // Pull open planning_tasks with due_date in the next 14 days, plus
   // unpaid vendor deposits + finals due in the next 30 days. Combined,
@@ -361,7 +396,19 @@ export default async function DashboardPage() {
           sub={`of ${venueList.length} on the list`}
         />
         <StatCard label="Open questions" value="—" sub="Q&A coming soon" />
-        <StatCard label="Estimated total" value="—" sub="Open pricing to set" />
+        <StatCard
+          label="Estimated total"
+          value={
+            estimatedTotalEur != null
+              ? `€${Math.round(estimatedTotalEur).toLocaleString()}`
+              : "—"
+          }
+          sub={
+            estimatedTotalEur != null
+              ? "Lowest estimate · open Estimator"
+              : "Open pricing to set"
+          }
+        />
         <StatCard
           label="Decisions logged"
           value={String(decisionsLogged)}

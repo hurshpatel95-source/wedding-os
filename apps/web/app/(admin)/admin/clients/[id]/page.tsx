@@ -114,6 +114,37 @@ export default async function AdminClientDrillPage({
     vendors = [];
   }
 
+  // Per-client invoices
+  let invoices: Array<{
+    id: string;
+    workspace_id: string;
+    label: string;
+    amount_eur: number;
+    due_at: string | null;
+    sent_at: string | null;
+    paid_at: string | null;
+    paid_via: string | null;
+    notes: string | null;
+    external_url: string | null;
+    created_at: string;
+  }> = [];
+  try {
+    const { data } = await sb
+      .from("planner_invoices")
+      .select(
+        "id, workspace_id, label, amount_eur, due_at, sent_at, paid_at, paid_via, notes, external_url, created_at",
+      )
+      .eq("workspace_id", params.id);
+    invoices = (data ?? []) as unknown as typeof invoices;
+  } catch {
+    invoices = [];
+  }
+  invoices.sort((a, b) => {
+    const ad = a.due_at ? +new Date(a.due_at) : 0;
+    const bd = b.due_at ? +new Date(b.due_at) : 0;
+    return ad - bd;
+  });
+
   const today = new Date();
   const status = deriveClientStatus(workspace.wedding_date, today);
   const venuesOfInterest = venues.filter((v) =>
@@ -188,6 +219,7 @@ export default async function AdminClientDrillPage({
               }
             : null
         }
+        invoices={invoices}
       />
     </div>
   );

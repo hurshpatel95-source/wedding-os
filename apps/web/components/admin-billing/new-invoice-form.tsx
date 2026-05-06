@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Plus } from "lucide-react";
+import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -65,8 +66,10 @@ export function NewInvoiceForm({
       const data = await res.json();
       if (!res.ok) {
         setErr(data.error ?? "Couldn't create invoice.");
+        toast.error(data.error ?? "Couldn't create invoice.");
         return;
       }
+      toast.success(`Invoice "${label.trim()}" added`);
       // Reset + close
       setLabel("");
       setAmount("");

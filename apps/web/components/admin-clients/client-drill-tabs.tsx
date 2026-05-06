@@ -3,7 +3,23 @@
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { InvoiceTable } from "@/components/admin-billing/invoice-table";
+import { NewInvoiceForm } from "@/components/admin-billing/new-invoice-form";
 import type { WorkspaceBrandingRow } from "@/lib/admin-client-types";
+
+interface InvoiceRow {
+  id: string;
+  workspace_id: string;
+  label: string;
+  amount_eur: number;
+  due_at: string | null;
+  sent_at: string | null;
+  paid_at: string | null;
+  paid_via: string | null;
+  notes: string | null;
+  external_url: string | null;
+  created_at: string;
+}
 
 interface WorkspaceShape {
   id: string;
@@ -37,16 +53,37 @@ export function ClientDrillTabs({
   workspace,
   stats,
   branding,
+  invoices,
 }: {
   workspace: WorkspaceShape;
   stats: DrillStats;
   branding: WorkspaceBrandingRow | null;
+  invoices: InvoiceRow[];
 }) {
+  const outstandingTotal = invoices
+    .filter((i) => !i.paid_at)
+    .reduce((acc, i) => acc + Number(i.amount_eur), 0);
+  const overdueCount = invoices.filter((i) => {
+    if (i.paid_at || !i.due_at) return false;
+    return new Date(i.due_at).getTime() < Date.now();
+  }).length;
+  const workspaceById = new Map<string, string>([
+    [workspace.id, workspace.name],
+  ]);
+
   return (
     <Tabs defaultValue="overview">
       <TabsList className="flex-wrap">
         <TabsTrigger value="overview">Overview</TabsTrigger>
         <TabsTrigger value="branding">Branding</TabsTrigger>
+        <TabsTrigger value="billing">
+          Billing
+          {invoices.length > 0 && (
+            <span className="ml-1.5 inline-flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-stone-200 px-1 text-[10px]">
+              {invoices.length}
+            </span>
+          )}
+        </TabsTrigger>
         <TabsTrigger value="activity">Activity</TabsTrigger>
         <TabsTrigger value="settings">Settings</TabsTrigger>
       </TabsList>
@@ -153,6 +190,66 @@ export function ClientDrillTabs({
           Branding is read by the couple shell. Wiring it into the couple shell
           itself happens in a follow-up brief.
         </p>
+      </TabsContent>
+
+      <TabsContent value="billing" className="space-y-4">
+        <div className="grid gap-3 md:grid-cols-3">
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+            <div className="text-[10px] uppercase tracking-[0.2em] text-amber-900">
+              Outstanding
+            </div>
+            <div className="mt-1 font-serif text-3xl font-medium tabular-nums text-amber-900">
+              €{Math.round(outstandingTotal).toLocaleString()}
+            </div>
+          </div>
+          <div
+            className={`rounded-2xl border p-4 ${
+              overdueCount > 0
+                ? "border-rose-200 bg-rose-50"
+                : "border-stone-200 bg-white"
+            }`}
+          >
+            <div
+              className={`text-[10px] uppercase tracking-[0.2em] ${
+                overdueCount > 0 ? "text-rose-900" : "text-stone-500"
+              }`}
+            >
+              Overdue
+            </div>
+            <div
+              className={`mt-1 font-serif text-3xl font-medium tabular-nums ${
+                overdueCount > 0 ? "text-rose-900" : ""
+              }`}
+            >
+              {overdueCount}
+            </div>
+          </div>
+          <div className="rounded-2xl border border-stone-200 bg-white p-4">
+            <div className="text-[10px] uppercase tracking-[0.2em] text-stone-500">
+              Total invoices
+            </div>
+            <div className="mt-1 font-serif text-3xl font-medium tabular-nums">
+              {invoices.length}
+            </div>
+          </div>
+        </div>
+
+        <NewInvoiceForm
+          workspaces={[{ id: workspace.id, name: workspace.name }]}
+          defaultWorkspaceId={workspace.id}
+        />
+
+        {invoices.length > 0 ? (
+          <InvoiceTable
+            invoices={invoices}
+            workspaceById={workspaceById}
+          />
+        ) : (
+          <div className="rounded-2xl border border-dashed border-stone-300 bg-white/60 px-8 py-12 text-center text-sm text-stone-500">
+            No invoices yet for {workspace.name}. Add the first one above —
+            retainer, milestone, or final balance.
+          </div>
+        )}
       </TabsContent>
 
       <TabsContent value="activity">

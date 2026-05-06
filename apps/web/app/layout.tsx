@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Fraunces, Manrope } from "next/font/google";
+import { Toaster } from "sonner";
 import "./globals.css";
 
 const fraunces = Fraunces({
@@ -24,7 +25,20 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${fraunces.variable} ${manrope.variable}`}>
-      <body className={`${manrope.className} min-h-screen antialiased`}>{children}</body>
+      <body className={`${manrope.className} min-h-screen antialiased`}>
+        {children}
+        <Toaster
+          position="bottom-right"
+          richColors
+          closeButton
+          toastOptions={{
+            classNames: {
+              toast:
+                "font-sans rounded-xl border border-stone-200 shadow-lg",
+            },
+          }}
+        />
+      </body>
     </html>
   );
 }

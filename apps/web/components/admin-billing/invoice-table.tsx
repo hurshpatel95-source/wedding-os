@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { format, parseISO } from "date-fns";
 import { Check, Loader2, Send, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -49,8 +50,13 @@ export function InvoiceTable({
       const data = await res.json();
       if (!res.ok) {
         setErr(data.error ?? "Update failed.");
+        toast.error(data.error ?? "Update failed.");
         return;
       }
+      if (body.mark_paid) toast.success("Marked paid");
+      else if (body.mark_sent) toast.success("Marked sent");
+      else if (body.mark_unpaid) toast.success("Marked unpaid");
+      else toast.success("Invoice updated");
       router.refresh();
     } finally {
       setPendingId(null);
@@ -60,8 +66,10 @@ export function InvoiceTable({
   const remove = async (id: string) => {
     if (!confirm("Delete this invoice?")) return;
     setPendingId(id);
-    await fetch(`/api/admin/invoices/${id}`, { method: "DELETE" });
+    const res = await fetch(`/api/admin/invoices/${id}`, { method: "DELETE" });
     setPendingId(null);
+    if (res.ok) toast.success("Invoice deleted");
+    else toast.error("Couldn't delete invoice");
     router.refresh();
   };
 
