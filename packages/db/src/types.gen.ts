@@ -730,6 +730,8 @@ export type Database = {
           org_id: string;
           category: TaskCategory;
           phase: TaskPhase;
+          phase_id: string | null;
+          is_user_added: boolean;
           sort_order: number;
           title: string;
           description: string | null;
@@ -752,6 +754,8 @@ export type Database = {
           org_id: string;
           category: TaskCategory;
           phase: TaskPhase;
+          phase_id?: string | null;
+          is_user_added?: boolean;
           sort_order?: number;
           title: string;
           description?: string | null;
@@ -771,6 +775,8 @@ export type Database = {
         Update: Partial<{
           category: TaskCategory;
           phase: TaskPhase;
+          phase_id: string | null;
+          is_user_added: boolean;
           sort_order: number;
           title: string;
           description: string | null;
