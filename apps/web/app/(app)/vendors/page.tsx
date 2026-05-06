@@ -1,8 +1,6 @@
-import { Mail, Sparkles, Zap } from "lucide-react";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { VendorGrid } from "@/components/vendors/vendor-grid";
-import { VendorCreateButton } from "@/components/vendors/vendor-create-button";
-import { Badge } from "@/components/ui/badge";
 import type { VendorRow } from "@/lib/vendor-types";
 
 export const dynamic = "force-dynamic";
@@ -26,7 +24,6 @@ type VendorListItem = Pick<
 export default async function VendorsPage() {
   const supabase = createClient();
 
-  // `vendors` is not yet in the generated Database types; cast for the from() call only.
   const sb = supabase as unknown as {
     from: (table: string) => {
       select: (cols: string) => {
@@ -48,66 +45,53 @@ export default async function VendorsPage() {
     supabase.auth.getUser(),
   ]);
 
-  let role: "admin" | "couple" | null = null;
+  // Org_admins manage vendors via the planner CRM in /admin/vendors.
+  // Send them there instead of the couple-facing read-only list.
   if (user) {
-    const { data: profile } = await supabase
-      .from("users")
-      .select("role")
-      .eq("id", user.id)
-      .maybeSingle();
-    role = (profile?.role ?? null) as typeof role;
+    try {
+      const sbU = supabase as unknown as {
+        from: (t: string) => {
+          select: (c: string) => {
+            eq: (col: string, val: string) => {
+              maybeSingle: () => Promise<{
+                data: { org_role?: string | null } | null;
+              }>;
+            };
+          };
+        };
+      };
+      const { data: profile } = await sbU
+        .from("users")
+        .select("org_role")
+        .eq("id", user.id)
+        .maybeSingle();
+      if (profile?.org_role === "org_admin") {
+        redirect("/admin/vendors");
+      }
+    } catch {
+      // pre-migration tolerant
+    }
   }
 
   const list: VendorListItem[] = vendors ?? [];
 
   return (
     <div className="space-y-6">
-      <header className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="font-serif text-4xl tracking-tight md:text-5xl">Vendors</h1>
-          <p className="mt-2 text-xs uppercase tracking-[0.2em] text-muted-foreground">
-            Florists, photo + video, DJs, MUAs, transport — every vendor for the wedding
-          </p>
+      <header>
+        <div className="text-[11px] uppercase tracking-[0.25em] text-stone-500">
+          Wedding vendor updates
         </div>
-        {role === "admin" && <VendorCreateButton />}
+        <h1 className="mt-1 font-serif text-4xl font-light tracking-tight md:text-5xl">
+          Vendors
+        </h1>
+        <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
+          Florists, photo + video, DJs, MUAs, transport — every team working on
+          your wedding. Your planner manages contact details and quotes; you
+          see who&apos;s on the team and where each booking stands.
+        </p>
       </header>
 
-      {role === "admin" && (
-        <div className="rounded-2xl border border-rose-200 bg-gradient-to-br from-rose-50 via-white to-amber-50 p-5 shadow-sm">
-          <div className="flex flex-wrap items-start gap-4">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-rose-100 text-rose-700">
-              <Zap className="h-5 w-5" />
-            </div>
-            <div className="flex-1 space-y-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <h3 className="font-serif text-lg">
-                  Gmail integration · coming soon
-                </h3>
-                <Badge variant="muted" className="text-[10px]">
-                  Phase 2
-                </Badge>
-              </div>
-              <p className="max-w-3xl text-sm text-stone-600">
-                Connect Astia's Gmail and wedding-os will{" "}
-                <span className="font-medium text-stone-900">monitor incoming vendor emails</span>,{" "}
-                <span className="font-medium text-stone-900">auto-update vendor statuses</span> when
-                a quote arrives, and route every thread to the right client. For now: open any
-                vendor and click <Sparkles className="inline h-3 w-3 align-text-top" /> Compose with
-                AI to get a Claude-drafted email you can paste into Gmail.
-              </p>
-            </div>
-            <span
-              className="inline-flex items-center gap-1 rounded-full border border-rose-300 bg-white px-3 py-1.5 text-xs font-medium text-rose-800"
-              title="Coming in Phase 2"
-            >
-              <Mail className="h-3 w-3" />
-              Beta list opens soon
-            </span>
-          </div>
-        </div>
-      )}
-
-      <VendorGrid vendors={list} role={role} />
+      <VendorGrid vendors={list} role="couple" />
     </div>
   );
 }

@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import {
   BookOpen,
+  Briefcase,
   ChevronDown,
   Heart,
   Library,
@@ -19,6 +20,7 @@ import { cn } from "@/lib/utils";
 const links: { href: string; label: string; icon: LucideIcon }[] = [
   { href: "/admin/library", label: "Library", icon: Library },
   { href: "/admin/playbook", label: "Playbook", icon: BookOpen },
+  { href: "/admin/vendors", label: "Vendors", icon: Briefcase },
   { href: "/admin/clients", label: "Clients", icon: Users },
   { href: "/admin/settings", label: "Settings", icon: SettingsIcon },
 ];

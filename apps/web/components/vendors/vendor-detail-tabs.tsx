@@ -25,40 +25,52 @@ export function VendorDetailTabs({
   initialAttachments: VendorAttachmentRow[];
 }) {
   const openTaskCount = initialTasks.filter((t) => !t.done).length;
+  const isAdmin = role === "admin";
 
   return (
     <Tabs defaultValue="overview">
       <TabsList className="flex-wrap">
         <TabsTrigger value="overview">Overview</TabsTrigger>
-        <TabsTrigger value="pricing">Pricing</TabsTrigger>
-        <TabsTrigger value="tasks">
-          Tasks ({openTaskCount}/{initialTasks.length})
-        </TabsTrigger>
-        <TabsTrigger value="files">Files ({initialAttachments.length})</TabsTrigger>
+        {/* Pricing/Tasks/Files are CRM tabs — admin only. Couples just see Overview. */}
+        {isAdmin && <TabsTrigger value="pricing">Pricing</TabsTrigger>}
+        {isAdmin && (
+          <TabsTrigger value="tasks">
+            Tasks ({openTaskCount}/{initialTasks.length})
+          </TabsTrigger>
+        )}
+        {isAdmin && (
+          <TabsTrigger value="files">Files ({initialAttachments.length})</TabsTrigger>
+        )}
       </TabsList>
 
       <TabsContent value="overview">
         <VendorOverviewTab vendor={vendor} role={role} />
       </TabsContent>
-      <TabsContent value="pricing">
-        <VendorPricingTab vendor={vendor} role={role} />
-      </TabsContent>
-      <TabsContent value="tasks">
-        <VendorTasksTab
-          vendorId={vendor.id}
-          userId={userId}
-          role={role}
-          initialTasks={initialTasks}
-        />
-      </TabsContent>
-      <TabsContent value="files">
-        <VendorFilesTab
-          vendorId={vendor.id}
-          userId={userId}
-          role={role}
-          initialAttachments={initialAttachments}
-        />
-      </TabsContent>
+      {isAdmin && (
+        <TabsContent value="pricing">
+          <VendorPricingTab vendor={vendor} role={role} />
+        </TabsContent>
+      )}
+      {isAdmin && (
+        <TabsContent value="tasks">
+          <VendorTasksTab
+            vendorId={vendor.id}
+            userId={userId}
+            role={role}
+            initialTasks={initialTasks}
+          />
+        </TabsContent>
+      )}
+      {isAdmin && (
+        <TabsContent value="files">
+          <VendorFilesTab
+            vendorId={vendor.id}
+            userId={userId}
+            role={role}
+            initialAttachments={initialAttachments}
+          />
+        </TabsContent>
+      )}
     </Tabs>
   );
 }

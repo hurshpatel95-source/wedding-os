@@ -21,7 +21,8 @@
     "db:seed-estimates": "tsx supabase/seed/import_astha_estimates.ts",
     "db:migrate-planner-os": "tsx supabase/seed/migrate_to_planner_os.ts",
     "db:seed-playbook": "tsx supabase/seed/seed_playbook_template.ts",
-    "db:seed-library": "tsx supabase/seed/seed_library.ts"
+    "db:seed-library": "tsx supabase/seed/seed_library.ts",
+    "db:seed-library-media": "tsx supabase/seed/seed_library_media.ts"
   },
   "devDependencies": {
     "@supabase/supabase-js": "^2.46.1",

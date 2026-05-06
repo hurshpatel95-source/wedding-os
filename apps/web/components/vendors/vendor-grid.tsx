@@ -89,14 +89,17 @@ export function VendorGrid({
     const needle = q.trim().toLowerCase();
     return vendors.filter((v) => {
       if (needle) {
-        const hay = `${v.name} ${v.contact_name ?? ""} ${v.contact_email ?? ""} ${v.notes ?? ""}`.toLowerCase();
+        // Couples search by name only; admins also search contact/notes (CRM data).
+        const hay = isAdmin
+          ? `${v.name} ${v.contact_name ?? ""} ${v.contact_email ?? ""} ${v.notes ?? ""}`.toLowerCase()
+          : v.name.toLowerCase();
         if (!hay.includes(needle)) return false;
       }
       if (category !== "any" && v.category !== category) return false;
       if (status !== "all" && v.status !== status) return false;
       return true;
     });
-  }, [vendors, q, category, status]);
+  }, [vendors, q, category, status, isAdmin]);
 
   const selectAllFiltered = () => {
     setSelected(new Set(filtered.map((v) => v.id)));
@@ -163,7 +166,7 @@ export function VendorGrid({
           <Label htmlFor="vq">Search</Label>
           <Input
             id="vq"
-            placeholder="Name, contact, or notes"
+            placeholder={isAdmin ? "Name, contact, or notes" : "Vendor name"}
             value={q}
             onChange={(e) => setQ(e.target.value)}
           />
@@ -403,32 +406,36 @@ function VendorCard({
             <h3 className="font-serif text-2xl font-medium leading-tight tracking-tight text-stone-900">
               {vendor.name}
             </h3>
-            {(vendor.contact_name || vendor.contact_email) && (
+            {/* Contact info is CRM data — admin only. */}
+            {isAdmin && (vendor.contact_name || vendor.contact_email) && (
               <p className="mt-1 line-clamp-1 text-sm text-stone-500">
                 {[vendor.contact_name, vendor.contact_email].filter(Boolean).join(" · ")}
               </p>
             )}
           </div>
 
-          <div className="mt-auto flex items-center justify-between border-t border-stone-100 pt-3 text-sm">
-            <div className="text-stone-700">
-              {vendor.quoted_price_eur != null ? (
-                <span className="font-medium">
-                  {formatMoney(Number(vendor.quoted_price_eur), "EUR")}
-                </span>
-              ) : (
-                <span className="text-xs uppercase tracking-wider text-stone-400">
-                  No quote yet
+          {/* Pricing + deposit alerts are CRM. Couples just see name + status. */}
+          {isAdmin && (
+            <div className="mt-auto flex items-center justify-between border-t border-stone-100 pt-3 text-sm">
+              <div className="text-stone-700">
+                {vendor.quoted_price_eur != null ? (
+                  <span className="font-medium">
+                    {formatMoney(Number(vendor.quoted_price_eur), "EUR")}
+                  </span>
+                ) : (
+                  <span className="text-xs uppercase tracking-wider text-stone-400">
+                    No quote yet
+                  </span>
+                )}
+              </div>
+              {depositSoon && (
+                <span className="flex items-center gap-1.5 text-xs text-amber-700">
+                  <span className="inline-block h-2 w-2 rounded-full bg-amber-500" />
+                  Deposit due soon
                 </span>
               )}
             </div>
-            {depositSoon && (
-              <span className="flex items-center gap-1.5 text-xs text-amber-700">
-                <span className="inline-block h-2 w-2 rounded-full bg-amber-500" />
-                Deposit due soon
-              </span>
-            )}
-          </div>
+          )}
         </CardContent>
       </Card>
     </Link>
