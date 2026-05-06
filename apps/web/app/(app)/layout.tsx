@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { Nav } from "@/components/nav";
+import { ImpersonationBanner } from "@/components/admin-impersonation-banner";
 
 const DEFAULT_ACCENT = "#9d174d";
 
@@ -14,7 +15,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   if (!user) redirect("/login");
 
   const [{ data: profile }, { data: workspace }] = await Promise.all([
-    supabase.from("users").select("role, workspace_id").eq("id", user.id).maybeSingle(),
+    supabase
+      .from("users")
+      .select("role, workspace_id")
+      .eq("id", user.id)
+      .maybeSingle(),
     supabase
       .from("workspaces")
       .select("id, name, wedding_date")
@@ -23,6 +28,36 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   ]);
 
   const role = (profile?.role ?? null) as "admin" | "couple" | null;
+
+  // Detect workspace impersonation — for org_admins, auth_workspace_id()
+  // returns the override row's workspace_id when set. Surface a banner so
+  // the planner knows they're viewing as someone else.
+  let impersonatingWorkspaceName: string | null = null;
+  try {
+    const sb = supabase as unknown as {
+      from: (t: string) => {
+        select: (c: string) => {
+          eq: (col: string, val: string) => {
+            maybeSingle: () => Promise<{
+              data: { workspace_id?: string | null } | null;
+            }>;
+          };
+        };
+      };
+    };
+    const { data: override } = await sb
+      .from("active_workspace_overrides")
+      .select("workspace_id")
+      .eq("user_id", user.id)
+      .maybeSingle();
+    if (override?.workspace_id && workspace?.id !== profile?.workspace_id) {
+      // The workspace we just fetched is the impersonated one (RLS picked
+      // it up via auth_workspace_id), so its name is the right label.
+      impersonatingWorkspaceName = workspace?.name ?? "another client";
+    }
+  } catch {
+    // Pre-migration tolerant
+  }
 
   // Pull this workspace's branding row (per-couple accent + planner display
   // name + logo). Couple workspace_branding is readable to workspace members
@@ -74,6 +109,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       className="flex min-h-screen flex-col"
       style={{ "--accent": brandingAccent } as React.CSSProperties}
     >
+      {impersonatingWorkspaceName && (
+        <ImpersonationBanner workspaceName={impersonatingWorkspaceName} />
+      )}
       <Nav
         userEmail={user.email ?? null}
         role={role}

@@ -45,14 +45,39 @@ export default async function PaymentsPage() {
     };
   };
 
-  const [{ data: vendors }, { data: { user } }] = await Promise.all([
-    sb
-      .from("vendors")
-      .select(
-        "id, name, category, status, contact_name, deposit_amount_eur, deposit_due_at, deposit_paid_at, final_balance_eur, final_due_at, final_paid_at, include_in_pricing",
-      ),
-    supabase.auth.getUser(),
-  ]);
+  const sbInv = supabase as unknown as {
+    from: (table: string) => {
+      select: (cols: string) => {
+        order: (col: string, opts: { ascending: boolean }) => Promise<{
+          data: Array<{
+            id: string;
+            label: string;
+            amount_eur: number;
+            due_at: string | null;
+            sent_at: string | null;
+            paid_at: string | null;
+            external_url: string | null;
+          }> | null;
+        }>;
+      };
+    };
+  };
+
+  const [{ data: vendors }, { data: { user } }, { data: plannerInvoicesRaw }] =
+    await Promise.all([
+      sb
+        .from("vendors")
+        .select(
+          "id, name, category, status, contact_name, deposit_amount_eur, deposit_due_at, deposit_paid_at, final_balance_eur, final_due_at, final_paid_at, include_in_pricing",
+        ),
+      supabase.auth.getUser(),
+      sbInv
+        .from("planner_invoices")
+        .select("id, label, amount_eur, due_at, sent_at, paid_at, external_url")
+        .order("due_at", { ascending: true }),
+    ]);
+
+  const plannerInvoices = plannerInvoicesRaw ?? [];
 
   let role: "admin" | "couple" | null = null;
   if (user) {
@@ -171,6 +196,80 @@ export default async function PaymentsPage() {
       </div>
 
       <PaymentsCalendar milestones={milestones} role={role} />
+
+      {plannerInvoices.length > 0 && (
+        <section className="rounded-2xl border border-stone-200 bg-white p-5">
+          <div className="mb-3">
+            <div className="text-[10px] uppercase tracking-[0.25em] text-stone-500">
+              Planner invoices
+            </div>
+            <h2 className="mt-1 font-serif text-2xl">
+              What you owe your planner
+            </h2>
+            <p className="text-xs text-muted-foreground">
+              Tracked + marked paid by your planner. See your invoice link
+              for payment instructions.
+            </p>
+          </div>
+          <table className="w-full text-sm">
+            <thead className="bg-stone-50 text-[10px] uppercase tracking-[0.15em] text-stone-500">
+              <tr>
+                <th className="px-3 py-2 text-left">Label</th>
+                <th className="px-3 py-2 text-right">Amount</th>
+                <th className="px-3 py-2 text-left">Due</th>
+                <th className="px-3 py-2 text-left">Status</th>
+                <th className="px-3 py-2 text-right">Link</th>
+              </tr>
+            </thead>
+            <tbody>
+              {plannerInvoices.map((inv) => {
+                const overdueInv =
+                  !inv.paid_at &&
+                  inv.due_at &&
+                  new Date(inv.due_at).getTime() < Date.now();
+                return (
+                  <tr key={inv.id} className="border-t border-stone-100">
+                    <td className="px-3 py-2 font-medium">{inv.label}</td>
+                    <td className="px-3 py-2 text-right tabular-nums">
+                      €{Number(inv.amount_eur).toLocaleString()}
+                    </td>
+                    <td className="px-3 py-2 text-xs text-stone-600">
+                      {inv.due_at
+                        ? new Date(inv.due_at).toLocaleDateString()
+                        : "—"}
+                    </td>
+                    <td className="px-3 py-2 text-xs">
+                      {inv.paid_at ? (
+                        <span className="text-emerald-700">Paid</span>
+                      ) : overdueInv ? (
+                        <span className="text-rose-700">Overdue</span>
+                      ) : inv.sent_at ? (
+                        <span className="text-amber-700">Sent</span>
+                      ) : (
+                        <span className="text-stone-500">Drafted</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2 text-right">
+                      {inv.external_url ? (
+                        <a
+                          href={inv.external_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-rose-700 hover:underline"
+                        >
+                          Open ↗
+                        </a>
+                      ) : (
+                        <span className="text-stone-300">—</span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </section>
+      )}
     </div>
   );
 }

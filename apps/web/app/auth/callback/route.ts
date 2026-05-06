@@ -5,6 +5,20 @@ export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
   const next = searchParams.get("next");
+  // Supabase sends the OTP/expired-token errors in the URL hash, but a few
+  // routes also pass them as query params. Catch the query path here; the
+  // hash path is handled client-side on /login.
+  const callbackError = searchParams.get("error");
+  const errorCode = searchParams.get("error_code");
+  if (callbackError) {
+    const isExpired =
+      errorCode === "otp_expired" ||
+      callbackError === "access_denied" ||
+      (searchParams.get("error_description") ?? "").toLowerCase().includes("expired");
+    return NextResponse.redirect(
+      `${origin}/login?error=${isExpired ? "expired" : "auth"}`,
+    );
+  }
 
   if (code) {
     const supabase = createClient();
@@ -47,6 +61,12 @@ export async function GET(request: NextRequest) {
       }
       return NextResponse.redirect(`${origin}${destination}`);
     }
+    // exchangeCodeForSession failed — most often because the link expired
+    // or was already used. Redirect with a friendly banner.
+    const isExpired = (error?.message ?? "").toLowerCase().includes("expired");
+    return NextResponse.redirect(
+      `${origin}/login?error=${isExpired ? "expired" : "auth"}`,
+    );
   }
 
   return NextResponse.redirect(`${origin}/login?error=auth`);

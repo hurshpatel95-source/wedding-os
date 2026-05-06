@@ -13,6 +13,12 @@ interface CreateBody {
   contact_phone?: string | null;
   default_quoted_price_eur?: number | null;
   notes?: string | null;
+  website?: string | null;
+  instagram?: string | null;
+  planner_rating?: number | null;
+  tags?: string[];
+  lead_time_days?: number | null;
+  price_band?: string | null;
 }
 
 export async function POST(request: NextRequest) {
@@ -76,6 +82,12 @@ export async function POST(request: NextRequest) {
         ? null
         : Number(body.default_quoted_price_eur),
     notes: body.notes?.toString().trim() || null,
+    website: body.website?.toString().trim() || null,
+    instagram: body.instagram?.toString().trim() || null,
+    planner_rating: body.planner_rating ?? null,
+    tags: body.tags ?? [],
+    lead_time_days: body.lead_time_days ?? null,
+    price_band: (body.price_band as never) ?? null,
   };
 
   const { error } = await sb

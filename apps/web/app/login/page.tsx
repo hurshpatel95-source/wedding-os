@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { AlertCircle } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,11 +12,40 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 type Mode = "password" | "magic";
 
 export default function LoginPage() {
+  const searchParams = useSearchParams();
   const [mode, setMode] = useState<Mode>("password");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [status, setStatus] = useState<"idle" | "submitting" | "sent">("idle");
   const [error, setError] = useState<string | null>(null);
+  const [banner, setBanner] = useState<string | null>(null);
+
+  // Surface ?error= and the URL hash from Supabase auth callbacks.
+  // E.g. magic-link expiry returns #error=access_denied&error_description=...
+  useEffect(() => {
+    const qErr = searchParams.get("error");
+    if (qErr === "expired") {
+      setBanner(
+        "That link has expired. Send yourself a new magic link or sign in with your password.",
+      );
+      setMode("magic");
+      return;
+    }
+    if (qErr === "auth") {
+      setBanner("Sign-in failed. Try again or use the password.");
+      return;
+    }
+    if (typeof window !== "undefined" && window.location.hash) {
+      const hash = new URLSearchParams(window.location.hash.slice(1));
+      const desc = hash.get("error_description");
+      if (desc) {
+        setBanner(decodeURIComponent(desc.replace(/\+/g, " ")));
+        setMode("magic");
+        // Clean the URL so a refresh doesn't re-show the banner
+        window.history.replaceState(null, "", window.location.pathname);
+      }
+    }
+  }, [searchParams]);
 
   const handlePasswordSignIn = async () => {
     if (!email || !password) return;
@@ -95,6 +126,12 @@ export default function LoginPage() {
           <CardDescription>Barcelona · September 2027</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {banner && (
+            <div className="flex items-start gap-2 rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+              <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              <span>{banner}</span>
+            </div>
+          )}
           {status === "sent" ? (
             <p className="text-sm text-muted-foreground">
               Check <span className="font-medium text-foreground">{email}</span> for a sign-in link.

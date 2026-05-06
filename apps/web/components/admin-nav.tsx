@@ -10,6 +10,7 @@ import {
   Heart,
   Library,
   LogOut,
+  Receipt,
   Settings as SettingsIcon,
   Users,
 } from "lucide-react";
@@ -22,6 +23,7 @@ const links: { href: string; label: string; icon: LucideIcon }[] = [
   { href: "/admin/playbook", label: "Playbook", icon: BookOpen },
   { href: "/admin/vendors", label: "Vendors", icon: Briefcase },
   { href: "/admin/clients", label: "Clients", icon: Users },
+  { href: "/admin/billing", label: "Billing", icon: Receipt },
   { href: "/admin/settings", label: "Settings", icon: SettingsIcon },
 ];
 
@@ -113,19 +115,28 @@ export function AdminNav({
                   <ul className="max-h-72 overflow-y-auto py-1">
                     {workspaces.map((w) => (
                       <li key={w.id}>
-                        <Link
-                          href={`/?as=${w.id}`}
-                          onClick={() => setPickerOpen(false)}
-                          className="block px-4 py-2 text-sm text-stone-700 transition hover:bg-stone-50"
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            await fetch("/api/admin/impersonate", {
+                              method: "POST",
+                              headers: { "content-type": "application/json" },
+                              body: JSON.stringify({ workspace_id: w.id }),
+                            });
+                            setPickerOpen(false);
+                            // Land on the couple shell — that's the point of viewing-as.
+                            window.location.href = "/";
+                          }}
+                          className="block w-full px-4 py-2 text-left text-sm text-stone-700 transition hover:bg-stone-50"
                         >
                           {w.name}
-                        </Link>
+                        </button>
                       </li>
                     ))}
                   </ul>
                 )}
                 <div className="border-t border-stone-100 px-4 py-2 text-[10px] text-stone-400">
-                  Stub — wiring comes in Wave 2
+                  Switches the couple shell to that client&rsquo;s data
                 </div>
               </div>
             )}

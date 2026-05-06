@@ -4,6 +4,8 @@
 
 import type { VendorCategory } from "./vendor-types";
 
+export type PriceBand = "budget" | "mid" | "premium" | "luxe" | "unset";
+
 export interface LibraryVendorRow {
   id: string;
   org_id: string;
@@ -14,6 +16,13 @@ export interface LibraryVendorRow {
   contact_phone: string | null;
   default_quoted_price_eur: number | null;
   notes: string | null;
+  website: string | null;
+  instagram: string | null;
+  planner_rating: number | null;
+  default_contract_path: string | null;
+  tags: string[];
+  lead_time_days: number | null;
+  price_band: PriceBand | null;
   created_at: string;
   updated_at: string;
 }
@@ -31,11 +40,13 @@ export type LibraryVendorListItem = Pick<
   | "created_at"
 >;
 
-export type LibraryVendorInsert = Omit<
-  LibraryVendorRow,
-  "id" | "created_at" | "updated_at"
+export type LibraryVendorInsert = Partial<
+  Omit<LibraryVendorRow, "id" | "org_id" | "created_at" | "updated_at">
 > & {
   id?: string;
+  org_id: string;
+  name: string;
+  category: VendorCategory;
   created_at?: string;
   updated_at?: string;
 };

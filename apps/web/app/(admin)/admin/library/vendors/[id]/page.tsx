@@ -38,7 +38,7 @@ export default async function EditLibraryVendorPage({
   const { data: vendor } = await sb
     .from("library_vendors")
     .select(
-      "id, org_id, name, category, contact_name, contact_email, contact_phone, default_quoted_price_eur, notes, created_at, updated_at",
+      "id, org_id, name, category, contact_name, contact_email, contact_phone, default_quoted_price_eur, notes, website, instagram, planner_rating, default_contract_path, tags, lead_time_days, price_band, created_at, updated_at",
     )
     .eq("id", params.id)
     .maybeSingle();
@@ -112,6 +112,12 @@ export default async function EditLibraryVendorPage({
               contact_phone: vendor.contact_phone,
               default_quoted_price_eur: vendor.default_quoted_price_eur,
               notes: vendor.notes,
+              website: vendor.website ?? null,
+              instagram: vendor.instagram ?? null,
+              planner_rating: vendor.planner_rating ?? null,
+              tags: vendor.tags ?? [],
+              lead_time_days: vendor.lead_time_days ?? null,
+              price_band: vendor.price_band ?? null,
             }}
           />
         </CardContent>

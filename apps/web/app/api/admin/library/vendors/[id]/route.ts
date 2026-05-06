@@ -13,6 +13,12 @@ interface PatchBody {
   contact_phone?: string | null;
   default_quoted_price_eur?: number | null;
   notes?: string | null;
+  website?: string | null;
+  instagram?: string | null;
+  planner_rating?: number | null;
+  tags?: string[];
+  lead_time_days?: number | null;
+  price_band?: string | null;
 }
 
 async function ensureAdmin(userId: string) {
@@ -79,6 +85,15 @@ export async function PATCH(
         : Number(body.default_quoted_price_eur);
   }
   if (body.notes !== undefined) patch.notes = body.notes?.toString().trim() || null;
+  if (body.website !== undefined)
+    patch.website = body.website?.toString().trim() || null;
+  if (body.instagram !== undefined)
+    patch.instagram = body.instagram?.toString().trim() || null;
+  if (body.planner_rating !== undefined) patch.planner_rating = body.planner_rating;
+  if (body.tags !== undefined) patch.tags = body.tags;
+  if (body.lead_time_days !== undefined) patch.lead_time_days = body.lead_time_days;
+  if (body.price_band !== undefined)
+    patch.price_band = (body.price_band as never) ?? null;
 
   if (Object.keys(patch).length === 0) {
     return NextResponse.json({ error: "nothing to update" }, { status: 400 });
