@@ -77,29 +77,34 @@ export default async function GuestsPage() {
             from Astha's Excel — Claude maps the columns automatically.
           </p>
         </div>
-        {isAdmin && (
-          <div className="flex flex-wrap gap-2">
-            <GuestComposeButton
-              defaultKind="guest_save_the_date"
-              label="Save-the-date"
-              variant="outline"
-            />
-            {pending > 0 && (
+        <div className="flex flex-wrap gap-2">
+          <Link href="/guests/seating">
+            <Button variant="outline">Seating organizer</Button>
+          </Link>
+          {isAdmin && (
+            <>
               <GuestComposeButton
-                defaultKind="guest_rsvp_nudge"
-                defaultFilter={{ rsvp: "pending" }}
-                label={`Nudge ${pending} pending`}
+                defaultKind="guest_save_the_date"
+                label="Save-the-date"
                 variant="outline"
               />
-            )}
-            <Link href="/guests/import">
-              <Button variant="outline">
-                <Upload className="h-4 w-4" /> Import from Excel
-              </Button>
-            </Link>
-            <GuestCreateButton />
-          </div>
-        )}
+              {pending > 0 && (
+                <GuestComposeButton
+                  defaultKind="guest_rsvp_nudge"
+                  defaultFilter={{ rsvp: "pending" }}
+                  label={`Nudge ${pending} pending`}
+                  variant="outline"
+                />
+              )}
+              <Link href="/guests/import">
+                <Button variant="outline">
+                  <Upload className="h-4 w-4" /> Import from Excel
+                </Button>
+              </Link>
+              <GuestCreateButton />
+            </>
+          )}
+        </div>
       </header>
 
       <section className="grid grid-cols-2 gap-3 md:grid-cols-5">
