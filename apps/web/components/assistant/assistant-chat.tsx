@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { Send, Sparkles, AlertTriangle, Trash2, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -311,15 +313,37 @@ function MessageBubble({
     <div className={cn("flex", isUser ? "justify-end" : "justify-start")}>
       <div
         className={cn(
-          "max-w-[85%] whitespace-pre-wrap rounded-2xl px-4 py-2.5 text-sm leading-relaxed",
+          "max-w-[85%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed",
           isUser
-            ? "bg-stone-900 text-stone-50"
+            ? "whitespace-pre-wrap bg-stone-900 text-stone-50"
             : "border border-stone-200 bg-white text-stone-900",
           pulsing && "animate-pulse",
         )}
       >
-        {content}
+        {isUser ? content : <Markdown content={content} />}
       </div>
+    </div>
+  );
+}
+
+function Markdown({ content }: { content: string }) {
+  return (
+    <div className="markdown-body space-y-2 [&_a]:text-rose-700 [&_a]:underline [&_code]:rounded [&_code]:bg-stone-100 [&_code]:px-1 [&_code]:py-0.5 [&_code]:text-[12px] [&_h3]:mt-2 [&_h3]:font-serif [&_h3]:text-base [&_h3]:font-medium [&_h4]:mt-2 [&_h4]:text-sm [&_h4]:font-semibold [&_li]:my-0.5 [&_ol]:ml-5 [&_ol]:list-decimal [&_p]:my-0 [&_pre]:my-2 [&_pre]:overflow-x-auto [&_pre]:rounded [&_pre]:bg-stone-100 [&_pre]:p-2 [&_pre]:text-[12px] [&_strong]:font-semibold [&_table]:my-2 [&_table]:text-xs [&_td]:border [&_td]:border-stone-200 [&_td]:px-2 [&_td]:py-1 [&_th]:border [&_th]:border-stone-200 [&_th]:bg-stone-50 [&_th]:px-2 [&_th]:py-1 [&_ul]:ml-5 [&_ul]:list-disc">
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        components={{
+          // Clamp h1/h2 down to h3-equivalent so the chat doesn't blow out
+          h1: ({ children }) => <h3>{children}</h3>,
+          h2: ({ children }) => <h3>{children}</h3>,
+          a: ({ href, children }) => (
+            <a href={href} target="_blank" rel="noreferrer">
+              {children}
+            </a>
+          ),
+        }}
+      >
+        {content}
+      </ReactMarkdown>
     </div>
   );
 }
