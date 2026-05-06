@@ -21,7 +21,7 @@ export default function LoginPage() {
     setStatus("submitting");
     setError(null);
     const supabase = createClient();
-    const { error: signInError } = await supabase.auth.signInWithPassword({
+    const { data, error: signInError } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
@@ -30,8 +30,41 @@ export default function LoginPage() {
       setStatus("idle");
       return;
     }
-    // signed in — middleware redirects to /
-    window.location.href = "/";
+
+    // Route by org_role: org_admins land on the planner studio, everyone
+    // else on the couple shell. Read defensively in case the planner-OS
+    // migration hasn't been applied yet.
+    let destination = "/";
+    try {
+      const userId = data.user?.id;
+      if (userId) {
+        const sb = supabase as unknown as {
+          from: (t: string) => {
+            select: (c: string) => {
+              eq: (
+                col: string,
+                val: string,
+              ) => {
+                maybeSingle: () => Promise<{
+                  data: { org_role?: string | null } | null;
+                }>;
+              };
+            };
+          };
+        };
+        const { data: profile } = await sb
+          .from("users")
+          .select("org_role")
+          .eq("id", userId)
+          .maybeSingle();
+        if (profile?.org_role === "org_admin") {
+          destination = "/admin";
+        }
+      }
+    } catch {
+      // pre-migration — fall back to /
+    }
+    window.location.href = destination;
   };
 
   const handleMagicLink = async () => {
