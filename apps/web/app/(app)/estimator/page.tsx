@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, Columns, FileText, Sparkles } from "lucide-react";
+import { ArrowRight, Columns, FileText, Plus, Sparkles } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -58,15 +58,24 @@ export default async function EstimatorPage() {
             don&apos;t touch the master pricing template.
           </p>
         </div>
-        {list.length >= 2 && (
+        <div className="flex flex-wrap items-center gap-2">
+          {list.length >= 2 && (
+            <Link
+              href="/estimator/compare"
+              className="inline-flex items-center gap-2 rounded-full border border-stone-300 bg-white px-4 py-2 text-sm font-medium text-stone-800 transition hover:border-stone-900 hover:shadow-sm"
+            >
+              <Columns className="h-4 w-4" />
+              Compare
+            </Link>
+          )}
           <Link
-            href="/estimator/compare"
-            className="inline-flex items-center gap-2 rounded-full border border-stone-300 bg-white px-4 py-2 text-sm font-medium text-stone-800 transition hover:border-stone-900 hover:shadow-sm"
+            href="/estimator/new"
+            className="inline-flex items-center gap-2 rounded-full bg-stone-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-stone-700"
           >
-            <Columns className="h-4 w-4" />
-            Compare scenarios
+            <Plus className="h-4 w-4" />
+            New estimate
           </Link>
-        )}
+        </div>
       </header>
 
       {list.length === 0 ? (
