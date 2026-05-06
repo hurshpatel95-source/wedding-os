@@ -7,29 +7,48 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
+type Mode = "password" | "magic";
+
 export default function LoginPage() {
+  const [mode, setMode] = useState<Mode>("password");
   const [email, setEmail] = useState("");
-  const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
+  const [password, setPassword] = useState("");
+  const [status, setStatus] = useState<"idle" | "submitting" | "sent">("idle");
   const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = async () => {
-    if (!email) return;
-    setStatus("sending");
+  const handlePasswordSignIn = async () => {
+    if (!email || !password) return;
+    setStatus("submitting");
     setError(null);
+    const supabase = createClient();
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+    if (signInError) {
+      setError(signInError.message);
+      setStatus("idle");
+      return;
+    }
+    // signed in — middleware redirects to /
+    window.location.href = "/";
+  };
 
+  const handleMagicLink = async () => {
+    if (!email) return;
+    setStatus("submitting");
+    setError(null);
     const supabase = createClient();
     const siteUrl =
       process.env.NEXT_PUBLIC_SITE_URL ??
       (typeof window !== "undefined" ? window.location.origin : "");
-
     const { error: signInError } = await supabase.auth.signInWithOtp({
       email,
       options: { emailRedirectTo: `${siteUrl}/auth/callback` },
     });
-
     if (signInError) {
       setError(signInError.message);
-      setStatus("error");
+      setStatus("idle");
       return;
     }
     setStatus("sent");
@@ -49,6 +68,27 @@ export default function LoginPage() {
             </p>
           ) : (
             <>
+              <div className="grid grid-cols-2 gap-1 rounded-full bg-stone-100 p-1 text-xs">
+                <button
+                  type="button"
+                  onClick={() => setMode("password")}
+                  className={`rounded-full py-1.5 font-medium transition ${
+                    mode === "password" ? "bg-white text-stone-900 shadow-sm" : "text-stone-500"
+                  }`}
+                >
+                  Password
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMode("magic")}
+                  className={`rounded-full py-1.5 font-medium transition ${
+                    mode === "magic" ? "bg-white text-stone-900 shadow-sm" : "text-stone-500"
+                  }`}
+                >
+                  Magic link
+                </button>
+              </div>
+
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
                 <Input
@@ -58,19 +98,49 @@ export default function LoginPage() {
                   placeholder="you@example.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") handleSubmit();
-                  }}
                 />
               </div>
+
+              {mode === "password" && (
+                <div className="space-y-2">
+                  <Label htmlFor="password">Password</Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    autoComplete="current-password"
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handlePasswordSignIn();
+                    }}
+                  />
+                </div>
+              )}
+
               <Button
-                onClick={handleSubmit}
-                disabled={status === "sending" || !email}
+                onClick={mode === "password" ? handlePasswordSignIn : handleMagicLink}
+                disabled={
+                  status === "submitting" ||
+                  !email ||
+                  (mode === "password" && !password)
+                }
                 className="w-full"
               >
-                {status === "sending" ? "Sending…" : "Send magic link"}
+                {status === "submitting"
+                  ? mode === "password"
+                    ? "Signing in…"
+                    : "Sending…"
+                  : mode === "password"
+                  ? "Sign in"
+                  : "Send magic link"}
               </Button>
               {error && <p className="text-sm text-destructive">{error}</p>}
+              <p className="text-center text-xs text-muted-foreground">
+                {mode === "password"
+                  ? "Forgot? Ask Hursh — passwords are admin-set for this private workspace."
+                  : "We'll email a single-use link. Stays signed in for ~7 days."}
+              </p>
             </>
           )}
         </CardContent>

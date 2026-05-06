@@ -108,6 +108,7 @@ export type Database = {
           planner_notes: string | null;
           status: VenueStatus;
           event_roles: EventRole[];
+          is_lead_pick: boolean;
           created_at: string;
           updated_at: string;
         };
@@ -131,6 +132,7 @@ export type Database = {
           planner_notes?: string | null;
           status?: VenueStatus;
           event_roles?: EventRole[];
+          is_lead_pick?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -154,6 +156,7 @@ export type Database = {
           planner_notes?: string | null;
           status?: VenueStatus;
           event_roles?: EventRole[];
+          is_lead_pick?: boolean;
           created_at?: string;
           updated_at?: string;
         };

@@ -17,8 +17,9 @@ export default async function DashboardPage() {
     supabase
       .from("venues")
       .select(
-        "id, name, address, hero_photo_url, status, capacity_min, capacity_max",
+        "id, name, address, hero_photo_url, status, capacity_min, capacity_max, is_lead_pick",
       )
+      .order("is_lead_pick", { ascending: false })
       .order("created_at", { ascending: true }),
     supabase.from("venue_notes").select("id", { count: "exact", head: true }),
   ]);
