@@ -22,7 +22,8 @@
     "db:migrate-planner-os": "tsx supabase/seed/migrate_to_planner_os.ts",
     "db:seed-playbook": "tsx supabase/seed/seed_playbook_template.ts",
     "db:seed-library": "tsx supabase/seed/seed_library.ts",
-    "db:seed-library-media": "tsx supabase/seed/seed_library_media.ts"
+    "db:seed-library-media": "tsx supabase/seed/seed_library_media.ts",
+    "db:seed-public-site": "tsx supabase/seed/seed_public_site.ts"
   },
   "devDependencies": {
     "@supabase/supabase-js": "^2.46.1",

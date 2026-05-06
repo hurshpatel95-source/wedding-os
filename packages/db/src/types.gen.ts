@@ -96,6 +96,8 @@ export type Database = {
           wedding_date: string | null;
           base_currency: string;
           created_at: string;
+          public_slug: string | null;
+          story_html: string | null;
         };
         Insert: {
           id?: string;
@@ -104,6 +106,8 @@ export type Database = {
           wedding_date?: string | null;
           base_currency?: string;
           created_at?: string;
+          public_slug?: string | null;
+          story_html?: string | null;
         };
         Update: {
           id?: string;
@@ -112,6 +116,8 @@ export type Database = {
           wedding_date?: string | null;
           base_currency?: string;
           created_at?: string;
+          public_slug?: string | null;
+          story_html?: string | null;
         };
         Relationships: [];
       };
@@ -342,6 +348,7 @@ export type Database = {
           overall_rsvp: RsvpStatus;
           added_by: string | null;
           imported_from: string | null;
+          rsvp_token: string;
           created_at: string;
           updated_at: string;
         };
@@ -367,6 +374,7 @@ export type Database = {
           overall_rsvp?: RsvpStatus;
           added_by?: string | null;
           imported_from?: string | null;
+          rsvp_token?: string;
           created_at?: string;
           updated_at?: string;
         };
@@ -392,6 +400,7 @@ export type Database = {
           overall_rsvp: RsvpStatus;
           added_by: string | null;
           imported_from: string | null;
+          rsvp_token: string;
         }>;
         Relationships: [];
       };
