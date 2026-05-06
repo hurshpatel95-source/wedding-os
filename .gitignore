@@ -19,3 +19,6 @@ pnpm-debug.log*
 supabase/.branches/
 supabase/.temp/
 supabase/.env
+
+# Agent worktrees (background subagents)
+.claude/worktrees/
