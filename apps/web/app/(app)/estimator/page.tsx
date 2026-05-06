@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, FileText, Sparkles } from "lucide-react";
+import { ArrowRight, Columns, FileText, Sparkles } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -44,7 +44,7 @@ export default async function EstimatorPage() {
 
   return (
     <div className="space-y-6">
-      <header className="flex items-start justify-between gap-4">
+      <header className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <div className="text-[11px] uppercase tracking-[0.25em] text-stone-500">
             Honest budget · planner-seeded · couple-edited
@@ -58,6 +58,15 @@ export default async function EstimatorPage() {
             don&apos;t touch the master pricing template.
           </p>
         </div>
+        {list.length >= 2 && (
+          <Link
+            href="/estimator/compare"
+            className="inline-flex items-center gap-2 rounded-full border border-stone-300 bg-white px-4 py-2 text-sm font-medium text-stone-800 transition hover:border-stone-900 hover:shadow-sm"
+          >
+            <Columns className="h-4 w-4" />
+            Compare scenarios
+          </Link>
+        )}
       </header>
 
       {list.length === 0 ? (
