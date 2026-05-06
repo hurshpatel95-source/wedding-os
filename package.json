@@ -17,7 +17,8 @@
     "db:ingest-photos": "tsx supabase/seed/ingest_photos.ts",
     "db:seed-scenarios": "tsx supabase/seed/seed_scenarios.ts",
     "db:seed-timeline": "tsx supabase/seed/seed_timeline_template.ts",
-    "db:seed-availability": "tsx supabase/seed/seed_venue_availability.ts"
+    "db:seed-availability": "tsx supabase/seed/seed_venue_availability.ts",
+    "db:seed-estimates": "tsx supabase/seed/import_astha_estimates.ts"
   },
   "devDependencies": {
     "@supabase/supabase-js": "^2.46.1",
