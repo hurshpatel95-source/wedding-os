@@ -29,14 +29,22 @@ const QUICK_ACTIONS = [
 
 const DAILY_CAP = 30;
 
+interface ConversationListItem {
+  id: string;
+  preview: string;
+  updated_at: string;
+}
+
 export function AssistantChat({
   initialConversationId,
   initialMessages,
   initialDailyUsed,
+  conversations,
 }: {
   initialConversationId: string | null;
   initialMessages: ChatMessage[];
   initialDailyUsed: number;
+  conversations: ConversationListItem[];
 }) {
   const router = useRouter();
   const [conversationId, setConversationId] = useState<string | null>(
@@ -276,6 +284,47 @@ export function AssistantChat({
           </CardContent>
         </Card>
 
+        {conversations.length > 0 && (
+          <Card>
+            <CardContent className="py-4">
+              <div className="mb-2 text-[11px] uppercase tracking-[0.2em] text-stone-500">
+                Recent threads
+              </div>
+              <ul className="space-y-1">
+                {conversations.map((c) => {
+                  const active = c.id === conversationId;
+                  return (
+                    <li key={c.id}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (active) return;
+                          // Server reads ?conversation= and renders the
+                          // requested thread. router.push triggers refresh.
+                          router.push(`/assistant?conversation=${c.id}`);
+                        }}
+                        className={cn(
+                          "block w-full rounded-md border px-2.5 py-1.5 text-left text-xs transition",
+                          active
+                            ? "border-rose-300 bg-rose-50/60 text-stone-900"
+                            : "border-stone-100 bg-white text-stone-700 hover:border-stone-300 hover:bg-stone-50",
+                        )}
+                      >
+                        <div className="line-clamp-2 leading-snug">
+                          {c.preview}
+                        </div>
+                        <div className="mt-0.5 text-[10px] uppercase tracking-[0.15em] text-stone-400">
+                          {relativeTime(c.updated_at)}
+                        </div>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </CardContent>
+          </Card>
+        )}
+
         <Card>
           <CardContent className="py-4">
             <div className="text-[11px] uppercase tracking-[0.2em] text-stone-500">
@@ -297,6 +346,25 @@ export function AssistantChat({
       </div>
     </div>
   );
+}
+
+function relativeTime(iso: string): string {
+  try {
+    const t = new Date(iso).getTime();
+    const diff = Date.now() - t;
+    const min = Math.round(diff / 60000);
+    if (min < 1) return "just now";
+    if (min < 60) return `${min}m ago`;
+    const hr = Math.round(min / 60);
+    if (hr < 24) return `${hr}h ago`;
+    const d = Math.round(hr / 24);
+    if (d < 7) return `${d}d ago`;
+    const w = Math.round(d / 7);
+    if (w < 5) return `${w}w ago`;
+    return new Date(iso).toLocaleDateString();
+  } catch {
+    return "";
+  }
 }
 
 function MessageBubble({

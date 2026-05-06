@@ -2,10 +2,12 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { Briefcase } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { EmptyState } from "@/components/ui/empty-state";
 import {
   Select,
   SelectContent,
@@ -91,15 +93,12 @@ export function LibraryVendorList({
       </div>
 
       {vendors.length === 0 ? (
-        <Card>
-          <CardContent className="py-16 text-center">
-            <p className="font-serif text-2xl text-stone-700">Library is empty</p>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Add reusable vendors here once and push them into any couple
-              workspace later.
-            </p>
-          </CardContent>
-        </Card>
+        <EmptyState
+          icon={Briefcase}
+          title="Your vendor library is empty"
+          description="Add the photographers, florists, DJs, MUAs, and transport you actually book — once. Each library vendor can be pushed into any couple workspace as a fresh editable copy."
+          primary={{ label: "+ New vendor", href: "/admin/library/vendors/new" }}
+        />
       ) : filtered.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center text-sm text-muted-foreground">

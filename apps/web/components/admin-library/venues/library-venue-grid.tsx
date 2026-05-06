@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { EmptyState } from "@/components/ui/empty-state";
 import {
   Select,
   SelectContent,
@@ -67,17 +68,12 @@ export function LibraryVenueGrid({ venues }: { venues: VenueRow[] }) {
 
   if (venues.length === 0) {
     return (
-      <Card>
-        <CardContent className="py-16 text-center">
-          <Building2 className="mx-auto mb-3 h-10 w-10 text-stone-300" />
-          <p className="text-sm text-stone-500">
-            No venues in your library yet.
-          </p>
-          <p className="mt-1 text-xs text-stone-400">
-            Hit &quot;New venue&quot; to add the first one.
-          </p>
-        </CardContent>
-      </Card>
+      <EmptyState
+        icon={Building2}
+        title="Your venue library is empty"
+        description="Build your reusable inventory once — venues you propose to multiple couples. Each library venue can be pushed into a couple's workspace as a fresh editable copy."
+        primary={{ label: "+ New venue", href: "/admin/library/venues/new" }}
+      />
     );
   }
 
