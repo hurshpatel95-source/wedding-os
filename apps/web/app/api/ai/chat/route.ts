@@ -90,6 +90,46 @@ interface WorkspaceContextSnapshot {
     blocked: number;
     pct_done: number;
   };
+  // Recent / upcoming open tasks — names so Claude can answer "what's
+  // next?" / "what's overdue?" specifically.
+  upcoming_tasks: Array<{
+    title: string;
+    phase: string | null;
+    status: string;
+    due_at: string | null;
+  }>;
+  // Per-couple budget estimates from /estimator
+  estimates: Array<{
+    name: string;
+    summary: string | null;
+    baseline_total_eur: number | null;
+  }>;
+  // Upcoming + recent payment milestones
+  payments: Array<{
+    label: string;
+    amount_eur: number | null;
+    due_at: string | null;
+    paid_at: string | null;
+  }>;
+  // Decisions the planner has logged (final calls on venues)
+  decisions: Array<{
+    venue_name: string | null;
+    kind: string;
+    note: string | null;
+    created_at: string;
+  }>;
+  // Open Q&A on venues
+  open_questions: Array<{
+    venue_name: string | null;
+    question: string;
+    status: string;
+  }>;
+  // Top sample of guests by name (for "is X coming?" type questions)
+  guest_sample: Array<{
+    name: string;
+    side: string | null;
+    rsvp: string;
+  }>;
 }
 
 async function buildContext(workspaceId: string): Promise<WorkspaceContextSnapshot> {
@@ -112,6 +152,10 @@ async function buildContext(workspaceId: string): Promise<WorkspaceContextSnapsh
     { data: vendors },
     { data: guestsRow },
     { data: tasks },
+    { data: estimates },
+    { data: paymentsRow },
+    { data: decisions },
+    { data: questions },
   ] = await Promise.all([
     supabase
       .from("workspaces")
@@ -121,7 +165,7 @@ async function buildContext(workspaceId: string): Promise<WorkspaceContextSnapsh
     supabase
       .from("venues")
       .select(
-        "name, status, capacity_min, capacity_max, is_lead_pick, event_roles, hire_fee_weekend_eur, hire_fee_sunday_eur, hire_fee_weekday_eur, minimum_pax_weekend, minimum_pax_sunday",
+        "id, name, status, capacity_min, capacity_max, is_lead_pick, event_roles, hire_fee_weekend_eur, hire_fee_sunday_eur, hire_fee_weekday_eur, minimum_pax_weekend, minimum_pax_sunday",
       )
       .eq("workspace_id", workspaceId),
     supabase
@@ -131,16 +175,34 @@ async function buildContext(workspaceId: string): Promise<WorkspaceContextSnapsh
     sb
       .from("vendors")
       .select(
-        "name, category, status, quoted_price_eur, deposit_amount_eur, deposit_paid_at, final_balance_eur, final_paid_at",
+        "id, name, category, status, quoted_price_eur, deposit_amount_eur, deposit_due_at, deposit_paid_at, final_balance_eur, final_due_at, final_paid_at",
       )
       .eq("workspace_id", workspaceId),
     supabase
       .from("guests")
-      .select("overall_rsvp")
+      .select("full_name, side, overall_rsvp")
       .eq("workspace_id", workspaceId),
     supabase
       .from("planning_tasks")
-      .select("status")
+      .select("title, phase, status, due_date")
+      .eq("workspace_id", workspaceId),
+    sb
+      .from("budget_estimates")
+      .select("name, scenario_summary, baseline_total_eur")
+      .eq("workspace_id", workspaceId),
+    sb
+      .from("vendors")
+      .select(
+        "name, deposit_amount_eur, deposit_due_at, deposit_paid_at, final_balance_eur, final_due_at, final_paid_at",
+      )
+      .eq("workspace_id", workspaceId),
+    sb
+      .from("venue_decisions")
+      .select("venue_id, kind, note, created_at")
+      .eq("workspace_id", workspaceId),
+    sb
+      .from("venue_questions")
+      .select("venue_id, question, status")
       .eq("workspace_id", workspaceId),
   ]);
 
@@ -158,7 +220,7 @@ async function buildContext(workspaceId: string): Promise<WorkspaceContextSnapsh
     pending: guestList.filter((g) => g.overall_rsvp === "pending").length,
   };
 
-  const taskList = (tasks ?? []) as Array<{ status: string }>;
+  const taskList = (tasks ?? []) as unknown as Array<{ status: string }>;
   const planTotal = taskList.length;
   const planDone = taskList.filter((t) => t.status === "done").length;
   const planInProgress = taskList.filter((t) => t.status === "in_progress").length;
@@ -206,6 +268,78 @@ async function buildContext(workspaceId: string): Promise<WorkspaceContextSnapsh
       blocked: planBlocked,
       pct_done: planTotal > 0 ? Math.round((planDone / planTotal) * 100) : 0,
     },
+    upcoming_tasks: ((tasks ?? []) as unknown as Array<Record<string, unknown>>)
+      .filter((t) => t.status !== "done")
+      .map((t) => ({
+        title: String(t.title ?? ""),
+        phase: (t.phase as string | null) ?? null,
+        status: String(t.status ?? "not_started"),
+        due_at: (t.due_date as string | null) ?? null,
+      }))
+      .slice(0, 30),
+    estimates: ((estimates ?? []) as Array<Record<string, unknown>>).map((e) => ({
+      name: String(e.name ?? ""),
+      summary: (e.scenario_summary as string | null) ?? null,
+      baseline_total_eur: (e.baseline_total_eur as number | null) ?? null,
+    })),
+    payments: ((paymentsRow ?? []) as Array<Record<string, unknown>>).flatMap(
+      (v) => {
+        const out: Array<{
+          label: string;
+          amount_eur: number | null;
+          due_at: string | null;
+          paid_at: string | null;
+        }> = [];
+        if (v.deposit_amount_eur != null) {
+          out.push({
+            label: `${String(v.name)} — deposit`,
+            amount_eur: (v.deposit_amount_eur as number | null) ?? null,
+            due_at: (v.deposit_due_at as string | null) ?? null,
+            paid_at: (v.deposit_paid_at as string | null) ?? null,
+          });
+        }
+        if (v.final_balance_eur != null) {
+          out.push({
+            label: `${String(v.name)} — final balance`,
+            amount_eur: (v.final_balance_eur as number | null) ?? null,
+            due_at: (v.final_due_at as string | null) ?? null,
+            paid_at: (v.final_paid_at as string | null) ?? null,
+          });
+        }
+        return out;
+      },
+    ),
+    decisions: ((decisions ?? []) as Array<Record<string, unknown>>).map((d) => {
+      const venue = (
+        (venues ?? []) as Array<{ id: string; name: string }>
+      ).find((v) => v.id === d.venue_id);
+      return {
+        venue_name: venue?.name ?? null,
+        kind: String(d.kind ?? ""),
+        note: (d.note as string | null) ?? null,
+        created_at: String(d.created_at ?? ""),
+      };
+    }),
+    open_questions: ((questions ?? []) as Array<Record<string, unknown>>)
+      .filter((q) => q.status === "open")
+      .map((q) => {
+        const venue = (
+          (venues ?? []) as Array<{ id: string; name: string }>
+        ).find((v) => v.id === q.venue_id);
+        return {
+          venue_name: venue?.name ?? null,
+          question: String(q.question ?? ""),
+          status: String(q.status ?? ""),
+        };
+      })
+      .slice(0, 25),
+    guest_sample: guestList.slice(0, 40).map((g) => ({
+      name: String((g as unknown as { full_name?: string }).full_name ?? ""),
+      side:
+        ((g as unknown as { side?: string | null }).side as string | null) ??
+        null,
+      rsvp: g.overall_rsvp,
+    })),
   };
 }
 

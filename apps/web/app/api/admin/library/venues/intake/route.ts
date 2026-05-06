@@ -5,7 +5,13 @@ import {
   anthropicReady,
   getAnthropic,
   DEFAULT_INTAKE_MODEL,
+  estimateCost,
 } from "@/lib/anthropic";
+import {
+  MAX_UPLOAD_BYTES,
+  assertNonChatAiQuota,
+  recordNonChatAiCall,
+} from "@/lib/ai-quota";
 import { EVENT_ROLES } from "@/lib/event-roles";
 import type { LibraryVenueBrochureExtraction } from "@/lib/library-venue-types";
 
@@ -66,11 +72,20 @@ export async function POST(request: NextRequest) {
   }
   const { data: profile } = await supabase
     .from("users")
-    .select("org_role")
+    .select("org_role, org_id, workspace_id")
     .eq("id", user.id)
     .maybeSingle();
-  if (!profile || profile.org_role !== "org_admin") {
+  const profileTyped = profile as
+    | { org_role: string | null; org_id: string; workspace_id: string }
+    | null;
+  if (!profileTyped || profileTyped.org_role !== "org_admin") {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  }
+
+  // Cost guard
+  const overBudget = await assertNonChatAiQuota(supabase, profileTyped.org_id);
+  if (overBudget) {
+    return NextResponse.json({ error: overBudget }, { status: 429 });
   }
 
   const contentType = request.headers.get("content-type") ?? "";
@@ -85,6 +100,16 @@ export async function POST(request: NextRequest) {
   const file = fd.get("file") as File | null;
   if (!file) {
     return NextResponse.json({ error: "missing file" }, { status: 400 });
+  }
+  if (file.size > MAX_UPLOAD_BYTES) {
+    return NextResponse.json(
+      {
+        error: `File too large (${Math.round(
+          file.size / 1024 / 1024,
+        )} MB). Max is ${Math.round(MAX_UPLOAD_BYTES / 1024 / 1024)} MB.`,
+      },
+      { status: 413 },
+    );
   }
 
   const ab = await file.arrayBuffer();
@@ -135,6 +160,14 @@ export async function POST(request: NextRequest) {
       { status: 502 },
     );
   }
+
+  // Track AI usage for the day (best-effort)
+  await recordNonChatAiCall(
+    supabase,
+    profileTyped.org_id,
+    profileTyped.workspace_id,
+    estimateCost(resp.usage.input_tokens, resp.usage.output_tokens),
+  );
 
   const toolBlock = resp.content.find((c) => c.type === "tool_use");
   if (!toolBlock || toolBlock.type !== "tool_use") {

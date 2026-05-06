@@ -41,6 +41,7 @@ const links: { href: string; label: string; icon: LucideIcon }[] = [
   { href: "/spend", label: "Spend", icon: PieChart },
   { href: "/compare", label: "Compare", icon: Users },
   { href: "/timeline", label: "Timeline", icon: Clock },
+  { href: "/settings/public-site", label: "Public site", icon: Globe },
   { href: "/settings/pricing", label: "Pricing template", icon: Settings },
 ];
 

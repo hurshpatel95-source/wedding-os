@@ -7,6 +7,11 @@ import {
   DEFAULT_INTAKE_MODEL,
   estimateCost,
 } from "@/lib/anthropic";
+import {
+  MAX_UPLOAD_BYTES,
+  assertNonChatAiQuota,
+  recordNonChatAiCall,
+} from "@/lib/ai-quota";
 import type { IntakePreview, ProposalDTO } from "@/lib/pricing-intake-types";
 
 export const runtime = "nodejs";
@@ -130,6 +135,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "admin only" }, { status: 403 });
   }
 
+  // Cost guard — daily budget for non-chat AI spend per org.
+  const overBudget = await assertNonChatAiQuota(supabase, profile.org_id);
+  if (overBudget) {
+    return NextResponse.json({ error: overBudget }, { status: 429 });
+  }
+
   // Get template to attach
   const { data: template } = await supabase
     .from("pricing_templates")
@@ -160,6 +171,16 @@ export async function POST(request: NextRequest) {
     venueId = (fd.get("venue_id") as string | null) ?? null;
 
     if (!file) return NextResponse.json({ error: "missing file" }, { status: 400 });
+    if (file.size > MAX_UPLOAD_BYTES) {
+      return NextResponse.json(
+        {
+          error: `File too large (${Math.round(
+            file.size / 1024 / 1024,
+          )} MB). Max is ${Math.round(MAX_UPLOAD_BYTES / 1024 / 1024)} MB.`,
+        },
+        { status: 413 },
+      );
+    }
 
     const ab = await file.arrayBuffer();
     const buf = Buffer.from(ab);
@@ -309,6 +330,9 @@ export async function POST(request: NextRequest) {
       cost_usd: cost,
     })
     .eq("id", source.id);
+
+  // Increment the non-chat AI usage counter for the day. Best-effort.
+  await recordNonChatAiCall(supabase, profile.org_id, profile.workspace_id, cost);
 
   const preview: IntakePreview = {
     source_id: source.id,

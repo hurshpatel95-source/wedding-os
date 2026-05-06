@@ -3,6 +3,7 @@ import * as XLSX from "xlsx";
 import type Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@/lib/supabase/server";
 import { anthropicReady, getAnthropic, DEFAULT_INTAKE_MODEL, estimateCost } from "@/lib/anthropic";
+import { MAX_UPLOAD_BYTES } from "@/lib/ai-quota";
 import type {
   GuestImportField,
   ImportPreview,
@@ -252,6 +253,16 @@ export async function POST(request: NextRequest) {
   const formData = await request.formData();
   const file = formData.get("file") as File | null;
   if (!file) return NextResponse.json({ error: "missing file" }, { status: 400 });
+  if (file.size > MAX_UPLOAD_BYTES) {
+    return NextResponse.json(
+      {
+        error: `File too large (${Math.round(
+          file.size / 1024 / 1024,
+        )} MB). Max is ${Math.round(MAX_UPLOAD_BYTES / 1024 / 1024)} MB.`,
+      },
+      { status: 413 },
+    );
+  }
 
   const arrayBuffer = await file.arrayBuffer();
   const buf = Buffer.from(arrayBuffer);

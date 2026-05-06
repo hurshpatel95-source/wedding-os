@@ -1,6 +1,8 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
 import { format, parseISO } from "date-fns";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import type { Database } from "@wedding-os/db";
 
 export const dynamic = "force-dynamic";
@@ -53,11 +55,23 @@ export default async function PublicWeddingSite({
 
   const { data: workspace } = await sb
     .from("workspaces")
-    .select("id, name, wedding_date, public_slug, story_html")
+    .select("*")
     .eq("public_slug", params.slug)
     .maybeSingle();
 
   if (!workspace) notFound();
+
+  // Don't render unpublished sites publicly. Owners can preview from
+  // /settings/public-site → "View live" instead.
+  if (!workspace.public_published_at) notFound();
+
+  const schedule = (workspace.schedule as Array<{
+    time?: string;
+    date?: string;
+    label: string;
+    location?: string;
+  }> | null) ?? [];
+  const faq = (workspace.faq as Array<{ q: string; a: string }> | null) ?? [];
 
   const { data: venuesRaw } = await sb
     .from("venues")
@@ -118,10 +132,14 @@ export default async function PublicWeddingSite({
           <div className="text-[10px] uppercase tracking-[0.3em] text-stone-500">
             Our story
           </div>
-          <div
-            className="prose prose-stone mt-4 text-base leading-relaxed text-stone-800"
-            dangerouslySetInnerHTML={{ __html: workspace.story_html }}
-          />
+          {/* SECURITY: rendered through react-markdown — no raw HTML, no
+              dangerouslySetInnerHTML. The DB column is named *_html for
+              legacy reasons; we treat its contents as Markdown. */}
+          <div className="markdown-body mt-4 space-y-4 text-base leading-relaxed text-stone-800 [&_a]:text-rose-700 [&_a]:underline [&_em]:italic [&_p]:my-0 [&_strong]:font-semibold">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              {stripHtml(workspace.story_html)}
+            </ReactMarkdown>
+          </div>
         </section>
       )}
 
@@ -174,6 +192,147 @@ export default async function PublicWeddingSite({
         </section>
       )}
 
+      {/* Schedule */}
+      {schedule.length > 0 && (
+        <section className="mx-auto max-w-3xl px-6 py-20">
+          <div className="text-[10px] uppercase tracking-[0.3em] text-stone-500">
+            Schedule
+          </div>
+          <h2 className="mt-2 font-serif text-3xl font-light tracking-tight md:text-4xl">
+            What we&rsquo;re celebrating
+          </h2>
+          <ol className="mt-8 space-y-4">
+            {schedule.map((s, i) => (
+              <li
+                key={i}
+                className="flex items-start gap-4 rounded-2xl border border-stone-200 bg-white/70 p-4"
+              >
+                <div className="w-32 shrink-0">
+                  {s.date && (
+                    <div className="font-serif text-base">{s.date}</div>
+                  )}
+                  {s.time && (
+                    <div className="text-xs text-stone-500">{s.time}</div>
+                  )}
+                </div>
+                <div className="flex-1">
+                  <div className="font-serif text-lg">{s.label}</div>
+                  {s.location && (
+                    <div className="text-xs text-stone-500">{s.location}</div>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ol>
+        </section>
+      )}
+
+      {/* Travel + Hotel */}
+      {(workspace.travel_md || workspace.hotel_block_md) && (
+        <section className="mx-auto max-w-3xl px-6 py-20">
+          <div className="grid gap-8 md:grid-cols-2">
+            {workspace.travel_md && (
+              <div>
+                <div className="text-[10px] uppercase tracking-[0.3em] text-stone-500">
+                  Travel
+                </div>
+                <h3 className="mt-2 font-serif text-2xl font-light tracking-tight">
+                  Getting there
+                </h3>
+                <div className="markdown-body mt-3 space-y-3 text-sm text-stone-700 [&_a]:text-rose-700 [&_a]:underline [&_p]:my-0">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    {workspace.travel_md}
+                  </ReactMarkdown>
+                </div>
+              </div>
+            )}
+            {workspace.hotel_block_md && (
+              <div>
+                <div className="text-[10px] uppercase tracking-[0.3em] text-stone-500">
+                  Where to stay
+                </div>
+                <h3 className="mt-2 font-serif text-2xl font-light tracking-tight">
+                  Hotel block
+                </h3>
+                <div className="markdown-body mt-3 space-y-3 text-sm text-stone-700 [&_a]:text-rose-700 [&_a]:underline [&_p]:my-0">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    {workspace.hotel_block_md}
+                  </ReactMarkdown>
+                </div>
+              </div>
+            )}
+          </div>
+        </section>
+      )}
+
+      {/* Dress code */}
+      {workspace.dress_code_md && (
+        <section className="mx-auto max-w-2xl px-6 py-12 text-center">
+          <div className="text-[10px] uppercase tracking-[0.3em] text-stone-500">
+            Dress code
+          </div>
+          <h3 className="mt-2 font-serif text-2xl font-light tracking-tight">
+            What to wear
+          </h3>
+          <div className="markdown-body mt-3 text-sm leading-relaxed text-stone-700 [&_em]:italic [&_p]:my-0 [&_strong]:font-semibold">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              {workspace.dress_code_md}
+            </ReactMarkdown>
+          </div>
+        </section>
+      )}
+
+      {/* Registry */}
+      {workspace.registry_url && (
+        <section className="mx-auto max-w-xl px-6 py-12 text-center">
+          <div className="text-[10px] uppercase tracking-[0.3em] text-stone-500">
+            Registry
+          </div>
+          <h3 className="mt-2 font-serif text-2xl font-light tracking-tight">
+            If you&rsquo;d like to give a gift
+          </h3>
+          <a
+            href={workspace.registry_url}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-6 inline-flex items-center gap-2 rounded-full border border-rose-300 bg-white px-5 py-2.5 text-sm font-medium text-rose-800 transition hover:border-rose-500 hover:shadow-sm"
+          >
+            {workspace.registry_label || "View our registry"} &rarr;
+          </a>
+        </section>
+      )}
+
+      {/* FAQ */}
+      {faq.length > 0 && (
+        <section className="mx-auto max-w-2xl px-6 py-20">
+          <div className="text-[10px] uppercase tracking-[0.3em] text-stone-500">
+            FAQ
+          </div>
+          <h3 className="mt-2 font-serif text-3xl font-light tracking-tight">
+            Frequently asked
+          </h3>
+          <div className="mt-8 space-y-4">
+            {faq.map((item, i) => (
+              <details
+                key={i}
+                className="group rounded-xl border border-stone-200 bg-white/70 p-4 open:bg-white"
+              >
+                <summary className="cursor-pointer list-none font-serif text-base text-stone-900">
+                  <span className="mr-2 text-stone-400 group-open:hidden">+</span>
+                  <span className="mr-2 hidden text-stone-400 group-open:inline">−</span>
+                  {item.q}
+                </summary>
+                <div className="markdown-body mt-2 text-sm text-stone-700 [&_a]:text-rose-700 [&_a]:underline [&_p]:my-0">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    {item.a}
+                  </ReactMarkdown>
+                </div>
+              </details>
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* RSVP */}
       <section
         id="rsvp"
@@ -219,4 +378,21 @@ function parseCoupleName(workspaceName: string): string {
   // "Nisha & Hursh — Barcelona 2027" → "Nisha & Hursh"
   const segments = workspaceName.split("—").map((s) => s.trim());
   return segments[0] || workspaceName;
+}
+
+/** Strip any raw HTML tags so the seeded `<p>...</p>` story converts cleanly
+ * to markdown. Anything inside angle brackets is dropped — keep entities,
+ * convert legacy <p> separation to blank lines. */
+function stripHtml(input: string): string {
+  return input
+    .replace(/<\s*br\s*\/?>/gi, "\n")
+    .replace(/<\s*p\s*>/gi, "")
+    .replace(/<\s*\/\s*p\s*>/gi, "\n\n")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&rsquo;/g, "'")
+    .replace(/&lsquo;/g, "'")
+    .replace(/&rdquo;/g, '"')
+    .replace(/&ldquo;/g, '"')
+    .replace(/&amp;/g, "&")
+    .trim();
 }

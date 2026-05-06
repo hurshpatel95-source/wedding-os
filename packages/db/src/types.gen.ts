@@ -98,6 +98,15 @@ export type Database = {
           created_at: string;
           public_slug: string | null;
           story_html: string | null;
+          registry_url: string | null;
+          registry_label: string | null;
+          travel_md: string | null;
+          hotel_block_md: string | null;
+          dress_code_md: string | null;
+          faq: unknown;
+          schedule: unknown;
+          public_hero_storage_path: string | null;
+          public_published_at: string | null;
         };
         Insert: {
           id?: string;
@@ -108,6 +117,15 @@ export type Database = {
           created_at?: string;
           public_slug?: string | null;
           story_html?: string | null;
+          registry_url?: string | null;
+          registry_label?: string | null;
+          travel_md?: string | null;
+          hotel_block_md?: string | null;
+          dress_code_md?: string | null;
+          faq?: unknown;
+          schedule?: unknown;
+          public_hero_storage_path?: string | null;
+          public_published_at?: string | null;
         };
         Update: {
           id?: string;
@@ -118,6 +136,15 @@ export type Database = {
           created_at?: string;
           public_slug?: string | null;
           story_html?: string | null;
+          registry_url?: string | null;
+          registry_label?: string | null;
+          travel_md?: string | null;
+          hotel_block_md?: string | null;
+          dress_code_md?: string | null;
+          faq?: unknown;
+          schedule?: unknown;
+          public_hero_storage_path?: string | null;
+          public_published_at?: string | null;
         };
         Relationships: [];
       };

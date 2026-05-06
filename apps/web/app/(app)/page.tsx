@@ -107,6 +107,96 @@ export default async function DashboardPage() {
       .limit(5),
   ]);
 
+  // ── Due-this-week ───────────────────────────────────────────────────
+  // Pull open planning_tasks with due_date in the next 14 days, plus
+  // unpaid vendor deposits + finals due in the next 30 days. Combined,
+  // sorted by date. Surfaces what the couple needs to actually do.
+  const sbDue = supabase as unknown as {
+    from: (t: string) => {
+      select: (c: string) => Promise<{
+        data: Record<string, unknown>[] | null;
+      }>;
+    };
+  };
+
+  const [{ data: dueTasksRaw }, { data: dueVendorsRaw }] = await Promise.all([
+    sbDue
+      .from("planning_tasks")
+      .select("id, title, status, due_date, phase"),
+    sbDue
+      .from("vendors")
+      .select(
+        "id, name, deposit_amount_eur, deposit_due_at, deposit_paid_at, final_balance_eur, final_due_at, final_paid_at",
+      ),
+  ]);
+
+  type DueItem = {
+    id: string;
+    label: string;
+    sub: string;
+    due_date: string;
+    href: string;
+    kind: "task" | "deposit" | "final";
+  };
+  const now = Date.now();
+  const TWO_WEEKS = 14 * 24 * 60 * 60 * 1000;
+  const dueItems: DueItem[] = [];
+  for (const t of (dueTasksRaw ?? []) as Array<Record<string, unknown>>) {
+    if (t.status === "done") continue;
+    const due = t.due_date as string | null;
+    if (!due) continue;
+    const dt = new Date(due).getTime();
+    if (isNaN(dt) || dt - now > TWO_WEEKS || dt - now < -TWO_WEEKS) continue;
+    dueItems.push({
+      id: `task-${t.id}`,
+      label: String(t.title ?? "Task"),
+      sub: t.phase ? String(t.phase).replace(/_/g, " ") : "Plan",
+      due_date: due,
+      href: "/plan",
+      kind: "task",
+    });
+  }
+  for (const v of (dueVendorsRaw ?? []) as Array<Record<string, unknown>>) {
+    if (v.deposit_amount_eur != null && !v.deposit_paid_at && v.deposit_due_at) {
+      const due = String(v.deposit_due_at);
+      const dt = new Date(due).getTime();
+      if (
+        !isNaN(dt) &&
+        dt - now <= 30 * 24 * 60 * 60 * 1000 &&
+        dt - now > -7 * 24 * 60 * 60 * 1000
+      ) {
+        dueItems.push({
+          id: `dep-${v.id}`,
+          label: `Deposit: ${String(v.name)}`,
+          sub: `€${Number(v.deposit_amount_eur).toLocaleString()} due`,
+          due_date: due,
+          href: "/payments",
+          kind: "deposit",
+        });
+      }
+    }
+    if (v.final_balance_eur != null && !v.final_paid_at && v.final_due_at) {
+      const due = String(v.final_due_at);
+      const dt = new Date(due).getTime();
+      if (
+        !isNaN(dt) &&
+        dt - now <= 30 * 24 * 60 * 60 * 1000 &&
+        dt - now > -7 * 24 * 60 * 60 * 1000
+      ) {
+        dueItems.push({
+          id: `fin-${v.id}`,
+          label: `Final: ${String(v.name)}`,
+          sub: `€${Number(v.final_balance_eur).toLocaleString()} due`,
+          due_date: due,
+          href: "/payments",
+          kind: "final",
+        });
+      }
+    }
+  }
+  dueItems.sort((a, b) => +new Date(a.due_date) - +new Date(b.due_date));
+  const dueWindow = dueItems.slice(0, 8);
+
   const daysUntil = workspace?.wedding_date
     ? differenceInCalendarDays(parseISO(workspace.wedding_date), new Date())
     : null;
@@ -278,6 +368,65 @@ export default async function DashboardPage() {
           sub="across all venues"
         />
       </section>
+
+      {/* Due soon */}
+      {dueWindow.length > 0 && (
+        <section className="rounded-2xl border border-amber-200 bg-gradient-to-br from-amber-50/50 via-white to-rose-50/30 p-5">
+          <div className="mb-3 flex items-baseline justify-between">
+            <div>
+              <div className="text-[11px] uppercase tracking-[0.25em] text-amber-900">
+                Due in the next 2 weeks
+              </div>
+              <h3 className="mt-1 font-serif text-2xl">
+                {dueWindow.length} thing{dueWindow.length === 1 ? "" : "s"} to handle
+              </h3>
+            </div>
+          </div>
+          <ul className="divide-y divide-stone-200/60">
+            {dueWindow.map((item) => {
+              const dt = new Date(item.due_date);
+              const daysOff = Math.round(
+                (dt.getTime() - Date.now()) / (1000 * 60 * 60 * 24),
+              );
+              const overdue = daysOff < 0;
+              const label =
+                overdue
+                  ? `${Math.abs(daysOff)}d overdue`
+                  : daysOff === 0
+                  ? "today"
+                  : daysOff === 1
+                  ? "tomorrow"
+                  : `in ${daysOff}d`;
+              return (
+                <li key={item.id} className="flex items-center gap-3 py-2.5">
+                  <div className="flex-1">
+                    <Link
+                      href={item.href}
+                      className="font-medium text-stone-900 hover:underline"
+                    >
+                      {item.label}
+                    </Link>
+                    <div className="text-[11px] uppercase tracking-[0.15em] text-stone-500">
+                      {item.sub}
+                    </div>
+                  </div>
+                  <span
+                    className={`shrink-0 text-[10px] uppercase tracking-[0.15em] ${
+                      overdue
+                        ? "text-rose-700"
+                        : daysOff <= 3
+                        ? "text-amber-700"
+                        : "text-stone-500"
+                    }`}
+                  >
+                    {label}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
 
       {/* Shortlist */}
       <section>

@@ -498,7 +498,10 @@ export function PaymentsCalendar({
               />
               {error && <p className="text-sm text-destructive">{error}</p>}
             </div>
-            {role === "admin" && (
+            {/* Couples can mark their own payments paid — they're the
+                ones writing the wires. Visibility/scenario-include
+                settings stay admin-only via the vendor-pricing tab. */}
+            {role && (
               <div className="border-t border-stone-200 p-5">
                 {selected.paid_at ? (
                   <Button

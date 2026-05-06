@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import type Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@/lib/supabase/server";
-import { anthropicReady, getAnthropic, DEFAULT_INTAKE_MODEL } from "@/lib/anthropic";
+import { anthropicReady, getAnthropic, DEFAULT_INTAKE_MODEL, estimateCost } from "@/lib/anthropic";
+import { assertNonChatAiQuota, recordNonChatAiCall } from "@/lib/ai-quota";
 import { EMAIL_TEMPLATES, type EmailKind } from "@/lib/email-templates";
 
 export const runtime = "nodejs";
@@ -57,10 +58,16 @@ export async function POST(request: NextRequest) {
 
   const { data: profile } = await supabase
     .from("users")
-    .select("role, workspace_id")
+    .select("role, workspace_id, org_id")
     .eq("id", user.id)
     .maybeSingle();
   if (!profile) return NextResponse.json({ error: "no profile" }, { status: 403 });
+
+  // Cost guard
+  const overBudget = await assertNonChatAiQuota(supabase, profile.org_id);
+  if (overBudget) {
+    return NextResponse.json({ error: overBudget }, { status: 429 });
+  }
 
   if (!anthropicReady) {
     return NextResponse.json(
@@ -184,6 +191,14 @@ export async function POST(request: NextRequest) {
     tools: [DRAFT_TOOL],
     messages: [{ role: "user", content: userMessage }],
   });
+
+  // Track usage against the daily AI budget
+  await recordNonChatAiCall(
+    supabase,
+    profile.org_id,
+    profile.workspace_id,
+    estimateCost(resp.usage.input_tokens, resp.usage.output_tokens),
+  );
 
   const toolBlock = resp.content.find((c) => c.type === "tool_use");
   if (!toolBlock || toolBlock.type !== "tool_use") {

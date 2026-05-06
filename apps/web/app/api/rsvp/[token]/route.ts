@@ -4,13 +4,15 @@ import type { Database } from "@wedding-os/db";
 
 export const runtime = "nodejs";
 
-// Public anon client. RLS allows SELECT/UPDATE on guests for anon, but the
-// API layer is the actual gate — every operation here filters by exact
-// rsvp_token match.
-function publicClient() {
+// SECURITY: We use the SERVICE ROLE key here, NOT the anon key. The anon key
+// would let any visitor hit Supabase REST directly and exfiltrate or rewrite
+// the guests table. With service role, all access is gated by THIS route's
+// token-match logic. The service role key never ships to the client — it's
+// read on the server only.
+function adminClient() {
   return createClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
     { auth: { persistSession: false, autoRefreshToken: false } },
   );
 }
@@ -30,7 +32,7 @@ export async function GET(
     return NextResponse.json({ error: "invalid token" }, { status: 400 });
   }
 
-  const sb = publicClient();
+  const sb = adminClient();
   const { data: guest, error } = await sb
     .from("guests")
     .select(
@@ -46,6 +48,7 @@ export async function GET(
     return NextResponse.json({ error: "not found" }, { status: 404 });
   }
 
+  // Surface only the workspace's public-presentation fields for context.
   const { data: workspace } = await sb
     .from("workspaces")
     .select("name, wedding_date, public_slug")
@@ -89,9 +92,10 @@ export async function PATCH(
     return NextResponse.json({ error: "nothing to update" }, { status: 400 });
   }
 
-  // CRITICAL: filter the update by exact token. RLS WITH CHECK is permissive
-  // (anon role) — the WHERE clause is the actual gate.
-  const sb = publicClient();
+  // Filter the update by exact token. The token IS the auth here — a
+  // 122-bit UUID is unguessable in practice. We never let an anon caller
+  // change rsvp_token, workspace_id, org_id, or full_name (planner-managed).
+  const sb = adminClient();
   const { data: updated, error } = await sb
     .from("guests")
     .update(patch as never)

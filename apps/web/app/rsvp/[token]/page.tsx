@@ -6,10 +6,13 @@ import type { Database } from "@wedding-os/db";
 
 export const dynamic = "force-dynamic";
 
-function publicClient() {
+// SECURITY: server-side service-role client. The token IS the auth — we
+// only return the row that matches it. Anon clients can no longer read
+// the guests table directly (locked down in migration 0019).
+function adminClient() {
   return createClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
     { auth: { persistSession: false, autoRefreshToken: false } },
   );
 }
@@ -23,7 +26,7 @@ export default async function RsvpPage({
 }) {
   if (!UUID_RE.test(params.token)) notFound();
 
-  const sb = publicClient();
+  const sb = adminClient();
 
   const { data: guest } = await sb
     .from("guests")
