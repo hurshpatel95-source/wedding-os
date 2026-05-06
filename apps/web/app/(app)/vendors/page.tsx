@@ -96,14 +96,13 @@ export default async function VendorsPage() {
                 AI to get a Claude-drafted email you can paste into Gmail.
               </p>
             </div>
-            <a
-              href="https://forms.gle/wedding-os-gmail-waitlist"
-              className="inline-flex items-center gap-1 rounded-full border border-rose-300 bg-white px-3 py-1.5 text-xs font-medium text-rose-800 hover:bg-rose-50"
-              onClick={(e) => e.preventDefault()}
+            <span
+              className="inline-flex items-center gap-1 rounded-full border border-rose-300 bg-white px-3 py-1.5 text-xs font-medium text-rose-800"
+              title="Coming in Phase 2"
             >
               <Mail className="h-3 w-3" />
-              Join the beta list
-            </a>
+              Beta list opens soon
+            </span>
           </div>
         </div>
       )}
