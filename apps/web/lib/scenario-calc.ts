@@ -18,6 +18,43 @@ interface VenueLite {
   name: string;
   capacity_min: number | null;
   capacity_max: number | null;
+  // Optional DB-stored hire-fee data — when present, takes priority over the
+  // VENUE_HIRE constants. Lets admin edit a venue's pricing in-app.
+  hire_fee_weekend_eur?: number | null;
+  hire_fee_weekday_eur?: number | null;
+  hire_fee_sunday_eur?: number | null;
+  minimum_pax_weekend?: number | null;
+  minimum_pax_sunday?: number | null;
+  minimum_pax_weekday?: number | null;
+  shortfall_per_pax_eur?: number | null;
+  spaces?: { label: string; price_eur: number }[] | null;
+  hire_fee_notes?: string | null;
+}
+
+// Build a hire-fee profile from either the DB venue row (preferred) or fall
+// back to the constants in VENUE_HIRE for any field the DB doesn't have.
+function profileFor(venue: VenueLite | null): VenueHireProfile | undefined {
+  if (!venue) return undefined;
+  const fallback = VENUE_HIRE[venue.name];
+  return {
+    weekend_eur: venue.hire_fee_weekend_eur ?? fallback?.weekend_eur ?? null,
+    weekday_eur: venue.hire_fee_weekday_eur ?? fallback?.weekday_eur ?? null,
+    sunday_eur: venue.hire_fee_sunday_eur ?? fallback?.sunday_eur ?? null,
+    minimum_pax: venue.minimum_pax_weekend != null || venue.minimum_pax_sunday != null
+      ? {
+          weekend: venue.minimum_pax_weekend ?? 0,
+          sunday: venue.minimum_pax_sunday ?? 0,
+          weekday: venue.minimum_pax_weekday ?? undefined,
+        }
+      : fallback?.minimum_pax ?? null,
+    shortfall_per_pax_eur:
+      venue.shortfall_per_pax_eur ?? fallback?.shortfall_per_pax_eur ?? null,
+    notes: venue.hire_fee_notes ?? fallback?.notes,
+    extra_hour_eur: fallback?.extra_hour_eur ?? null,
+    spaces: venue.spaces && venue.spaces.length > 0
+      ? venue.spaces.map((s) => ({ ...s, default_selected: true }))
+      : fallback?.spaces,
+  };
 }
 
 interface VendorLite {
@@ -38,7 +75,7 @@ export function calcScenario(
   for (const ev of inputs.events) {
     if (!ev.enabled) continue;
     const venue = ev.venue_id ? venuesById[ev.venue_id] : null;
-    const profile = venue ? VENUE_HIRE[venue.name] : undefined;
+    const profile = profileFor(venue);
     const hire = computeHireForEvent(ev, profile);
     const guests = inputs.link_guest_count ? inputs.guest_count : ev.guests;
     const cateringSubtotal = ev.catering_per_pax_eur * guests;

@@ -15,7 +15,7 @@ export default async function PricingPage() {
     supabase
       .from("venues")
       .select(
-        "id, name, address, capacity_min, capacity_max, indoor_outdoor, event_roles, planner_notes, hero_photo_url",
+        "id, name, address, capacity_min, capacity_max, indoor_outdoor, event_roles, planner_notes, hero_photo_url, hire_fee_weekend_eur, hire_fee_weekday_eur, hire_fee_sunday_eur, minimum_pax_weekend, minimum_pax_sunday, minimum_pax_weekday, shortfall_per_pax_eur, extra_hour_eur, spaces, hire_fee_notes",
       )
       .order("name", { ascending: true }),
     supabase

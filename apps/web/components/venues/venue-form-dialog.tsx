@@ -50,6 +50,14 @@ export interface VenueFormDialogProps {
     | "planner_notes"
     | "status"
     | "event_roles"
+    | "hire_fee_weekend_eur"
+    | "hire_fee_weekday_eur"
+    | "hire_fee_sunday_eur"
+    | "minimum_pax_weekend"
+    | "minimum_pax_sunday"
+    | "shortfall_per_pax_eur"
+    | "spaces"
+    | "hire_fee_notes"
   >;
   workspaceId?: string;
   orgId?: string;
@@ -84,6 +92,37 @@ export function VenueFormDialog({
     setEventRoles((prev) => (prev.includes(r) ? prev.filter((x) => x !== r) : [...prev, r]));
   };
 
+  // Hire-fee fields
+  const [hireWeekend, setHireWeekend] = useState<string>(
+    venue?.hire_fee_weekend_eur?.toString() ?? "",
+  );
+  const [hireWeekday, setHireWeekday] = useState<string>(
+    venue?.hire_fee_weekday_eur?.toString() ?? "",
+  );
+  const [hireSunday, setHireSunday] = useState<string>(
+    venue?.hire_fee_sunday_eur?.toString() ?? "",
+  );
+  const [minWeekend, setMinWeekend] = useState<string>(
+    venue?.minimum_pax_weekend?.toString() ?? "",
+  );
+  const [minSunday, setMinSunday] = useState<string>(
+    venue?.minimum_pax_sunday?.toString() ?? "",
+  );
+  const [shortfall, setShortfall] = useState<string>(
+    venue?.shortfall_per_pax_eur?.toString() ?? "",
+  );
+  const [spaces, setSpaces] = useState<{ label: string; price_eur: number }[]>(
+    venue?.spaces ?? [],
+  );
+  const [hireFeeNotes, setHireFeeNotes] = useState<string>(venue?.hire_fee_notes ?? "");
+
+  const updateSpace = (i: number, patch: Partial<{ label: string; price_eur: number }>) => {
+    setSpaces((prev) => prev.map((s, idx) => (idx === i ? { ...s, ...patch } : s)));
+  };
+  const addSpace = () => setSpaces((prev) => [...prev, { label: "", price_eur: 0 }]);
+  const removeSpace = (i: number) =>
+    setSpaces((prev) => prev.filter((_, idx) => idx !== i));
+
   const handleSubmit = async () => {
     if (!name.trim()) {
       setError("Name is required");
@@ -107,6 +146,14 @@ export function VenueFormDialog({
       planner_notes: notes.trim() || null,
       status,
       event_roles: eventRoles,
+      hire_fee_weekend_eur: hireWeekend ? Number(hireWeekend) : null,
+      hire_fee_weekday_eur: hireWeekday ? Number(hireWeekday) : null,
+      hire_fee_sunday_eur: hireSunday ? Number(hireSunday) : null,
+      minimum_pax_weekend: minWeekend ? Number(minWeekend) : null,
+      minimum_pax_sunday: minSunday ? Number(minSunday) : null,
+      shortfall_per_pax_eur: shortfall ? Number(shortfall) : null,
+      spaces: spaces.filter((s) => s.label.trim().length > 0),
+      hire_fee_notes: hireFeeNotes.trim() || null,
     };
 
     if (venue?.id) {
@@ -276,6 +323,140 @@ export function VenueFormDialog({
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
             />
+          </div>
+
+          {/* Hire fees — drives the pricing engine */}
+          <div className="space-y-3 rounded-lg border border-stone-200 bg-stone-50/40 p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-serif text-base">Hire fees & minimums</h3>
+                <p className="text-xs text-stone-500">
+                  Drives every scenario's hire-fee total. Edit and the pricing page recalculates.
+                </p>
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <div className="grid gap-1.5">
+                <Label>Weekend (Sat) €</Label>
+                <Input
+                  inputMode="decimal"
+                  placeholder="14000"
+                  value={hireWeekend}
+                  onChange={(e) =>
+                    setHireWeekend(e.target.value.replace(/[^\d.]/g, ""))
+                  }
+                />
+              </div>
+              <div className="grid gap-1.5">
+                <Label>Sunday €</Label>
+                <Input
+                  inputMode="decimal"
+                  placeholder="19000"
+                  value={hireSunday}
+                  onChange={(e) =>
+                    setHireSunday(e.target.value.replace(/[^\d.]/g, ""))
+                  }
+                />
+              </div>
+              <div className="grid gap-1.5">
+                <Label>Weekday €</Label>
+                <Input
+                  inputMode="decimal"
+                  placeholder="12400"
+                  value={hireWeekday}
+                  onChange={(e) =>
+                    setHireWeekday(e.target.value.replace(/[^\d.]/g, ""))
+                  }
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-3">
+              <div className="grid gap-1.5">
+                <Label>Min pax — Sat</Label>
+                <Input
+                  inputMode="numeric"
+                  placeholder="280"
+                  value={minWeekend}
+                  onChange={(e) => setMinWeekend(e.target.value.replace(/[^\d]/g, ""))}
+                />
+              </div>
+              <div className="grid gap-1.5">
+                <Label>Min pax — Sun</Label>
+                <Input
+                  inputMode="numeric"
+                  placeholder="220"
+                  value={minSunday}
+                  onChange={(e) => setMinSunday(e.target.value.replace(/[^\d]/g, ""))}
+                />
+              </div>
+              <div className="grid gap-1.5">
+                <Label>Shortfall €/pax</Label>
+                <Input
+                  inputMode="decimal"
+                  placeholder="80"
+                  value={shortfall}
+                  onChange={(e) => setShortfall(e.target.value.replace(/[^\d.]/g, ""))}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label>Spaces (composite-priced venues)</Label>
+                <Button type="button" variant="outline" size="sm" onClick={addSpace}>
+                  + Add space
+                </Button>
+              </div>
+              {spaces.length === 0 ? (
+                <p className="text-xs text-stone-500">
+                  Use spaces for venues like Mas de Sant Llei where each area has its own price.
+                  Sum of selected spaces overrides the flat hire fee.
+                </p>
+              ) : (
+                <div className="space-y-1.5">
+                  {spaces.map((s, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <Input
+                        className="flex-1"
+                        placeholder="Space label (e.g. Orange courtyard)"
+                        value={s.label}
+                        onChange={(e) => updateSpace(i, { label: e.target.value })}
+                      />
+                      <Input
+                        className="w-32"
+                        inputMode="decimal"
+                        placeholder="2000"
+                        value={s.price_eur}
+                        onChange={(e) =>
+                          updateSpace(i, {
+                            price_eur: Number(e.target.value.replace(/[^\d.]/g, "") || 0),
+                          })
+                        }
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeSpace(i)}
+                      >
+                        ×
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="grid gap-1.5">
+              <Label>Hire fee notes</Label>
+              <Textarea
+                rows={2}
+                placeholder="e.g. 'Sat €14k / Fri €12.4k' or 'Friday rate not quoted'"
+                value={hireFeeNotes}
+                onChange={(e) => setHireFeeNotes(e.target.value)}
+              />
+            </div>
           </div>
 
           {error && <p className="text-sm text-destructive">{error}</p>}
