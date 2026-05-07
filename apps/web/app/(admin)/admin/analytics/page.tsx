@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -56,8 +57,13 @@ const VENDOR_CATEGORY_LABEL: Record<string, string> = {
   other: "Other",
 };
 
-export default async function AdminAnalyticsPage() {
+export default async function AdminAnalyticsPage({
+  searchParams,
+}: {
+  searchParams: { compare?: string };
+}) {
   const supabase = createClient();
+  const compareYoY = searchParams.compare === "yoy";
 
   const sb = supabase as unknown as {
     from: (t: string) => {
@@ -139,7 +145,14 @@ export default async function AdminAnalyticsPage() {
   const maxBudget = budgetValues.length > 0 ? Math.max(...budgetValues) : 0;
 
   // ── Monthly invoice trend (last 12 months) ────────────────────────
-  const months: { label: string; key: string; invoiced: number; paid: number }[] = [];
+  const months: {
+    label: string;
+    key: string;
+    invoiced: number;
+    paid: number;
+    invoiced_prev: number;
+    paid_prev: number;
+  }[] = [];
   const now = new Date();
   for (let i = 11; i >= 0; i -= 1) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
@@ -149,25 +162,152 @@ export default async function AdminAnalyticsPage() {
       key,
       invoiced: 0,
       paid: 0,
+      invoiced_prev: 0,
+      paid_prev: 0,
     });
   }
   const monthIndex = new Map(months.map((m, i) => [m.key, i]));
+  // Same-month-prior-year keys (for YoY overlay)
+  const monthPrevIndex = new Map<string, number>();
+  for (let i = 0; i < months.length; i++) {
+    const m = months[i];
+    const [yStr, mmStr] = m.key.split("-");
+    const prevKey = `${Number(yStr) - 1}-${mmStr}`;
+    monthPrevIndex.set(prevKey, i);
+  }
+
   for (const inv of invoices) {
     const issued = new Date(inv.created_at);
     const issuedKey = `${issued.getFullYear()}-${String(issued.getMonth() + 1).padStart(2, "0")}`;
     const ii = monthIndex.get(issuedKey);
     if (ii != null) months[ii].invoiced += Number(inv.amount_eur);
+    const iiPrev = monthPrevIndex.get(issuedKey);
+    if (iiPrev != null) months[iiPrev].invoiced_prev += Number(inv.amount_eur);
     if (inv.paid_at) {
       const paid = new Date(inv.paid_at);
       const paidKey = `${paid.getFullYear()}-${String(paid.getMonth() + 1).padStart(2, "0")}`;
       const pi = monthIndex.get(paidKey);
       if (pi != null) months[pi].paid += Number(inv.amount_eur);
+      const piPrev = monthPrevIndex.get(paidKey);
+      if (piPrev != null) months[piPrev].paid_prev += Number(inv.amount_eur);
     }
   }
   const maxMonthBar = Math.max(
     1,
-    ...months.flatMap((m) => [m.invoiced, m.paid]),
+    ...months.flatMap((m) =>
+      compareYoY
+        ? [m.invoiced, m.paid, m.invoiced_prev, m.paid_prev]
+        : [m.invoiced, m.paid],
+    ),
   );
+
+  // YoY totals (this YTD vs same period last year)
+  const monthsElapsedThisYear = now.getMonth() + 1; // 1-12
+  const lastYear = now.getFullYear() - 1;
+  let revenueYtdLastYear = 0;
+  let invoicedYtdLastYear = 0;
+  let revenueLastYearFull = 0;
+  for (const inv of invoices) {
+    if (!inv.paid_at) continue;
+    const paid = new Date(inv.paid_at);
+    if (paid.getFullYear() === lastYear) {
+      revenueLastYearFull += Number(inv.amount_eur);
+      if (paid.getMonth() < monthsElapsedThisYear) {
+        revenueYtdLastYear += Number(inv.amount_eur);
+      }
+    }
+  }
+  for (const inv of invoices) {
+    const issued = new Date(inv.created_at);
+    if (issued.getFullYear() === lastYear && issued.getMonth() < monthsElapsedThisYear) {
+      invoicedYtdLastYear += Number(inv.amount_eur);
+    }
+  }
+  const yoyDelta = revenueYtdLastYear > 0
+    ? ((revenueYtd - revenueYtdLastYear) / revenueYtdLastYear) * 100
+    : null;
+
+  // ── Per-client revenue drilldown ──────────────────────────────────
+  type ClientRevenue = {
+    workspace_id: string;
+    name: string;
+    invoiced_total: number;
+    paid_total: number;
+    outstanding: number;
+    overdue: number;
+    invoice_count: number;
+    last_paid_at: string | null;
+  };
+  const clientRev = new Map<string, ClientRevenue>();
+  const wsById = new Map<string, WorkspaceRow>();
+  for (const w of workspaces) wsById.set(w.id, w);
+  for (const inv of invoices) {
+    const ws = wsById.get(inv.workspace_id);
+    const cr =
+      clientRev.get(inv.workspace_id) ?? {
+        workspace_id: inv.workspace_id,
+        name: ws?.name ?? "Unknown",
+        invoiced_total: 0,
+        paid_total: 0,
+        outstanding: 0,
+        overdue: 0,
+        invoice_count: 0,
+        last_paid_at: null as string | null,
+      };
+    const amt = Number(inv.amount_eur);
+    cr.invoiced_total += amt;
+    cr.invoice_count += 1;
+    if (inv.paid_at) {
+      cr.paid_total += amt;
+      if (!cr.last_paid_at || inv.paid_at > cr.last_paid_at) {
+        cr.last_paid_at = inv.paid_at;
+      }
+    } else {
+      cr.outstanding += amt;
+      if (inv.due_at && new Date(inv.due_at).getTime() < Date.now()) {
+        cr.overdue += amt;
+      }
+    }
+    clientRev.set(inv.workspace_id, cr);
+  }
+  const clientRevList = Array.from(clientRev.values()).sort(
+    (a, b) => b.invoiced_total - a.invoiced_total,
+  );
+
+  // ── Lead pipeline counts (for the funnel widget) ──────────────────
+  const { data: leadsRaw } = await sb
+    .from("leads")
+    .select("id, source, status, created_at, scheduled_call_at, converted_at");
+  const leads = (leadsRaw ?? []) as unknown as Array<{
+    source: string;
+    status: string;
+    created_at: string;
+    scheduled_call_at: string | null;
+    converted_at: string | null;
+  }>;
+  const last30Days = Date.now() - 30 * 24 * 60 * 60 * 1000;
+  const leads30 = leads.filter(
+    (l) => new Date(l.created_at).getTime() >= last30Days,
+  );
+  const leadFunnel = {
+    new30: leads30.filter((l) => l.status === "new").length,
+    contacted30: leads30.filter((l) =>
+      ["contacted", "booked_call", "qualified"].includes(l.status),
+    ).length,
+    booked30: leads30.filter(
+      (l) => l.status === "booked_call" || l.scheduled_call_at,
+    ).length,
+    converted30: leads30.filter((l) => !!l.converted_at).length,
+    total30: leads30.length,
+    convRate30:
+      leads30.length > 0
+        ? Math.round(
+            (leads30.filter((l) => !!l.converted_at).length /
+              leads30.length) *
+              100,
+          )
+        : 0,
+  };
 
   // ── Vendor category mix across all client workspaces ──────────────
   const vendorCatCounts = new Map<string, number>();
@@ -241,38 +381,140 @@ export default async function AdminAnalyticsPage() {
 
       <Card>
         <CardContent className="py-5">
-          <div className="mb-3 flex items-baseline justify-between">
+          <div className="mb-3 flex flex-wrap items-baseline justify-between gap-3">
             <h3 className="font-serif text-xl">Monthly cashflow</h3>
-            <div className="flex items-center gap-3 text-[11px] text-stone-600">
-              <span className="inline-flex items-center gap-1">
-                <span className="h-2 w-2 rounded-sm bg-rose-400" />
-                Invoiced
-              </span>
-              <span className="inline-flex items-center gap-1">
-                <span className="h-2 w-2 rounded-sm bg-emerald-500" />
-                Collected
-              </span>
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-3 text-[11px] text-stone-600">
+                <span className="inline-flex items-center gap-1">
+                  <span className="h-2 w-2 rounded-sm bg-rose-400" />
+                  Invoiced
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  <span className="h-2 w-2 rounded-sm bg-emerald-500" />
+                  Collected
+                </span>
+                {compareYoY && (
+                  <span className="inline-flex items-center gap-1">
+                    <span className="h-2 w-2 rounded-sm bg-stone-300" />
+                    Last year
+                  </span>
+                )}
+              </div>
+              <div className="ml-2 flex rounded-full border border-stone-200 bg-stone-50 p-0.5 text-[11px]">
+                <Link
+                  href="/admin/analytics"
+                  className={`rounded-full px-3 py-1 transition ${
+                    !compareYoY
+                      ? "bg-stone-900 text-white"
+                      : "text-stone-600 hover:text-stone-900"
+                  }`}
+                >
+                  Trend
+                </Link>
+                <Link
+                  href="/admin/analytics?compare=yoy"
+                  className={`rounded-full px-3 py-1 transition ${
+                    compareYoY
+                      ? "bg-stone-900 text-white"
+                      : "text-stone-600 hover:text-stone-900"
+                  }`}
+                >
+                  YoY
+                </Link>
+              </div>
             </div>
           </div>
+
+          {compareYoY && (
+            <div className="mb-4 grid grid-cols-2 gap-3 rounded-xl bg-stone-50/60 p-3 md:grid-cols-3">
+              <div>
+                <div className="text-[10px] uppercase tracking-[0.15em] text-stone-500">
+                  Revenue YTD this year
+                </div>
+                <div className="font-serif text-2xl font-medium tabular-nums">
+                  €{Math.round(revenueYtd).toLocaleString()}
+                </div>
+              </div>
+              <div>
+                <div className="text-[10px] uppercase tracking-[0.15em] text-stone-500">
+                  Revenue YTD last year
+                </div>
+                <div className="font-serif text-2xl font-medium tabular-nums text-stone-500">
+                  €{Math.round(revenueYtdLastYear).toLocaleString()}
+                </div>
+              </div>
+              <div>
+                <div className="text-[10px] uppercase tracking-[0.15em] text-stone-500">
+                  Δ YoY
+                </div>
+                <div
+                  className={`font-serif text-2xl font-medium tabular-nums ${
+                    yoyDelta == null
+                      ? "text-stone-400"
+                      : yoyDelta >= 0
+                        ? "text-emerald-700"
+                        : "text-rose-700"
+                  }`}
+                >
+                  {yoyDelta == null
+                    ? "—"
+                    : `${yoyDelta >= 0 ? "+" : ""}${yoyDelta.toFixed(0)}%`}
+                </div>
+                <div className="text-[10px] text-stone-500">
+                  {lastYear} full year: €{Math.round(revenueLastYearFull).toLocaleString()}
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="grid grid-cols-12 items-end gap-2">
             {months.map((m) => {
               const invH = Math.round((m.invoiced / maxMonthBar) * 120);
               const paidH = Math.round((m.paid / maxMonthBar) * 120);
+              const invPrevH = Math.round((m.invoiced_prev / maxMonthBar) * 120);
+              const paidPrevH = Math.round((m.paid_prev / maxMonthBar) * 120);
               return (
                 <div
                   key={m.key}
                   className="flex flex-col items-center gap-1"
-                  title={`${m.label}: invoiced €${Math.round(m.invoiced).toLocaleString()}, paid €${Math.round(m.paid).toLocaleString()}`}
+                  title={
+                    compareYoY
+                      ? `${m.label}: this year €${Math.round(m.paid).toLocaleString()} paid; last year €${Math.round(m.paid_prev).toLocaleString()} paid`
+                      : `${m.label}: invoiced €${Math.round(m.invoiced).toLocaleString()}, paid €${Math.round(m.paid).toLocaleString()}`
+                  }
                 >
                   <div className="flex h-32 w-full items-end gap-0.5">
-                    <div
-                      className="flex-1 rounded-t bg-rose-300"
-                      style={{ height: `${Math.max(invH, m.invoiced > 0 ? 4 : 0)}px` }}
-                    />
-                    <div
-                      className="flex-1 rounded-t bg-emerald-500"
-                      style={{ height: `${Math.max(paidH, m.paid > 0 ? 4 : 0)}px` }}
-                    />
+                    {compareYoY ? (
+                      <>
+                        <div
+                          className="flex-1 rounded-t bg-stone-300"
+                          style={{
+                            height: `${Math.max(paidPrevH, m.paid_prev > 0 ? 4 : 0)}px`,
+                          }}
+                        />
+                        <div
+                          className="flex-1 rounded-t bg-emerald-500"
+                          style={{
+                            height: `${Math.max(paidH, m.paid > 0 ? 4 : 0)}px`,
+                          }}
+                        />
+                      </>
+                    ) : (
+                      <>
+                        <div
+                          className="flex-1 rounded-t bg-rose-300"
+                          style={{
+                            height: `${Math.max(invH, m.invoiced > 0 ? 4 : 0)}px`,
+                          }}
+                        />
+                        <div
+                          className="flex-1 rounded-t bg-emerald-500"
+                          style={{
+                            height: `${Math.max(paidH, m.paid > 0 ? 4 : 0)}px`,
+                          }}
+                        />
+                      </>
+                    )}
                   </div>
                   <div className="text-[10px] uppercase tracking-[0.15em] text-stone-500">
                     {m.label}
@@ -283,6 +525,149 @@ export default async function AdminAnalyticsPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Lead funnel + per-client revenue */}
+      <div className="grid gap-4 lg:grid-cols-[1fr_2fr]">
+        <Card>
+          <CardContent className="py-5">
+            <div className="flex items-baseline justify-between gap-2">
+              <h3 className="font-serif text-xl">Lead funnel · 30d</h3>
+              <Link
+                href="/admin/leads"
+                className="text-[11px] text-stone-500 underline hover:text-stone-900"
+              >
+                See all →
+              </Link>
+            </div>
+            <div className="mt-4 space-y-3">
+              <FunnelRow
+                label="Inquiries"
+                value={leadFunnel.total30}
+                width={100}
+                tone="rose"
+              />
+              <FunnelRow
+                label="Contacted"
+                value={leadFunnel.contacted30}
+                width={
+                  leadFunnel.total30 > 0
+                    ? (leadFunnel.contacted30 / leadFunnel.total30) * 100
+                    : 0
+                }
+                tone="amber"
+              />
+              <FunnelRow
+                label="Calls booked"
+                value={leadFunnel.booked30}
+                width={
+                  leadFunnel.total30 > 0
+                    ? (leadFunnel.booked30 / leadFunnel.total30) * 100
+                    : 0
+                }
+                tone="amber"
+              />
+              <FunnelRow
+                label="Converted"
+                value={leadFunnel.converted30}
+                width={
+                  leadFunnel.total30 > 0
+                    ? (leadFunnel.converted30 / leadFunnel.total30) * 100
+                    : 0
+                }
+                tone="emerald"
+              />
+            </div>
+            <div className="mt-4 rounded-md bg-stone-50/70 px-3 py-2 text-[11px] text-stone-600">
+              {leadFunnel.total30 === 0
+                ? "No inquiries in the last 30 days. Share your /book link."
+                : `${leadFunnel.convRate30}% of inquiries converted in the last 30 days.`}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="py-5">
+            <h3 className="font-serif text-xl">Per-client revenue</h3>
+            <p className="mt-1 text-xs text-muted-foreground">
+              How much each client has been invoiced + how much remains
+              outstanding. Click any name to drill in.
+            </p>
+            {clientRevList.length === 0 ? (
+              <div className="mt-4 rounded-md border border-dashed border-stone-300 px-4 py-6 text-center text-sm text-stone-500">
+                No invoices issued yet. Add a retainer on any client&rsquo;s
+                Billing tab.
+              </div>
+            ) : (
+              <div className="mt-4 overflow-hidden rounded-lg border border-stone-200">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-stone-200 bg-stone-50/60 text-[10px] uppercase tracking-[0.15em] text-stone-500">
+                      <th className="px-3 py-2 text-left">Client</th>
+                      <th className="px-3 py-2 text-right">Invoiced</th>
+                      <th className="px-3 py-2 text-right">Collected</th>
+                      <th className="px-3 py-2 text-right">Outstanding</th>
+                      <th className="px-3 py-2 text-right">Last paid</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-stone-100">
+                    {clientRevList.map((c) => {
+                      const collectedPct =
+                        c.invoiced_total > 0
+                          ? Math.round((c.paid_total / c.invoiced_total) * 100)
+                          : 0;
+                      return (
+                        <tr key={c.workspace_id} className="hover:bg-stone-50/50">
+                          <td className="px-3 py-2">
+                            <Link
+                              href={`/admin/clients/${c.workspace_id}`}
+                              className="font-medium text-stone-900 hover:underline"
+                            >
+                              {c.name}
+                            </Link>
+                            <div className="text-[10px] text-stone-500">
+                              {c.invoice_count} invoice
+                              {c.invoice_count === 1 ? "" : "s"}
+                            </div>
+                          </td>
+                          <td className="px-3 py-2 text-right tabular-nums">
+                            €{Math.round(c.invoiced_total).toLocaleString()}
+                          </td>
+                          <td className="px-3 py-2 text-right text-emerald-700 tabular-nums">
+                            €{Math.round(c.paid_total).toLocaleString()}
+                            <div className="text-[10px] text-stone-400">
+                              {collectedPct}%
+                            </div>
+                          </td>
+                          <td
+                            className={`px-3 py-2 text-right tabular-nums ${
+                              c.overdue > 0 ? "text-rose-700" : "text-stone-700"
+                            }`}
+                          >
+                            €{Math.round(c.outstanding).toLocaleString()}
+                            {c.overdue > 0 && (
+                              <div className="text-[10px] text-rose-600">
+                                €{Math.round(c.overdue).toLocaleString()} overdue
+                              </div>
+                            )}
+                          </td>
+                          <td className="px-3 py-2 text-right text-[11px] text-stone-500">
+                            {c.last_paid_at
+                              ? new Date(c.last_paid_at).toLocaleDateString(
+                                  undefined,
+                                  { month: "short", day: "numeric" },
+                                )
+                              : "—"}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
@@ -387,6 +772,36 @@ export default async function AdminAnalyticsPage() {
             </ul>
           </CardContent>
         </Card>
+      </div>
+    </div>
+  );
+}
+
+function FunnelRow({
+  label,
+  value,
+  width,
+  tone,
+}: {
+  label: string;
+  value: number;
+  width: number;
+  tone: "rose" | "amber" | "emerald";
+}) {
+  const cls =
+    tone === "rose"
+      ? "bg-rose-300"
+      : tone === "amber"
+        ? "bg-amber-300"
+        : "bg-emerald-400";
+  return (
+    <div>
+      <div className="flex items-baseline justify-between text-xs">
+        <span className="text-stone-700">{label}</span>
+        <span className="font-medium tabular-nums text-stone-900">{value}</span>
+      </div>
+      <div className="mt-1 h-2 w-full overflow-hidden rounded-full bg-stone-100">
+        <div className={`h-full ${cls}`} style={{ width: `${Math.max(2, width)}%` }} />
       </div>
     </div>
   );

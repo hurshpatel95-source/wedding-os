@@ -7,6 +7,7 @@ import {
   BarChart3,
   BookOpen,
   Briefcase,
+  Calendar,
   ChevronDown,
   Heart,
   Inbox,
@@ -14,6 +15,8 @@ import {
   LogOut,
   Receipt,
   Settings as SettingsIcon,
+  Sparkles,
+  TrendingUp,
   Users,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -22,12 +25,15 @@ import { cn } from "@/lib/utils";
 
 const links: { href: string; label: string; icon: LucideIcon }[] = [
   { href: "/admin/inbox", label: "Inbox", icon: Inbox },
+  { href: "/admin/leads", label: "Leads", icon: TrendingUp },
   { href: "/admin/library", label: "Library", icon: Library },
   { href: "/admin/playbook", label: "Playbook", icon: BookOpen },
   { href: "/admin/vendors", label: "Vendors", icon: Briefcase },
   { href: "/admin/clients", label: "Clients", icon: Users },
   { href: "/admin/billing", label: "Billing", icon: Receipt },
   { href: "/admin/analytics", label: "Analytics", icon: BarChart3 },
+  { href: "/admin/booking", label: "Booking", icon: Calendar },
+  { href: "/admin/marketing", label: "Marketing", icon: Sparkles },
   { href: "/admin/settings", label: "Settings", icon: SettingsIcon },
 ];
 

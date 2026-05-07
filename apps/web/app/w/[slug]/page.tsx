@@ -4,6 +4,7 @@ import { format, parseISO } from "date-fns";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { Database } from "@wedding-os/db";
+import { InquiryForm } from "@/components/public-site/inquiry-form";
 
 export const dynamic = "force-dynamic";
 
@@ -81,6 +82,39 @@ export default async function PublicWeddingSite({
     .eq("workspace_id", workspace.id);
 
   const venues: PublicVenue[] = (venuesRaw as PublicVenue[] | null) ?? [];
+
+  // Fetch the planner org so we can offer "Plan with <planner>" CTA at the
+  // bottom — this is the couple-referral lead-gen surface.
+  const { data: orgRow } = await (
+    sb as unknown as {
+      from: (t: string) => {
+        select: (cols: string) => {
+          eq: (col: string, val: string) => {
+            maybeSingle: () => Promise<{
+              data: {
+                name: string;
+                public_slug: string | null;
+                contact_phone: string | null;
+                contact_email: string | null;
+                public_published_at: string | null;
+              } | null;
+            }>;
+          };
+        };
+      };
+    }
+  )
+    .from("organizations")
+    .select("name, public_slug, contact_phone, contact_email, public_published_at")
+    .eq("id", workspace.org_id)
+    .maybeSingle();
+
+  const planner = orgRow ?? null;
+  // Only offer the booking CTA if the planner has actually published their
+  // /book/<slug> page — otherwise the link would 404.
+  const bookSlug = planner?.public_published_at && planner?.public_slug
+    ? planner.public_slug
+    : null;
   const leadVenues = venues.filter((v) => v.is_lead_pick);
   const heroPhotoUrl =
     leadVenues.find((v) => v.hero_photo_url)?.hero_photo_url ??
@@ -355,6 +389,64 @@ export default async function PublicWeddingSite({
           We&rsquo;re tracking RSVPs &mdash; check your inbox
         </div>
       </section>
+
+      {/* Plan with us — couple-referral CTA */}
+      {planner && (
+        <section className="border-t border-stone-200 bg-stone-50/60 py-16">
+          <div className="mx-auto max-w-3xl px-6">
+            <div className="grid gap-8 md:grid-cols-[1fr_1fr]">
+              <div>
+                <div className="text-[10px] uppercase tracking-[0.3em] text-stone-500">
+                  Planning your own?
+                </div>
+                <h2 className="mt-2 font-serif text-3xl font-light tracking-tight">
+                  Plan with {planner.name}
+                </h2>
+                <p className="mt-4 text-sm leading-relaxed text-stone-700">
+                  This whole experience — venue shortlist, vendor curation,
+                  the run-of-show — was orchestrated by the team at{" "}
+                  {planner.name}. If you&rsquo;re thinking about something
+                  similar, reach out.
+                </p>
+                <div className="mt-6 flex flex-wrap gap-3 text-sm">
+                  {planner.contact_phone && (
+                    <a
+                      href={`tel:${planner.contact_phone}`}
+                      className="inline-flex items-center gap-2 rounded-full border border-stone-300 bg-white px-4 py-2 font-medium text-stone-800 transition hover:border-rose-500 hover:text-rose-800"
+                    >
+                      Call now
+                      <span className="font-mono text-xs text-stone-500">
+                        {planner.contact_phone}
+                      </span>
+                    </a>
+                  )}
+                  {bookSlug && (
+                    <a
+                      href={`/book/${bookSlug}`}
+                      className="inline-flex items-center gap-2 rounded-full bg-stone-900 px-4 py-2 font-medium text-white transition hover:bg-stone-800"
+                    >
+                      Book a consult →
+                    </a>
+                  )}
+                  {planner.contact_email && (
+                    <a
+                      href={`mailto:${planner.contact_email}`}
+                      className="inline-flex items-center gap-2 rounded-full border border-stone-300 bg-white px-4 py-2 font-medium text-stone-800 transition hover:border-rose-500 hover:text-rose-800"
+                    >
+                      Email
+                    </a>
+                  )}
+                </div>
+              </div>
+              <InquiryForm
+                workspaceSlug={params.slug}
+                plannerName={planner.name}
+                bookSlug={bookSlug}
+              />
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* Footer */}
       <footer className="border-t border-stone-200 bg-white/50 py-10 text-center">

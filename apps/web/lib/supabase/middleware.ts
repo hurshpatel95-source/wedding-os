@@ -32,8 +32,25 @@ export async function updateSession(request: NextRequest) {
 
   const path = request.nextUrl.pathname;
   const isAuthRoute = path.startsWith("/login") || path.startsWith("/auth");
+  // Public routes anyone can hit without sign-in:
+  // - /marketing  → SaaS landing page for new planners
+  // - /signup     → self-serve planner signup form
+  // - /book/<slug>→ planner's public consult-booking page
+  // - /w/<slug>   → couple's public wedding site
+  // - /rsvp/<token> → guest RSVP self-serve
+  // - /api/public/* → anon-callable endpoints (lead capture, org lookup)
+  const isPublicRoute =
+    path === "/" && false ||
+    path.startsWith("/marketing") ||
+    path.startsWith("/signup") ||
+    path.startsWith("/book/") ||
+    path.startsWith("/w/") ||
+    path.startsWith("/rsvp/") ||
+    path.startsWith("/api/public/") ||
+    path.startsWith("/api/rsvp/") ||
+    path.startsWith("/api/signup");
 
-  if (!user && !isAuthRoute) {
+  if (!user && !isAuthRoute && !isPublicRoute) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);

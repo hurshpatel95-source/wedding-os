@@ -3,23 +3,35 @@
 The state of the build at end-of-session. Use this when context compresses
 or when picking the work back up cold.
 
-> **STRATEGIC PIVOT (session-end May 2026).** Hursh's plan: build wedding-os
+> **STRATEGIC PIVOT (May 2026).** Hursh's plan: build wedding-os
 > for his own wedding first, get Astha's acceptance, then sell to ANY
 > wedding planner (Aisle Planner / Honeybook competitor). Resend / DNS /
 > Stripe are deferred until Astha actually reviews the tool. Astia is a
 > sales channel + design partner, not the only customer.
 >
-> **End-of-session state**: production-safe, planner-CRM-complete, polish
-> boundaries in place, **analytics dashboard live**. Multi-tenant SaaS
-> with workspace impersonation, library push in onboarding, billing
+> **MAY 6 PUSH — go-to-market surface complete.** /marketing landing for
+> the SaaS itself, /signup self-serve planner onboarding, /book/<slug>
+> Calendly-style consult booking page (live at /book/astia-events),
+> Call/Book CTAs + inquiry form on every couple's /w/<slug>, planner
+> leads inbox at /admin/leads (with convert-to-client flow that
+> provisions a workspace + magic-links the couple), booking-config
+> editor at /admin/booking, AI-driven SEO + marketing scorecard agent
+> at /admin/marketing (Sonnet 4.6, ~$0.05/run, prioritized fix list),
+> per-client revenue drilldown + YoY toggle on /admin/analytics, lead
+> funnel widget. **24 migrations · ~85 routes · 26 seed scripts.**
+>
+> **End-of-session state**: production-safe, planner-CRM-complete,
+> SaaS GTM surface live, polish boundaries in place. Multi-tenant from
+> day one, workspace impersonation, library push in onboarding, billing
 > surface, cross-client task inbox, public wedding site, guest RSVP,
 > Co-pilot multi-thread, toasts, error/loading/not-found pages, the
 > works.
 >
-> **23 migrations · ~70 routes · 25+ seed scripts · ~30 commits this
-> session.** Library has 20 venues + 51 venue-photos + 23 web-sourced
-> photos in library-media bucket. Build clean, types clean, deployed
-> to Railway.
+> **24 migrations · ~85 routes · 26+ seed scripts.** Library has 20
+> venues + 51 venue-photos + 23 web-sourced photos in library-media
+> bucket. Build clean, types clean, deployed to Railway. New planner
+> can sign up at /signup, get a magic link, land in /admin, configure
+> their booking page, and start collecting leads — end-to-end.
 >
 > Last commits in chronological order this session (newest at top of
 > "Recent commits" below):
@@ -152,8 +164,14 @@ Hosting: **Railway** (auto-deploys from GitHub `main`).
 
 | Route | Purpose |
 |---|---|
-| `/w/[slug]` | Public wedding site for guests — share-ready, lead venues, RSVP CTA |
+| `/marketing` | SaaS landing page for new planners — features, pricing, CTAs to /signup |
+| `/signup` | Self-serve planner signup — creates org + sandbox workspace + magic-link |
+| `/book/[slug]` | Planner's public consult-booking page (Calendly-style) — inquiry form + slot picker |
+| `/w/[slug]` | Public wedding site for guests — share-ready, lead venues, RSVP CTA, inquiry form for next couple |
 | `/rsvp/[token]` | Guest self-serve RSVP — per-guest UUID token, updates `overall_rsvp` + dietary |
+| `/api/public/leads` | POST anonymous lead capture (rate-limited, honeypot, source-validated) |
+| `/api/public/orgs/[slug]` | GET public org metadata + booking windows for /book/<slug> |
+| `/api/signup` | POST self-serve planner signup → org + workspace + magic link |
 | `/api/rsvp/[token]` | GET fetches guest by token, PATCH updates RSVP fields |
 
 ### Planner-OS admin routes (org_admin only)
@@ -162,7 +180,11 @@ Hosting: **Railway** (auto-deploys from GitHub `main`).
 |---|---|
 | `/admin` | Studio dashboard — stat cards (clients / library size / activity) |
 | `/admin/inbox` | Cross-client task inbox — overdue + due-soon + per-client roll-up |
-| `/admin/analytics` | KPIs — Revenue YTD, Outstanding, Active clients, Avg budget, Monthly cashflow chart, Vendor mix |
+| `/admin/leads` | Lead pipeline — new/contacted/booked/qualified/converted/lost, source attribution, manual + booking-page + couple-referral leads |
+| `/admin/leads/[id]` | Lead drill — status controls + convert-to-client (provisions workspace + magic-link), quick email/call actions |
+| `/admin/booking` | Public-booking-page settings — slug, tagline, brand markdown, contact info, slot config, recurring availability windows editor |
+| `/admin/marketing` | SEO + marketing scorecard agent — drop a URL, Claude analyzes (title/meta/H1/CTA/contact/schema/speed) and emits prioritized fix list |
+| `/admin/analytics` | KPIs — Revenue YTD, Outstanding, Active clients, Avg budget, Monthly cashflow chart with **YoY toggle**, Vendor mix, **Lead funnel · 30d**, **Per-client revenue drilldown** |
 | `/admin/billing` | Cross-client invoice roster — outstanding/overdue/collected stats, +new invoice form |
 | `/admin/vendors` | Full vendor CRM (Gmail integration banner) |
 | `/admin/library` | Hub linking to venues + vendors |
@@ -217,6 +239,7 @@ Hosting: **Railway** (auto-deploys from GitHub `main`).
 25. `20260506000021_workspace_impersonation.sql` — `active_workspace_overrides` table + redefined `auth_workspace_id()` so org_admins can View-as a client transparently
 26. `20260506000022_library_vendors_plus.sql` — library_vendors gain website, instagram, planner_rating (1-5), default_contract_path, tags[] (GIN-indexed), lead_time_days, price_band enum
 27. `20260506000023_planner_invoices.sql` — track what couples owe THE PLANNER (retainers, milestone fees), distinct from /payments which is vendor-side
+28. `20260506000024_marketing_and_leads.sql` — **MAJOR**: organizations gain public_slug + brand markdown + contact + booking config; new tables `booking_windows` (recurring availability), `leads` (funnel rows with source/status/scheduled-call), `marketing_scorecards` (cached SEO analyses); orgs_public_read RLS policy for /book/<slug>
 
 **Pattern**: every workspace-scoped table has RLS with `workspace_id = auth_workspace_id()`. Admin-only workspace writes use `auth_is_admin()`. Org-scoped tables (library/playbook) use `auth_org_role() = 'org_admin'`. Sensitive features (pricing intake, vendors) are admin-only on read+write.
 
@@ -469,7 +492,8 @@ wedding-os/
 ## Recent commits (most recent first)
 
 ```
-[next]   Studio analytics page + extensive snapshot handoff (THIS commit)
+[next]   GTM surface — /marketing, /signup, /book/<slug>, /admin/leads, /admin/booking, /admin/marketing (SEO agent), per-client revenue + YoY (THIS commit)
+ba10e02 Studio analytics + comprehensive handoff notes
 7e84c6b Toasts (sonner) + per-client billing tab + dashboard estimated total
 f692727 Co-pilot multi-thread sidebar + library empty-state polish
 9e50310 Cross-client inbox + empty-state polish + mobile fixes
@@ -553,12 +577,25 @@ Hursh is building wedding-os in stages:
 
 ## Open feature ideas (post-Astha-review backlog)
 
-- **SEO analytics + marketing agent** — lead gen for Astha's website (her own marketing-agent connector). Big ask, deferred.
-- **Lead capture page** — public sign-up for new planners. Phase 8.
-- **Calendar bookings / Calendly-like integration** — couples can self-book consults
-- **"Call now / Book now" CTAs** on the public wedding site
-- **Per-client revenue analytics drilldown** (currently aggregate only)
-- **Year-over-year invoice trends** (the existing chart is rolling 12 months)
+ALL the GTM items from the previous backlog shipped in commit `[next]`:
+
+- ✅ **SEO analytics + marketing agent** — `/admin/marketing` runs Sonnet 4.6 against any URL, returns scorecard + 3-5 prioritized fixes with low/med/high effort tags. ~$0.05/run. Caps via `assertNonChatAiQuota`.
+- ✅ **Lead capture page** — `/marketing` for the SaaS itself; `/signup` self-serves new planner orgs (creates org + sandbox workspace + magic-link).
+- ✅ **Calendly-like integration** — `/book/<orgSlug>` Calendly-style page; planner configures recurring weekly windows in `/admin/booking`; slot picker computes 21 days of bookable slots client-side.
+- ✅ **Call now / Book now CTAs** on `/w/<slug>` — bottom CTA section with phone, email, "Book a consult" link to planner's `/book/<slug>`, plus an InquiryForm that posts to `/api/public/leads` with workspaceSlug for couple-referral attribution.
+- ✅ **Per-client revenue drilldown** — `/admin/analytics` now has a per-client revenue table: invoiced / collected / outstanding / overdue / last-paid date. Sorted by total invoiced.
+- ✅ **YoY invoice trend** — `/admin/analytics?compare=yoy` toggles the chart to show this-year vs last-year same-month, plus YoY delta % up top.
+
+What's still open after this push:
+
+- **Resend integration** — Astha's DNS still required. Once she's reviewed, set up MX + DKIM and route lead-confirmation emails through Resend.
+- **Stripe billing** — replace manual `paid_at` stamps with real Stripe payment links. Webhook → mark paid on receipt.
+- **WhatsApp Cloud API** — Astha's primary channel. Meta Business verification + dedicated WA number.
+- **Scorecard run history per URL** — currently shows latest + a flat history list. Could chart score-over-time if a planner re-runs the same URL.
+- **Lead source UTM dashboard** — `leads.metadata.utm` is captured but not visualized. Heatmap by source × budget_band would tell Astha which channel pulls high-value couples.
+- **Convert-to-client → push library + playbook** — currently only creates the workspace + invites the couple. Should optionally bulk-push library venues + apply playbook (one-stop).
+- **Public-site SEO** — JSON-LD structured data on `/w/<slug>` + the planner's `/book/<slug>` (LocalBusiness schema, Organization schema). Will help the marketing agent's own scorecard.
+- **Booking page slot conflict detection** — the slot picker ignores already-booked slots. Should hide slots where `leads.scheduled_call_at` matches.
 
 ## How to pick up cold (next session)
 
