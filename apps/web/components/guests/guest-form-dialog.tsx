@@ -54,7 +54,10 @@ export interface GuestFormDialogProps {
     | "allergies"
     | "notes"
     | "overall_rsvp"
-  >;
+  > & {
+    // post-0025 columns; not yet in generated types
+    plus_one_max?: number | null;
+  };
   workspaceId?: string;
   orgId?: string;
 }
@@ -84,6 +87,9 @@ export function GuestFormDialog({
   const [allergies, setAllergies] = useState(guest?.allergies ?? "");
   const [notes, setNotes] = useState(guest?.notes ?? "");
   const [rsvp, setRsvp] = useState<RsvpStatus>(guest?.overall_rsvp ?? "pending");
+  const [plusOneMax, setPlusOneMax] = useState<number>(
+    typeof guest?.plus_one_max === "number" ? guest.plus_one_max : 0,
+  );
 
   const handleSubmit = async () => {
     if (!fullName.trim()) {
@@ -94,6 +100,9 @@ export function GuestFormDialog({
     setError(null);
 
     const supabase = createClient();
+    const clampedPlusOneMax = Math.max(0, Math.min(5, Math.floor(plusOneMax || 0)));
+    // plus_one_max isn't in the generated Guest types yet (added in
+    // migration 0025) — cast on insert/update so TS doesn't complain.
     const payload = {
       full_name: fullName.trim(),
       email: email.trim() || null,
@@ -109,10 +118,14 @@ export function GuestFormDialog({
       allergies: allergies.trim() || null,
       notes: notes.trim() || null,
       overall_rsvp: rsvp,
+      plus_one_max: clampedPlusOneMax,
     };
 
     if (guest?.id) {
-      const { error: upErr } = await supabase.from("guests").update(payload).eq("id", guest.id);
+      const { error: upErr } = await supabase
+        .from("guests")
+        .update(payload as never)
+        .eq("id", guest.id);
       if (upErr) {
         setError(upErr.message);
         setSubmitting(false);
@@ -126,7 +139,11 @@ export function GuestFormDialog({
       }
       const { error: insErr } = await supabase
         .from("guests")
-        .insert({ ...payload, workspace_id: workspaceId, org_id: orgId });
+        .insert({
+          ...payload,
+          workspace_id: workspaceId,
+          org_id: orgId,
+        } as never);
       if (insErr) {
         setError(insErr.message);
         setSubmitting(false);
@@ -248,20 +265,39 @@ export function GuestFormDialog({
             </div>
           </div>
 
-          <div className="grid gap-1.5">
-            <Label>RSVP</Label>
-            <Select value={rsvp} onValueChange={(v) => setRsvp(v as RsvpStatus)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {RSVP_STATUSES.map((s) => (
-                  <SelectItem key={s} value={s}>
-                    {RSVP_LABEL[s]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-1.5">
+              <Label>RSVP</Label>
+              <Select value={rsvp} onValueChange={(v) => setRsvp(v as RsvpStatus)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {RSVP_STATUSES.map((s) => (
+                    <SelectItem key={s} value={s}>
+                      {RSVP_LABEL[s]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="po">Plus-ones allowed</Label>
+              <Input
+                id="po"
+                type="number"
+                min={0}
+                max={5}
+                step={1}
+                value={plusOneMax}
+                onChange={(e) =>
+                  setPlusOneMax(Number.parseInt(e.target.value || "0", 10) || 0)
+                }
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Guest can self-add up to this many on their RSVP page.
+              </p>
+            </div>
           </div>
 
           <div className="grid gap-1.5">

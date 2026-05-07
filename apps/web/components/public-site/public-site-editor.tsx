@@ -9,6 +9,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { SITE_THEMES, type SiteThemeSlug } from "@/lib/tier1-types";
+import { cn } from "@/lib/utils";
 
 interface ScheduleItem {
   time?: string;
@@ -32,10 +34,19 @@ interface Props {
     dress_code_md: string;
     faq: FaqItem[];
     schedule: ScheduleItem[];
+    public_theme_slug: string;
   };
   isPublished: boolean;
   publicSlug: string | null;
 }
+
+const THEME_SWATCHES: Record<SiteThemeSlug, string> = {
+  classic: "bg-gradient-to-br from-amber-50 via-white to-rose-100",
+  modern: "bg-gradient-to-br from-white to-stone-200",
+  garden: "bg-gradient-to-br from-emerald-50 via-white to-emerald-100",
+  beach: "bg-gradient-to-br from-sky-100 via-amber-50 to-amber-100",
+  bollywood: "bg-gradient-to-br from-amber-200 via-pink-200 to-pink-400",
+};
 
 export function PublicSiteEditor({ initial, isPublished, publicSlug }: Props) {
   const router = useRouter();
@@ -48,6 +59,7 @@ export function PublicSiteEditor({ initial, isPublished, publicSlug }: Props) {
   const [dress, setDress] = useState(initial.dress_code_md);
   const [faq, setFaq] = useState<FaqItem[]>(initial.faq);
   const [schedule, setSchedule] = useState<ScheduleItem[]>(initial.schedule);
+  const [theme, setTheme] = useState<string>(initial.public_theme_slug);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<number | null>(null);
@@ -69,6 +81,7 @@ export function PublicSiteEditor({ initial, isPublished, publicSlug }: Props) {
           dress_code_md: dress || null,
           faq,
           schedule,
+          public_theme_slug: theme,
           publish,
         }),
       });
@@ -129,6 +142,59 @@ export function PublicSiteEditor({ initial, isPublished, publicSlug }: Props) {
               placeholder="We met in 2017..."
               disabled={saving}
             />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="space-y-3 py-5">
+          <div>
+            <h3 className="font-serif text-xl">Theme</h3>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Visual style for your /w/{slug || "your-slug"} page. Same
+              content, different vibe.
+            </p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {SITE_THEMES.map((t) => {
+              const selected = theme === t.slug;
+              const swatch = THEME_SWATCHES[t.slug];
+              return (
+                <button
+                  key={t.slug}
+                  type="button"
+                  onClick={() => setTheme(t.slug)}
+                  disabled={saving}
+                  className={cn(
+                    "group relative overflow-hidden rounded-2xl border bg-white p-4 text-left transition disabled:opacity-60",
+                    selected
+                      ? "border-stone-900 ring-2 ring-stone-900/20"
+                      : "border-stone-200 hover:border-stone-400",
+                  )}
+                  aria-pressed={selected}
+                >
+                  <div
+                    className={cn(
+                      "h-16 w-full rounded-xl border border-white/40",
+                      swatch,
+                    )}
+                  />
+                  <div className="mt-3 flex items-baseline justify-between gap-2">
+                    <div className="font-serif text-base font-medium">
+                      {t.label}
+                    </div>
+                    {selected && (
+                      <span className="text-[10px] uppercase tracking-[0.2em] text-emerald-700">
+                        Selected
+                      </span>
+                    )}
+                  </div>
+                  <p className="mt-1 text-xs text-stone-600">
+                    {t.description}
+                  </p>
+                </button>
+              );
+            })}
           </div>
         </CardContent>
       </Card>

@@ -45,7 +45,10 @@ type Guest = Pick<
   | "country"
   | "notes"
   | "created_at"
->;
+> & {
+  // post-0025; not yet in generated types
+  plus_one_max?: number | null;
+};
 
 type SideFilter = "all" | GuestSide;
 type RsvpFilter = "all" | RsvpStatus;

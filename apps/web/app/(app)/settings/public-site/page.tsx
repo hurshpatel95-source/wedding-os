@@ -109,6 +109,10 @@ export default async function PublicSiteSettingsPage() {
           dress_code_md: workspace.dress_code_md ?? "",
           faq: (workspace.faq as FaqItem[] | null) ?? [],
           schedule: (workspace.schedule as ScheduleItem[] | null) ?? [],
+          // post-0025 column; types haven't regenerated yet
+          public_theme_slug:
+            ((workspace as unknown as { public_theme_slug?: string | null })
+              .public_theme_slug ?? "classic"),
         }}
         isPublished={isPublished}
         publicSlug={workspace.public_slug ?? null}
