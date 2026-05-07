@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Printer } from "lucide-react";
+import { Printer, Smartphone } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import { TimelineEditor } from "@/components/timeline/timeline-editor";
@@ -48,7 +48,13 @@ export default async function TimelinePage() {
             Day-of timeline · per event · printable for vendors
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <Button asChild variant="outline">
+            <Link href="/timeline/day-of">
+              <Smartphone className="h-4 w-4" />
+              Day-of view
+            </Link>
+          </Button>
           {role === "admin" && (
             <Button asChild variant="outline">
               <Link href="/timeline/print" target="_blank" rel="noopener noreferrer">
