@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { format, parseISO } from "date-fns";
 import {
   ArrowRight,
@@ -39,8 +40,13 @@ interface PlanningTaskRow {
   due_date: string | null;
 }
 
-export default async function AdminHomePage() {
+export default async function AdminHomePage({
+  searchParams,
+}: {
+  searchParams?: { welcome?: string };
+}) {
   const supabase = createClient();
+  const welcomeJustDone = searchParams?.welcome === "done";
 
   const sb = supabase as unknown as {
     from: (t: string) => {
@@ -137,6 +143,21 @@ export default async function AdminHomePage() {
     }
   }
 
+  // First-time-planner redirect: a brand-new org has nothing published, no
+  // library, and the planner hasn't seen the welcome wizard yet. We send
+  // them through onboarding before showing them an empty dashboard.
+  // Skip the redirect when ?welcome=done so we don't trap the user in a
+  // loop on completion (they'll be empty for a moment then populate as
+  // they actually use the product).
+  if (
+    !welcomeJustDone &&
+    org &&
+    !org.public_published_at &&
+    librarySize === 0
+  ) {
+    redirect("/admin/welcome");
+  }
+
   const now = Date.now();
   const yearStart = new Date(new Date().getFullYear(), 0, 1).getTime();
 
@@ -225,6 +246,31 @@ export default async function AdminHomePage() {
 
   return (
     <div className="space-y-6">
+      {welcomeJustDone && (
+        <div className="rounded-2xl border border-emerald-200 bg-gradient-to-r from-emerald-50 via-rose-50 to-amber-50 px-5 py-4 shadow-sm">
+          <div className="flex items-start gap-3">
+            <span className="text-xl" aria-hidden>
+              🎉
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="font-serif text-base font-medium text-emerald-900">
+                Studio set up. Here&rsquo;s your live dashboard.
+              </p>
+              <p className="mt-0.5 text-xs text-emerald-800/80">
+                You can revisit any onboarding step later from{" "}
+                <Link
+                  href="/admin/welcome"
+                  className="underline hover:no-underline"
+                >
+                  /admin/welcome
+                </Link>
+                .
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Hero */}
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
