@@ -26,33 +26,37 @@ export default async function GuestsPage() {
     role = (profile?.role ?? null) as typeof role;
   }
 
+  // plus_one_max is post-0025; types haven't regenerated. We select it
+  // anyway and merge through a cast.
   const { data: guests } = await supabase
     .from("guests")
     .select(
-      "id, full_name, email, phone, side, relationship, dietary, allergies, overall_rsvp, address, city, region, postal_code, country, notes, created_at",
+      "id, full_name, email, phone, side, relationship, dietary, allergies, overall_rsvp, address, city, region, postal_code, country, notes, created_at, plus_one_max",
     )
     .order("full_name", { ascending: true });
 
   type GuestRow = Database["public"]["Tables"]["guests"]["Row"];
-  const list = (guests ?? []) as Pick<
-    GuestRow,
-    | "id"
-    | "full_name"
-    | "email"
-    | "phone"
-    | "side"
-    | "relationship"
-    | "dietary"
-    | "allergies"
-    | "overall_rsvp"
-    | "address"
-    | "city"
-    | "region"
-    | "postal_code"
-    | "country"
-    | "notes"
-    | "created_at"
-  >[];
+  const list = (guests ?? []) as unknown as Array<
+    Pick<
+      GuestRow,
+      | "id"
+      | "full_name"
+      | "email"
+      | "phone"
+      | "side"
+      | "relationship"
+      | "dietary"
+      | "allergies"
+      | "overall_rsvp"
+      | "address"
+      | "city"
+      | "region"
+      | "postal_code"
+      | "country"
+      | "notes"
+      | "created_at"
+    > & { plus_one_max: number | null }
+  >;
 
   const total = list.length;
   const yes = list.filter((g) => g.overall_rsvp === "yes").length;

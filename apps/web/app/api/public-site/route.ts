@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { SITE_THEMES } from "@/lib/tier1-types";
 
 export const runtime = "nodejs";
 
@@ -14,9 +15,11 @@ interface PatchBody {
   faq?: Array<{ q: string; a: string }>;
   schedule?: Array<{ time?: string; date?: string; label: string; location?: string }>;
   publish?: boolean;
+  public_theme_slug?: string;
 }
 
 const SLUG_RE = /^[a-z0-9](?:[a-z0-9-]{0,60}[a-z0-9])?$/;
+const THEME_SLUGS = new Set<string>(SITE_THEMES.map((t) => t.slug));
 
 export async function PATCH(request: NextRequest) {
   const supabase = createClient();
@@ -66,6 +69,15 @@ export async function PATCH(request: NextRequest) {
     patch.public_published_at = new Date().toISOString();
   } else if (body.publish === false) {
     patch.public_published_at = null;
+  }
+  if (body.public_theme_slug !== undefined) {
+    if (!THEME_SLUGS.has(body.public_theme_slug)) {
+      return NextResponse.json(
+        { error: "Unknown theme. Pick one of: " + Array.from(THEME_SLUGS).join(", ") },
+        { status: 400 },
+      );
+    }
+    patch.public_theme_slug = body.public_theme_slug;
   }
 
   if (Object.keys(patch).length === 0) {

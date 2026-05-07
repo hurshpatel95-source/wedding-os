@@ -33,10 +33,12 @@ export async function GET(
   }
 
   const sb = adminClient();
-  const { data: guest, error } = await sb
+  const { data: guestRow, error } = await sb
     .from("guests")
     .select(
-      "id, full_name, overall_rsvp, dietary, allergies, notes, workspace_id",
+      // is_plus_one / plus_one_of_guest_id / plus_one_max are added in
+      // migration 0025. Generated types lag; we re-shape via cast below.
+      "id, full_name, overall_rsvp, dietary, allergies, notes, workspace_id, is_plus_one, plus_one_of_guest_id, plus_one_max",
     )
     .eq("rsvp_token", token)
     .maybeSingle();
@@ -44,9 +46,22 @@ export async function GET(
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
-  if (!guest) {
+  if (!guestRow) {
     return NextResponse.json({ error: "not found" }, { status: 404 });
   }
+
+  const guest = guestRow as unknown as {
+    id: string;
+    full_name: string;
+    overall_rsvp: "pending" | "yes" | "no" | "maybe";
+    dietary: string | null;
+    allergies: string | null;
+    notes: string | null;
+    workspace_id: string;
+    is_plus_one: boolean;
+    plus_one_of_guest_id: string | null;
+    plus_one_max: number;
+  };
 
   // Surface only the workspace's public-presentation fields for context.
   const { data: workspace } = await sb
@@ -55,7 +70,44 @@ export async function GET(
     .eq("id", guest.workspace_id)
     .maybeSingle();
 
-  return NextResponse.json({ guest, workspace: workspace ?? null });
+  // Fetch any plus-ones linked to this primary guest. We never expose plus-
+  // one rsvp_tokens here — those are private to the +1 themselves.
+  const { data: plusOnesRaw } = await (sb as unknown as {
+    from: (t: string) => {
+      select: (cols: string) => {
+        eq: (col: string, val: string) => Promise<{
+          data: Array<{
+            id: string;
+            full_name: string;
+            overall_rsvp: "pending" | "yes" | "no" | "maybe";
+            email: string | null;
+          }> | null;
+        }>;
+      };
+    };
+  })
+    .from("guests")
+    .select("id, full_name, overall_rsvp, email")
+    .eq("plus_one_of_guest_id", guest.id);
+
+  const plusOnes = plusOnesRaw ?? [];
+
+  return NextResponse.json({
+    guest: {
+      id: guest.id,
+      full_name: guest.full_name,
+      overall_rsvp: guest.overall_rsvp,
+      dietary: guest.dietary,
+      allergies: guest.allergies,
+      notes: guest.notes,
+      workspace_id: guest.workspace_id,
+      is_plus_one: guest.is_plus_one,
+      plus_one_of_guest_id: guest.plus_one_of_guest_id,
+      plus_one_max: guest.plus_one_max,
+    },
+    workspace: workspace ?? null,
+    plus_ones: plusOnes,
+  });
 }
 
 export async function PATCH(

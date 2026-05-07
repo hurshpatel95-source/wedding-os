@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
 import { format, parseISO } from "date-fns";
 import { RsvpForm } from "@/components/rsvp/rsvp-form";
+import { PlusOneSection } from "@/components/rsvp/plus-one-section";
 import type { Database } from "@wedding-os/db";
 
 export const dynamic = "force-dynamic";
@@ -19,6 +20,15 @@ function adminClient() {
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+type RsvpStatus = "pending" | "yes" | "no" | "maybe";
+
+interface PlusOneRow {
+  id: string;
+  full_name: string;
+  overall_rsvp: RsvpStatus;
+  email: string | null;
+}
+
 export default async function RsvpPage({
   params,
 }: {
@@ -28,21 +38,55 @@ export default async function RsvpPage({
 
   const sb = adminClient();
 
-  const { data: guest } = await sb
+  const { data: guestRaw } = await sb
     .from("guests")
     .select(
-      "id, full_name, overall_rsvp, dietary, allergies, notes, workspace_id",
+      // is_plus_one / plus_one_of_guest_id / plus_one_max are post-0025
+      // columns; types lag, so we cast below.
+      "id, full_name, overall_rsvp, dietary, allergies, notes, workspace_id, is_plus_one, plus_one_of_guest_id, plus_one_max",
     )
     .eq("rsvp_token", params.token)
     .maybeSingle();
 
-  if (!guest) notFound();
+  if (!guestRaw) notFound();
+
+  const guest = guestRaw as unknown as {
+    id: string;
+    full_name: string;
+    overall_rsvp: RsvpStatus;
+    dietary: string | null;
+    allergies: string | null;
+    notes: string | null;
+    workspace_id: string;
+    is_plus_one: boolean;
+    plus_one_of_guest_id: string | null;
+    plus_one_max: number;
+  };
 
   const { data: workspace } = await sb
     .from("workspaces")
     .select("name, wedding_date, public_slug")
     .eq("id", guest.workspace_id)
     .maybeSingle();
+
+  // Pull existing plus-ones for the primary guest. We DON'T pull them for
+  // a +1 themselves (their plus_one_max is 0 by construction).
+  let plusOnes: PlusOneRow[] = [];
+  if (!guest.is_plus_one && guest.plus_one_max > 0) {
+    const { data: poRaw } = await (sb as unknown as {
+      from: (t: string) => {
+        select: (cols: string) => {
+          eq: (col: string, val: string) => Promise<{
+            data: PlusOneRow[] | null;
+          }>;
+        };
+      };
+    })
+      .from("guests")
+      .select("id, full_name, overall_rsvp, email")
+      .eq("plus_one_of_guest_id", guest.id);
+    plusOnes = poRaw ?? [];
+  }
 
   const dateLabel = workspace?.wedding_date
     ? format(parseISO(workspace.wedding_date), "MMMM d, yyyy")
@@ -82,6 +126,14 @@ export default async function RsvpPage({
             publicSlug={workspace?.public_slug ?? null}
           />
         </div>
+
+        {!guest.is_plus_one && guest.plus_one_max > 0 && (
+          <PlusOneSection
+            token={params.token}
+            initial={plusOnes}
+            max={guest.plus_one_max}
+          />
+        )}
 
         <p className="mt-6 text-center text-xs text-stone-500">
           Need to make a change later? Just reopen this same link.
