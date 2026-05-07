@@ -9,6 +9,8 @@ import {
   Briefcase,
   Calendar,
   ChevronDown,
+  FileSignature,
+  FileText,
   Heart,
   Inbox,
   Library,
@@ -26,6 +28,8 @@ import { cn } from "@/lib/utils";
 const links: { href: string; label: string; icon: LucideIcon }[] = [
   { href: "/admin/inbox", label: "Inbox", icon: Inbox },
   { href: "/admin/leads", label: "Leads", icon: TrendingUp },
+  { href: "/admin/proposals", label: "Proposals", icon: FileText },
+  { href: "/admin/contracts", label: "Contracts", icon: FileSignature },
   { href: "/admin/library", label: "Library", icon: Library },
   { href: "/admin/playbook", label: "Playbook", icon: BookOpen },
   { href: "/admin/vendors", label: "Vendors", icon: Briefcase },

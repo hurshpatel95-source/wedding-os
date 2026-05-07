@@ -46,9 +46,14 @@ export async function updateSession(request: NextRequest) {
     path.startsWith("/book/") ||
     path.startsWith("/w/") ||
     path.startsWith("/rsvp/") ||
+    path.startsWith("/sign/") ||
+    path.startsWith("/proposal/") ||
     path.startsWith("/api/public/") ||
     path.startsWith("/api/rsvp/") ||
-    path.startsWith("/api/signup");
+    path.startsWith("/api/signup") ||
+    path.startsWith("/api/sign/") ||
+    path.startsWith("/api/proposal/") ||
+    path.startsWith("/api/stripe/webhook");
 
   if (!user && !isAuthRoute && !isPublicRoute) {
     const url = request.nextUrl.clone();
