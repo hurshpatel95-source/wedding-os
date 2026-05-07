@@ -35,7 +35,11 @@ export type Milestone = {
   is_overdue: boolean;
 };
 
-export default async function PaymentsPage() {
+export default async function PaymentsPage({
+  searchParams,
+}: {
+  searchParams: { paid?: string };
+}) {
   const supabase = createClient();
 
   // vendors not yet in generated Database types; cast for from() call only.
@@ -63,21 +67,83 @@ export default async function PaymentsPage() {
     };
   };
 
-  const [{ data: vendors }, { data: { user } }, { data: plannerInvoicesRaw }] =
-    await Promise.all([
-      sb
-        .from("vendors")
-        .select(
-          "id, name, category, status, contact_name, deposit_amount_eur, deposit_due_at, deposit_paid_at, final_balance_eur, final_due_at, final_paid_at, include_in_pricing",
-        ),
-      supabase.auth.getUser(),
-      sbInv
-        .from("planner_invoices")
-        .select("id, label, amount_eur, due_at, sent_at, paid_at, external_url")
-        .order("due_at", { ascending: true }),
-    ]);
+  const sbLinks = supabase as unknown as {
+    from: (table: string) => {
+      select: (cols: string) => {
+        order: (col: string, opts: { ascending: boolean }) => Promise<{
+          data: Array<{
+            id: string;
+            planner_invoice_id: string;
+            stripe_payment_link_url: string;
+            status: "open" | "paid" | "void" | "expired" | "failed";
+            receipt_url: string | null;
+            created_at: string;
+          }> | null;
+        }>;
+      };
+    };
+  };
+
+  const [
+    { data: vendors },
+    {
+      data: { user },
+    },
+    { data: plannerInvoicesRaw },
+    { data: paymentLinksRaw },
+  ] = await Promise.all([
+    sb
+      .from("vendors")
+      .select(
+        "id, name, category, status, contact_name, deposit_amount_eur, deposit_due_at, deposit_paid_at, final_balance_eur, final_due_at, final_paid_at, include_in_pricing",
+      ),
+    supabase.auth.getUser(),
+    sbInv
+      .from("planner_invoices")
+      .select("id, label, amount_eur, due_at, sent_at, paid_at, external_url")
+      .order("due_at", { ascending: true }),
+    sbLinks
+      .from("payment_links")
+      .select(
+        "id, planner_invoice_id, stripe_payment_link_url, status, receipt_url, created_at",
+      )
+      .order("created_at", { ascending: false }),
+  ]);
 
   const plannerInvoices = plannerInvoicesRaw ?? [];
+
+  // Map invoice id → preferred link (paid > open > anything else).
+  const linkByInvoice = new Map<
+    string,
+    {
+      url: string;
+      status: "open" | "paid" | "void" | "expired" | "failed";
+      receipt_url: string | null;
+    }
+  >();
+  for (const l of paymentLinksRaw ?? []) {
+    const existing = linkByInvoice.get(l.planner_invoice_id);
+    const next = {
+      url: l.stripe_payment_link_url,
+      status: l.status,
+      receipt_url: l.receipt_url,
+    };
+    if (!existing) {
+      linkByInvoice.set(l.planner_invoice_id, next);
+      continue;
+    }
+    if (existing.status === "paid") continue;
+    if (l.status === "paid") {
+      linkByInvoice.set(l.planner_invoice_id, next);
+      continue;
+    }
+    if (existing.status === "open") continue;
+    if (l.status === "open") {
+      linkByInvoice.set(l.planner_invoice_id, next);
+    }
+  }
+
+  const showPaidBanner = searchParams?.paid === "1";
 
   let role: "admin" | "couple" | null = null;
   if (user) {
@@ -160,6 +226,12 @@ export default async function PaymentsPage() {
 
   return (
     <div className="space-y-6">
+      {showPaidBanner && (
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+          Thanks — payment received. Your planner has been notified and your
+          invoice will mark as paid in a moment.
+        </div>
+      )}
       <header className="space-y-1">
         <div className="text-[11px] uppercase tracking-[0.25em] text-stone-500">
           Every deposit and final balance · forecasted across the run-up
@@ -218,7 +290,7 @@ export default async function PaymentsPage() {
                 <th className="px-3 py-2 text-right">Amount</th>
                 <th className="px-3 py-2 text-left">Due</th>
                 <th className="px-3 py-2 text-left">Status</th>
-                <th className="px-3 py-2 text-right">Link</th>
+                <th className="px-3 py-2 text-right">Action</th>
               </tr>
             </thead>
             <tbody>
@@ -227,6 +299,7 @@ export default async function PaymentsPage() {
                   !inv.paid_at &&
                   inv.due_at &&
                   new Date(inv.due_at).getTime() < Date.now();
+                const link = linkByInvoice.get(inv.id);
                 return (
                   <tr key={inv.id} className="border-t border-stone-100">
                     <td className="px-3 py-2 font-medium">{inv.label}</td>
@@ -249,8 +322,26 @@ export default async function PaymentsPage() {
                         <span className="text-stone-500">Drafted</span>
                       )}
                     </td>
-                    <td className="px-3 py-2 text-right">
-                      {inv.external_url ? (
+                    <td className="px-3 py-2 text-right text-xs">
+                      {inv.paid_at && link?.status === "paid" && link.receipt_url ? (
+                        <a
+                          href={link.receipt_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-emerald-700 hover:underline"
+                        >
+                          Receipt ↗
+                        </a>
+                      ) : !inv.paid_at && link?.status === "open" ? (
+                        <a
+                          href={link.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center rounded-md bg-rose-700 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-rose-800"
+                        >
+                          Pay online ↗
+                        </a>
+                      ) : !inv.paid_at && inv.external_url ? (
                         <a
                           href={inv.external_url}
                           target="_blank"
@@ -259,6 +350,10 @@ export default async function PaymentsPage() {
                         >
                           Open ↗
                         </a>
+                      ) : !inv.paid_at ? (
+                        <span className="text-stone-400">
+                          Pay manually — see invoice notes
+                        </span>
                       ) : (
                         <span className="text-stone-300">—</span>
                       )}

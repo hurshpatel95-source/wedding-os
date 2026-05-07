@@ -3,7 +3,15 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { format, parseISO } from "date-fns";
-import { Check, Loader2, Send, Trash2 } from "lucide-react";
+import {
+  Check,
+  Copy,
+  ExternalLink,
+  Link as LinkIcon,
+  Loader2,
+  Send,
+  Trash2,
+} from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -24,16 +32,29 @@ interface InvoiceRow {
   created_at: string;
 }
 
+export interface PaymentLinkSummary {
+  id: string;
+  planner_invoice_id: string;
+  stripe_payment_link_url: string;
+  status: "open" | "paid" | "void" | "expired" | "failed";
+  receipt_url: string | null;
+}
+
 export function InvoiceTable({
   invoices,
   workspaceById,
+  paymentLinksByInvoice,
 }: {
   invoices: InvoiceRow[];
   workspaceById: Map<string, string>;
+  paymentLinksByInvoice?: Map<string, PaymentLinkSummary>;
 }) {
   const router = useRouter();
   const [pendingId, setPendingId] = useState<string | null>(null);
+  const [linkPendingId, setLinkPendingId] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
+
+  const linkMap = paymentLinksByInvoice ?? new Map<string, PaymentLinkSummary>();
 
   const patch = async (
     id: string,
@@ -73,6 +94,41 @@ export function InvoiceTable({
     router.refresh();
   };
 
+  const generateLink = async (id: string) => {
+    setLinkPendingId(id);
+    try {
+      const res = await fetch(`/api/admin/billing/${id}/payment-link`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+      });
+      const data = (await res.json()) as { url?: string; error?: string };
+      if (!res.ok || !data.url) {
+        toast.error(data.error ?? "Couldn't generate Stripe link.");
+        return;
+      }
+      try {
+        await navigator.clipboard.writeText(data.url);
+        toast.success("Stripe link generated + copied");
+      } catch {
+        toast.success("Stripe link generated");
+      }
+      window.open(data.url, "_blank", "noopener,noreferrer");
+      router.refresh();
+    } finally {
+      setLinkPendingId(null);
+    }
+  };
+
+  const copyLink = async (url: string) => {
+    try {
+      await navigator.clipboard.writeText(url);
+      toast.success("Payment link copied");
+    } catch {
+      toast.error("Couldn't copy — opening in new tab instead");
+      window.open(url, "_blank", "noopener,noreferrer");
+    }
+  };
+
   return (
     <Card>
       <CardContent className="overflow-x-auto py-4">
@@ -89,6 +145,7 @@ export function InvoiceTable({
               <th className="px-3 py-2 text-right">Amount</th>
               <th className="px-3 py-2 text-left">Due</th>
               <th className="px-3 py-2 text-left">Status</th>
+              <th className="px-3 py-2 text-left">Online pay</th>
               <th className="px-3 py-2 text-right">Actions</th>
             </tr>
           </thead>
@@ -98,6 +155,8 @@ export function InvoiceTable({
                 !inv.paid_at &&
                 inv.due_at &&
                 new Date(inv.due_at).getTime() < Date.now();
+              const link = linkMap.get(inv.id);
+              const linkPending = linkPendingId === inv.id;
               return (
                 <tr
                   key={inv.id}
@@ -135,6 +194,71 @@ export function InvoiceTable({
                       <Badge variant="muted" className="text-[10px]">
                         Draft
                       </Badge>
+                    )}
+                  </td>
+                  <td className="px-3 py-2">
+                    {link?.status === "paid" ? (
+                      <span className="inline-flex items-center gap-1 text-xs text-emerald-700">
+                        <Check className="h-3 w-3" />
+                        {link.receipt_url ? (
+                          <a
+                            href={link.receipt_url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="underline"
+                          >
+                            Receipt
+                          </a>
+                        ) : (
+                          <span>Paid online</span>
+                        )}
+                      </span>
+                    ) : link && link.status === "open" ? (
+                      <div className="inline-flex items-center gap-1">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() =>
+                            copyLink(link.stripe_payment_link_url)
+                          }
+                        >
+                          <Copy className="h-3 w-3" />
+                          Copy link
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          onClick={() =>
+                            window.open(
+                              link.stripe_payment_link_url,
+                              "_blank",
+                              "noopener,noreferrer",
+                            )
+                          }
+                        >
+                          <ExternalLink className="h-3 w-3" />
+                          View
+                        </Button>
+                      </div>
+                    ) : inv.paid_at ? (
+                      <span className="text-xs text-stone-400">—</span>
+                    ) : (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => generateLink(inv.id)}
+                        disabled={linkPending}
+                      >
+                        {linkPending ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <LinkIcon className="h-3 w-3" />
+                        )}
+                        Generate
+                      </Button>
                     )}
                   </td>
                   <td className="px-3 py-2 text-right">

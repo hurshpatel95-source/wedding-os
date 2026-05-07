@@ -1,6 +1,9 @@
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent } from "@/components/ui/card";
-import { InvoiceTable } from "@/components/admin-billing/invoice-table";
+import {
+  InvoiceTable,
+  type PaymentLinkSummary,
+} from "@/components/admin-billing/invoice-table";
 import { NewInvoiceForm } from "@/components/admin-billing/new-invoice-form";
 
 export const dynamic = "force-dynamic";
@@ -19,6 +22,15 @@ interface InvoiceRow {
   created_at: string;
 }
 
+interface PaymentLinkRowDb {
+  id: string;
+  planner_invoice_id: string;
+  stripe_payment_link_url: string;
+  status: PaymentLinkSummary["status"];
+  receipt_url: string | null;
+  created_at: string;
+}
+
 export default async function PlannerBillingPage() {
   const supabase = createClient();
 
@@ -32,19 +44,68 @@ export default async function PlannerBillingPage() {
     };
   };
 
-  const [{ data: invoicesRaw }, { data: workspaces }] = await Promise.all([
-    sb
-      .from("planner_invoices")
-      .select(
-        "id, workspace_id, label, amount_eur, due_at, sent_at, paid_at, paid_via, notes, external_url, created_at",
-      )
-      .order("due_at", { ascending: true }),
-    supabase.from("workspaces").select("id, name").order("name", { ascending: true }),
-  ]);
+  const sbLinks = supabase as unknown as {
+    from: (t: string) => {
+      select: (c: string) => {
+        order: (
+          col: string,
+          opts: { ascending: boolean },
+        ) => Promise<{ data: PaymentLinkRowDb[] | null }>;
+      };
+    };
+  };
+
+  const [{ data: invoicesRaw }, { data: workspaces }, { data: linksRaw }] =
+    await Promise.all([
+      sb
+        .from("planner_invoices")
+        .select(
+          "id, workspace_id, label, amount_eur, due_at, sent_at, paid_at, paid_via, notes, external_url, created_at",
+        )
+        .order("due_at", { ascending: true }),
+      supabase
+        .from("workspaces")
+        .select("id, name")
+        .order("name", { ascending: true }),
+      sbLinks
+        .from("payment_links")
+        .select(
+          "id, planner_invoice_id, stripe_payment_link_url, status, receipt_url, created_at",
+        )
+        .order("created_at", { ascending: false }),
+    ]);
 
   const invoices = invoicesRaw ?? [];
   const workspaceById = new Map<string, string>();
   for (const w of workspaces ?? []) workspaceById.set(w.id, w.name);
+
+  // Pick the most relevant link per invoice: prefer 'paid', else 'open',
+  // else most recent. linksRaw is already DESC by created_at.
+  const paymentLinksByInvoice = new Map<string, PaymentLinkSummary>();
+  for (const l of linksRaw ?? []) {
+    const existing = paymentLinksByInvoice.get(l.planner_invoice_id);
+    const summary: PaymentLinkSummary = {
+      id: l.id,
+      planner_invoice_id: l.planner_invoice_id,
+      stripe_payment_link_url: l.stripe_payment_link_url,
+      status: l.status,
+      receipt_url: l.receipt_url,
+    };
+    if (!existing) {
+      paymentLinksByInvoice.set(l.planner_invoice_id, summary);
+      continue;
+    }
+    // 'paid' wins over anything; 'open' wins over expired/void/failed
+    if (existing.status === "paid") continue;
+    if (l.status === "paid") {
+      paymentLinksByInvoice.set(l.planner_invoice_id, summary);
+      continue;
+    }
+    if (existing.status === "open") continue;
+    if (l.status === "open") {
+      paymentLinksByInvoice.set(l.planner_invoice_id, summary);
+    }
+  }
 
   const totalOutstanding = invoices
     .filter((i) => !i.paid_at)
@@ -104,7 +165,11 @@ export default async function PlannerBillingPage() {
           </CardContent>
         </Card>
       ) : (
-        <InvoiceTable invoices={invoices} workspaceById={workspaceById} />
+        <InvoiceTable
+          invoices={invoices}
+          workspaceById={workspaceById}
+          paymentLinksByInvoice={paymentLinksByInvoice}
+        />
       )}
     </div>
   );
