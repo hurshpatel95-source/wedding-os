@@ -178,7 +178,7 @@ Hosting: **Railway** (auto-deploys from GitHub `main`).
 
 | Route | Purpose |
 |---|---|
-| `/admin` | Studio dashboard — stat cards (clients / library size / activity) |
+| `/admin` | **Studio dashboard — sales-pitch alive** — Revenue YTD / Outstanding (overdue) / Active clients / 30d new leads / Upcoming calls; recent leads stream; 14-day call calendar; tasks/weddings/studio-health columns; top-3 marketing scorecard recs |
 | `/admin/inbox` | Cross-client task inbox — overdue + due-soon + per-client roll-up |
 | `/admin/leads` | Lead pipeline — new/contacted/booked/qualified/converted/lost, source attribution, manual + booking-page + couple-referral leads |
 | `/admin/leads/[id]` | Lead drill — status controls + convert-to-client (provisions workspace + magic-link), quick email/call actions |
@@ -330,20 +330,20 @@ Hosting: **Railway** (auto-deploys from GitHub `main`).
 
 ## Live data state (Supabase, end of session)
 
-- **1 org** (Astia Events) + **1 workspace** (Nisha & Hursh — Barcelona 2027)
-- **7 users**: 2 admins + 5 couple
-- **6 venues**: Casa Del Mar, Xalet Del Nin, ME Sitges Terramar, Marina Port Vell (250 cap incl. yacht photos), Mas de Sant Llei, ME Barcelona. All with hero photos, lat/lng, hire fees, event roles, pros/cons fields ready.
-- **51 venue photos + videos** in Supabase Storage `venue-photos` bucket
-- **3 scenarios**: Option 1 Sitges / Option 2 Barcelona / Scenario 3 Hybrid (lead)
-- **9 pricing categories + 28 line items** — Astha's quoted rates
-- **48 venue date marks** seeded from Astha's deck
-- **73 planning tasks** across 9 phases
-- **0 vendors yet** (no test data — admin adds via /vendors)
-- **0 guests yet** (admin imports via /guests/import)
-- **0 timeline items** (run `pnpm db:seed-timeline` for template)
-- **6 library_venues** (org-scoped, ported from demo venues via `db:seed-library`)
-- **9 playbook_phases + 73 playbook_tasks** (Astia's master template, via `db:seed-playbook`)
-- **1 workspace_branding row** with `accent_hex='#9d174d'` and `planner_display_name='Astia Events'` — drives the couple shell's nav theme
+- **1 org** (Astia Events) with public_slug `astia-events`, published booking page
+- **4 workspaces**: Nisha & Hursh (primary), Sara & Marcus (Costa Brava 2027), Jennifer & Liam (Sitges 2026), Anaya & Rohan (Barcelona 2027) — all with public_slug + published
+- **7 users**: 2 admins + 5 couple (only Hursh+Nisha workspace has couple users; demo workspaces are admin-only for now)
+- **6 venues** (per Hursh+Nisha workspace): Casa Del Mar, Xalet Del Nin, ME Sitges Terramar, Marina Port Vell, Mas de Sant Llei, ME Barcelona
+- **51 venue photos + videos** in `venue-photos` bucket; **23 web-sourced photos** in `library-media`
+- **3 scenarios**: Sitges / Barcelona / Hybrid (lead)
+- **9 pricing categories + 28 line items**
+- **48 venue date marks** + **73 planning tasks** across 9 phases
+- **20 library_venues** (org-scoped, includes V3 proposal seeds)
+- **9 playbook_phases + 73 playbook_tasks**
+- **5 booking_windows** (Tue/Wed/Thu mornings + afternoons in Europe/Madrid)
+- **11 leads** spread across last 60 days, all 6 statuses represented (3 converted, 2 booked_call, 2 qualified, 1 contacted, 1 new, 2 lost)
+- **9 planner_invoices**: 7 paid (Hursh×2, Sara, Jen, Anaya, plus 2 last-year for YoY), 2 outstanding. Total invoiced this year ~€53k, **revenue YTD ~€41.5k**
+- **1 marketing_scorecard** (cached, no AI cost) for `https://astiaevents.com/` with realistic title/meta/H1/CTA analysis + 5 prioritized recommendations
 
 ---
 
@@ -492,7 +492,8 @@ wedding-os/
 ## Recent commits (most recent first)
 
 ```
-[next]   GTM surface — /marketing, /signup, /book/<slug>, /admin/leads, /admin/booking, /admin/marketing (SEO agent), per-client revenue + YoY (THIS commit)
+[next]   /admin sales-pitch dashboard + demo studio seed (11 leads, 9 invoices, 1 scorecard, 4 client workspaces) (THIS commit)
+33a736a GTM surface — /marketing, /signup, /book/<slug>, /admin/leads, /admin/booking, /admin/marketing (SEO agent), per-client revenue + YoY
 ba10e02 Studio analytics + comprehensive handoff notes
 7e84c6b Toasts (sonner) + per-client billing tab + dashboard estimated total
 f692727 Co-pilot multi-thread sidebar + library empty-state polish
