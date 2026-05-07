@@ -12,6 +12,8 @@ import {
 import { createClient } from "@/lib/supabase/server";
 import { LeadDetailControls } from "@/components/admin-leads/lead-detail-controls";
 import { LeadStatusBadge } from "@/components/admin-leads/lead-status-badge";
+import { InlineEmailComposer } from "@/components/email/inline-email-composer";
+import { EmailThreadList } from "@/components/email/email-thread-list";
 import {
   LEAD_SOURCE_LABEL,
   type LeadRow,
@@ -139,6 +141,24 @@ export default async function LeadDetailPage({
                 </span>
               )}
             </div>
+          </section>
+
+          <section className="space-y-3 rounded-2xl border border-stone-200 bg-white p-6 shadow-sm">
+            <div className="flex items-center justify-between">
+              <h2 className="font-serif text-2xl font-light tracking-tight">
+                Conversation
+              </h2>
+              <span className="text-[10px] uppercase tracking-[0.2em] text-stone-500">
+                Email thread
+              </span>
+            </div>
+            <InlineEmailComposer
+              contextKind="lead"
+              contextId={lead.id}
+              defaultTo={lead.email}
+              draftHelperKind="vendor_followup"
+            />
+            <EmailThreadList contextKind="lead" contextId={lead.id} />
           </section>
 
           <section className="rounded-2xl border border-stone-200 bg-white p-6 shadow-sm">
