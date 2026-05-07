@@ -18,7 +18,21 @@ or when picking the work back up cold.
 > editor at /admin/booking, AI-driven SEO + marketing scorecard agent
 > at /admin/marketing (Sonnet 4.6, ~$0.05/run, prioritized fix list),
 > per-client revenue drilldown + YoY toggle on /admin/analytics, lead
-> funnel widget. **24 migrations · ~85 routes · 26 seed scripts.**
+> funnel widget.
+>
+> **TIER 1 PARALLEL PUSH (8 features in one wave, May 6).** Resend email
+> send + log + inline composer + thread view on lead/vendor pages;
+> contracts (planner /admin/contracts/* + couple click-to-sign at
+> /sign/<token> with typed-signature audit); Stripe payment links per
+> invoice + webhook + couple-side Pay-now button; /admin/welcome 5-step
+> onboarding wizard for new planners (auto-redirect from empty /admin);
+> proposals (planner builder w/ sections+items + couple
+> /proposal/<token> w/ accept/decline); couple mass guest messaging at
+> /guests/message w/ AI-draft + token substitution + segment picker;
+> day-of mobile timeline at /timeline/day-of + couple-facing live RSVP
+> dashboard at /guests/dashboard; plus-one self-serve on /rsvp/<token>
+> + 5 wedding-site themes (classic / modern / garden / beach /
+> bollywood). **25 migrations · ~115 routes · 26 seed scripts.**
 >
 > **End-of-session state**: production-safe, planner-CRM-complete,
 > SaaS GTM surface live, polish boundaries in place. Multi-tenant from
@@ -492,7 +506,17 @@ wedding-os/
 ## Recent commits (most recent first)
 
 ```
-[next]   /admin sales-pitch dashboard + demo studio seed (11 leads, 9 invoices, 1 scorecard, 4 client workspaces) (THIS commit)
+[next]   docs: snapshot Tier 1 parallel push (THIS commit)
+0edf64e feat: RSVP-PLUS-THEMES — plus-one self-serve + 5 wedding-site themes
+647f1c8 feat: GUEST-MESSAGING — /guests/message couple-side mass send
+80a11a1 feat: COUPLE-VIEWS — /timeline/day-of mobile + /guests/dashboard live
+7787659 feat: PROPOSALS — planner builder + couple /proposal/[token] view
+c3d74c4 feat: CONTRACTS — planner /admin/contracts/* + couple /sign/[token]
+5385a57 feat: STRIPE — payment links, webhook, couple Pay-now button
+9a2411b feat: EMAIL-COMPOSER — /api/email/send + inline composer + thread UI
+6e366f9 feat: onboarding wizard /admin/welcome (5 steps)
+95b9c6b Tier 1 foundation — schema, libs, nav slots, deps
+d964331 Sales-pitch /admin dashboard + demo studio seed (11 leads, 9 invoices, 1 scorecard, 4 client workspaces)
 33a736a GTM surface — /marketing, /signup, /book/<slug>, /admin/leads, /admin/booking, /admin/marketing (SEO agent), per-client revenue + YoY
 ba10e02 Studio analytics + comprehensive handoff notes
 7e84c6b Toasts (sonner) + per-client billing tab + dashboard estimated total
