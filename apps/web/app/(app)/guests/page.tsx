@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Upload, BarChart3 } from "lucide-react";
+import { BarChart3, Send, Upload } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import { GuestList } from "@/components/guests/guest-list";
@@ -86,6 +86,11 @@ export default async function GuestsPage() {
           </Link>
           <Link href="/guests/seating">
             <Button variant="outline">Seating organizer</Button>
+          </Link>
+          <Link href="/guests/message">
+            <Button variant="outline">
+              <Send className="h-4 w-4" /> Message guests
+            </Button>
           </Link>
           {isAdmin && (
             <>
