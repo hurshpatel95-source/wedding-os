@@ -7,6 +7,8 @@ import { createClient } from "@/lib/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { InlineEmailComposer } from "@/components/email/inline-email-composer";
+import { EmailThreadList } from "@/components/email/email-thread-list";
 import { cn } from "@/lib/utils";
 import {
   VENDOR_STATUSES,
@@ -91,6 +93,23 @@ export function VendorOverviewTab({
             )}
           </CardContent>
         </Card>
+
+        {isAdmin && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="font-serif">Conversation</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <InlineEmailComposer
+                contextKind="vendor"
+                contextId={vendor.id}
+                defaultTo={vendor.contact_email}
+                draftHelperKind="vendor_rfp"
+              />
+              <EmailThreadList contextKind="vendor" contextId={vendor.id} />
+            </CardContent>
+          </Card>
+        )}
 
         <Card>
           <CardHeader>
