@@ -41,7 +41,7 @@ export default async function TimelinePage() {
 
   return (
     <div className="space-y-8">
-      <header className="flex items-start justify-between gap-4">
+      <header className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="font-serif text-4xl md:text-5xl">Run of show</h1>
           <p className="mt-2 text-[10px] uppercase tracking-[0.2em] text-muted-foreground">

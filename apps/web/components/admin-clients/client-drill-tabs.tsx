@@ -89,7 +89,7 @@ export function ClientDrillTabs({
       </TabsList>
 
       <TabsContent value="overview" className="space-y-6">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
           <Stat label="Venues" value={String(stats.venues_total)} sub={`${stats.venues_of_interest} of interest`} />
           <Stat label="Vendors" value={String(stats.vendors_total)} sub={`${stats.vendors_active} active`} />
           <Stat
@@ -193,12 +193,12 @@ export function ClientDrillTabs({
       </TabsContent>
 
       <TabsContent value="billing" className="space-y-4">
-        <div className="grid gap-3 md:grid-cols-3">
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
           <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
             <div className="text-[10px] uppercase tracking-[0.2em] text-amber-900">
               Outstanding
             </div>
-            <div className="mt-1 font-serif text-3xl font-medium tabular-nums text-amber-900">
+            <div className="mt-1 font-serif text-2xl font-medium tabular-nums md:text-3xl text-amber-900">
               €{Math.round(outstandingTotal).toLocaleString()}
             </div>
           </div>
@@ -217,7 +217,7 @@ export function ClientDrillTabs({
               Overdue
             </div>
             <div
-              className={`mt-1 font-serif text-3xl font-medium tabular-nums ${
+              className={`mt-1 font-serif text-2xl font-medium tabular-nums md:text-3xl ${
                 overdueCount > 0 ? "text-rose-900" : ""
               }`}
             >
@@ -228,7 +228,7 @@ export function ClientDrillTabs({
             <div className="text-[10px] uppercase tracking-[0.2em] text-stone-500">
               Total invoices
             </div>
-            <div className="mt-1 font-serif text-3xl font-medium tabular-nums">
+            <div className="mt-1 font-serif text-2xl font-medium tabular-nums md:text-3xl">
               {invoices.length}
             </div>
           </div>

@@ -241,7 +241,7 @@ export default async function PaymentsPage({
         </h1>
       </header>
 
-      <div className="grid gap-3 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <StatCard
           label="Total committed"
           value={formatEUR(totalCommitted)}
@@ -283,7 +283,8 @@ export default async function PaymentsPage({
               for payment instructions.
             </p>
           </div>
-          <table className="w-full text-sm">
+          <div className="-mx-5 overflow-x-auto sm:mx-0">
+          <table className="w-full min-w-[560px] text-sm">
             <thead className="bg-stone-50 text-[10px] uppercase tracking-[0.15em] text-stone-500">
               <tr>
                 <th className="px-3 py-2 text-left">Label</th>
@@ -363,6 +364,7 @@ export default async function PaymentsPage({
               })}
             </tbody>
           </table>
+          </div>
         </section>
       )}
     </div>
@@ -391,7 +393,7 @@ function StatCard({
   return (
     <div className="rounded-2xl border border-stone-200 bg-white/60 p-5 shadow-sm">
       <div className="text-[10px] uppercase tracking-[0.2em] text-stone-500">{label}</div>
-      <div className={`mt-2 font-serif text-3xl font-light tracking-tight ${toneClass}`}>
+      <div className={`mt-2 font-serif text-2xl font-light tracking-tight md:text-3xl ${toneClass}`}>
         {value}
       </div>
       <div className="mt-1 text-xs text-muted-foreground">{sub}</div>

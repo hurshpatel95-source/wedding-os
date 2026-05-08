@@ -115,7 +115,7 @@ export default async function LeadDetailPage({
       </header>
 
       <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
-        <div className="space-y-6">
+        <div className="space-y-6 lg:order-1">
           {lead.scheduled_call_at && (
             <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
               <div className="text-[10px] uppercase tracking-[0.2em] text-amber-900">
@@ -180,7 +180,7 @@ export default async function LeadDetailPage({
           </section>
         </div>
 
-        <aside className="space-y-4">
+        <aside className="order-first space-y-4 lg:order-2">
           <LeadDetailControls
             leadId={lead.id}
             currentStatus={lead.status}

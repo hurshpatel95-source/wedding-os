@@ -99,7 +99,7 @@ export default async function PlannerProposalsPage({
 
   return (
     <div className="space-y-6">
-      <header className="flex items-end justify-between gap-4">
+      <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <div className="text-[11px] uppercase tracking-[0.25em] text-stone-500">
             Sales pipeline
@@ -145,16 +145,16 @@ export default async function PlannerProposalsPage({
           </CardContent>
         </Card>
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-stone-200 bg-white">
-          <table className="w-full text-sm">
+        <div className="-mx-4 overflow-x-auto rounded-none border-y border-stone-200 bg-white sm:mx-0 sm:overflow-hidden sm:rounded-2xl sm:border-x">
+          <table className="w-full min-w-[640px] text-sm">
             <thead>
               <tr className="border-b border-stone-200 bg-stone-50/60 text-[10px] uppercase tracking-[0.2em] text-stone-500">
                 <th className="px-4 py-3 text-left">Title</th>
                 <th className="px-4 py-3 text-left">For</th>
                 <th className="px-4 py-3 text-right">Total</th>
                 <th className="px-4 py-3 text-left">Status</th>
-                <th className="px-4 py-3 text-left">Sent</th>
-                <th className="px-4 py-3 text-left">Valid until</th>
+                <th className="hidden px-4 py-3 text-left md:table-cell">Sent</th>
+                <th className="hidden px-4 py-3 text-left md:table-cell">Valid until</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-stone-100">
@@ -199,10 +199,10 @@ export default async function PlannerProposalsPage({
                     <td className="px-4 py-3">
                       <ProposalStatusBadge status={p.status} />
                     </td>
-                    <td className="px-4 py-3 text-xs text-stone-500">
+                    <td className="hidden px-4 py-3 text-xs text-stone-500 md:table-cell">
                       {p.sent_at ? formatRelative(p.sent_at) : "—"}
                     </td>
-                    <td className="px-4 py-3 text-xs text-stone-500">
+                    <td className="hidden px-4 py-3 text-xs text-stone-500 md:table-cell">
                       {p.valid_until ? formatDate(p.valid_until) : "—"}
                     </td>
                   </tr>

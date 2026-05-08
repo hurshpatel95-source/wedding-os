@@ -84,7 +84,7 @@ export default async function PlannerLeadsPage({
 
   return (
     <div className="space-y-6">
-      <header className="flex items-end justify-between gap-4">
+      <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <div className="text-[11px] uppercase tracking-[0.25em] text-stone-500">
             Lead pipeline
@@ -157,13 +157,13 @@ export default async function PlannerLeadsPage({
           </CardContent>
         </Card>
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-stone-200 bg-white">
-          <table className="w-full text-sm">
+        <div className="-mx-4 overflow-x-auto rounded-none border-y border-stone-200 bg-white sm:mx-0 sm:overflow-hidden sm:rounded-2xl sm:border-x">
+          <table className="w-full min-w-[640px] text-sm">
             <thead>
               <tr className="border-b border-stone-200 bg-stone-50/60 text-[10px] uppercase tracking-[0.2em] text-stone-500">
                 <th className="px-4 py-3 text-left">Lead</th>
-                <th className="px-4 py-3 text-left">Source</th>
-                <th className="px-4 py-3 text-left">Wedding</th>
+                <th className="hidden px-4 py-3 text-left md:table-cell">Source</th>
+                <th className="hidden px-4 py-3 text-left md:table-cell">Wedding</th>
                 <th className="px-4 py-3 text-left">Budget</th>
                 <th className="px-4 py-3 text-left">Status</th>
                 <th className="px-4 py-3 text-left">Activity</th>
@@ -191,7 +191,7 @@ export default async function PlannerLeadsPage({
                         {l.email || l.phone || "—"}
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-stone-600">
+                    <td className="hidden px-4 py-3 text-stone-600 md:table-cell">
                       <div className="text-xs">{LEAD_SOURCE_LABEL[l.source]}</div>
                       {referrer && (
                         <div className="text-[10px] text-stone-400">
@@ -199,7 +199,7 @@ export default async function PlannerLeadsPage({
                         </div>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-stone-600">
+                    <td className="hidden px-4 py-3 text-stone-600 md:table-cell">
                       <div className="text-xs">
                         {l.wedding_date ? formatDate(l.wedding_date) : "—"}
                       </div>
@@ -258,7 +258,7 @@ function StatCard({
       <div className="text-[10px] uppercase tracking-[0.2em] opacity-70">
         {label}
       </div>
-      <div className="mt-1 font-serif text-3xl font-medium tabular-nums">
+      <div className="mt-1 font-serif text-2xl font-medium tabular-nums md:text-3xl">
         {value}
       </div>
       {sub && <div className="text-[10px] uppercase tracking-wider opacity-60">{sub}</div>}

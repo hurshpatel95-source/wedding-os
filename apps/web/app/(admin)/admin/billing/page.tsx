@@ -136,7 +136,7 @@ export default async function PlannerBillingPage() {
         <NewInvoiceForm workspaces={workspaces ?? []} />
       </header>
 
-      <section className="grid grid-cols-1 gap-3 md:grid-cols-3">
+      <section className="grid grid-cols-2 gap-3 md:grid-cols-3">
         <StatCard
           label="Outstanding"
           value={`€${Math.round(totalOutstanding).toLocaleString()}`}
@@ -197,7 +197,7 @@ function StatCard({
       <div className="text-[10px] uppercase tracking-[0.2em] opacity-70">
         {label}
       </div>
-      <div className="mt-1 font-serif text-3xl font-medium tabular-nums">
+      <div className="mt-1 font-serif text-2xl font-medium tabular-nums md:text-3xl">
         {value}
       </div>
     </div>
