@@ -25,6 +25,21 @@ export const metadata = {
 export default function MarketingLanding() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-amber-50/40 via-white to-rose-50/30 text-stone-900">
+      {/* Slim couples banner — for the planning-it-themselves crowd */}
+      <div className="bg-stone-900 text-white">
+        <div className="mx-auto flex max-w-6xl items-center justify-center gap-2 px-6 py-2 text-center text-xs">
+          <span className="opacity-80">
+            Couple planning your own wedding?
+          </span>
+          <Link
+            href="/couples-signup"
+            className="font-medium underline-offset-2 hover:underline"
+          >
+            Start free at /couples-signup →
+          </Link>
+        </div>
+      </div>
+
       {/* Top nav */}
       <header className="sticky top-0 z-40 border-b border-stone-200/40 bg-white/70 backdrop-blur">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-6 px-6">
@@ -100,6 +115,15 @@ export default function MarketingLanding() {
         </div>
         <p className="mt-4 text-xs text-stone-500">
           No credit card · Free forever for your first client
+        </p>
+        <p className="mt-2 text-xs text-stone-500">
+          Or, planning your own wedding without a planner?{" "}
+          <Link
+            href="/couples-signup"
+            className="font-medium text-stone-700 underline-offset-2 hover:underline"
+          >
+            Start here →
+          </Link>
         </p>
       </section>
 

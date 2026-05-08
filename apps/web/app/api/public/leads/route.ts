@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@wedding-os/db";
-import { isValidEmail, sanitizeText } from "@/lib/lead-types";
+import { isValidEmail, sanitizeText, type LeadRow } from "@/lib/lead-types";
+import { pickMatchingRule } from "@/lib/lead-routing";
+import type { LeadRoutingRuleRow } from "@/lib/wave2-types";
 
 export const runtime = "nodejs";
 
@@ -217,5 +219,70 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ ok: true, id: data?.id ?? null });
+  // ─── Auto-routing ────────────────────────────────────────────────
+  // Best-effort: pull the org's enabled rules ordered by priority asc and
+  // assign the first match. Failures here MUST NOT fail the lead capture.
+  const newLeadId = data?.id ?? null;
+  if (newLeadId) {
+    try {
+      const rulesSb = sb as unknown as {
+        from: (t: string) => {
+          select: (cols: string) => {
+            eq: (col: string, val: string) => {
+              eq: (
+                col: string,
+                val: boolean,
+              ) => {
+                order: (
+                  col: string,
+                  opts: { ascending: boolean },
+                ) => Promise<{ data: LeadRoutingRuleRow[] | null }>;
+              };
+            };
+          };
+        };
+      };
+      const { data: rulesData } = await rulesSb
+        .from("lead_routing_rules")
+        .select(
+          "id, org_id, name, priority, match_conditions, assignee_user_id, enabled, created_by, created_at, updated_at",
+        )
+        .eq("org_id", org_id)
+        .eq("enabled", true)
+        .order("priority", { ascending: true });
+
+      const rules = (rulesData ?? []) as LeadRoutingRuleRow[];
+      if (rules.length > 0) {
+        const leadShape: Partial<LeadRow> = {
+          source: insertRow.source as LeadRow["source"],
+          budget_band: insertRow.budget_band ?? null,
+          city_or_region: insertRow.city_or_region ?? null,
+          guest_count: insertRow.guest_count ?? null,
+        };
+        const match = pickMatchingRule(leadShape, rules);
+        if (match) {
+          await (
+            sb as unknown as {
+              from: (t: string) => {
+                update: (row: unknown) => {
+                  eq: (
+                    col: string,
+                    val: string,
+                  ) => Promise<{ error: { message: string } | null }>;
+                };
+              };
+            }
+          )
+            .from("leads")
+            .update({ assigned_to_user_id: match.assignee_user_id })
+            .eq("id", newLeadId);
+        }
+      }
+    } catch (routingErr) {
+      // Log and continue — routing failures must never block lead creation.
+      console.error("lead routing failed", routingErr);
+    }
+  }
+
+  return NextResponse.json({ ok: true, id: newLeadId });
 }
