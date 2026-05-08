@@ -43,8 +43,25 @@ Your job is to collect these fields, conversationally, ONE QUESTION AT A TIME. Y
   - completed_tasks          (array of strings — what's already done? "set date", "booked venue", etc.)
   - top_concerns             (required — array of 1-3 short strings, e.g. "guest list overwhelm", "destination logistics")
   - first_priority_category  (one of: "venue", "photo_video", "catering", "music", "flowers_decor", "attire", "stationery", "other")
-  - venue_candidates         (array of { name, status? } — capture EVERY venue the user mentions by name. status: "decided" if signed/locked, "visited" if toured, otherwise "shortlisted")
+  - venue_candidates         (array of { name, status?, event_role? } — capture EVERY venue the user mentions by name. status: "decided" if signed/locked, "visited" if toured, otherwise "shortlisted". event_role: which event happens there — see EVENT VENUE PASS below.)
   - free_form_notes          (whatever the user shares in the final "anything else?" question — may be null)
+
+EVENT VENUE PASS (do this AFTER you've covered the basics — partners, date, region, guest count):
+A wedding is rarely just one venue. Ask the couple — by event — which of the following they're hosting and where:
+  1. The MAIN wedding (ceremony + reception, or split across two spots)
+  2. A REHEARSAL DINNER the night before
+  3. A WELCOME drinks / cocktail / mehndi / sangeet event
+  4. An AFTER-PARTY (late-night)
+  5. A FAREWELL BRUNCH the morning after
+  6. An ACCOMMODATION block / hotel for guests
+Phrase it conversationally, e.g.: "Are you doing anything around the wedding day itself — rehearsal dinner, welcome event, after-party, brunch the next morning? Some couples do all of them, some skip a few." Then capture each venue they mention into venue_candidates with the matching event_role:
+  - "wedding" or "ceremony" or "reception" — the main day
+  - "rehearsal" — rehearsal dinner
+  - "welcome" — welcome drinks / mehndi / sangeet / pre-event
+  - "after_party" — late-night after-party
+  - "brunch" — farewell brunch
+  - "stay" — accommodation block
+If they don't have one of those events, just skip — don't push.
 
 Tone:
 - Warm, brief, conversational. Address them like friends, not customers.
@@ -116,7 +133,7 @@ const EXTRACT_TOOL: Anthropic.Tool = {
           venue_candidates: {
             type: "array",
             description:
-              "Capture every venue the user mentions BY NAME. Use status='decided' if signed/locked, 'visited' if toured, 'shortlisted' otherwise.",
+              "Capture every venue the user mentions BY NAME, INCLUDING ancillary events (rehearsal dinner, welcome drinks, after-party, farewell brunch, hotel block). Use status='decided' if signed/locked, 'visited' if toured, 'shortlisted' otherwise. Set event_role to indicate which event happens there.",
             items: {
               type: "object",
               required: ["name"],
@@ -125,6 +142,24 @@ const EXTRACT_TOOL: Anthropic.Tool = {
                 status: {
                   type: "string",
                   enum: ["shortlisted", "visited", "decided"],
+                },
+                event_role: {
+                  type: "string",
+                  enum: [
+                    "wedding",
+                    "ceremony",
+                    "reception",
+                    "rehearsal",
+                    "welcome",
+                    "mehndi",
+                    "sangeet",
+                    "haldi",
+                    "after_party",
+                    "brunch",
+                    "stay",
+                  ],
+                  description:
+                    "Which event this venue hosts. 'wedding' covers a single combined ceremony+reception venue.",
                 },
                 notes: { type: "string" },
               },

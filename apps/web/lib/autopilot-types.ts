@@ -28,10 +28,24 @@ export interface IntakeExtractedData {
   top_concerns?: string[];
   // What they want help with first — used to seed first vendor search
   first_priority_category?: string;
-  // Venues mentioned in chat — auto-create rows + Places-enrich on completion
+  // Venues mentioned in chat — auto-create rows + Places-enrich on completion.
+  // event_role lets us capture rehearsal dinner / welcome / after-party / brunch
+  // / hotel block venues, not just the main wedding day.
   venue_candidates?: Array<{
     name: string;
     status?: "shortlisted" | "visited" | "decided";
+    event_role?:
+      | "wedding"
+      | "ceremony"
+      | "reception"
+      | "rehearsal"
+      | "welcome"
+      | "mehndi"
+      | "sangeet"
+      | "haldi"
+      | "after_party"
+      | "brunch"
+      | "stay";
     notes?: string;
   }>;
   // Free-form "anything else important" capture — appended after structured intake

@@ -220,6 +220,8 @@ export async function POST(request: NextRequest) {
       address?: string | null;
       contact_phone?: string | null;
       hero_photo_url?: string | null;
+      event_roles?: string[];
+      notes?: string | null;
     };
     const venueRows: VenueInsertRow[] = [];
     for (const v of venueCandidates) {
@@ -229,6 +231,14 @@ export async function POST(request: NextRequest) {
         name: v.name,
         status: v.status ?? "shortlisted",
       };
+      // event_role from the AI maps to the venues.event_roles enum array.
+      // Migration 0033 (event_roles_extension) adds rehearsal/after_party/brunch.
+      // If the migration hasn't been applied yet the insert will fail and we
+      // fall back to stashing the role in notes so the data isn't lost.
+      if (v.event_role) {
+        row.event_roles = [v.event_role];
+        row.notes = `Event: ${v.event_role}`;
+      }
       if (googlePlacesReady) {
         try {
           const query = region ? `${v.name} ${region}` : `${v.name} wedding venue`;
@@ -258,8 +268,27 @@ export async function POST(request: NextRequest) {
       .from("venues")
       .insert(venueRows);
     if (venueErr) {
-      // Non-fatal — log and continue
-      console.error("[onboarding/complete] venue insert:", venueErr.message);
+      // If the new event_role enum values aren't applied yet, retry without
+      // event_roles so the venue still lands.
+      const looksLikeEnumMissing = /event_role|invalid input value/i.test(
+        venueErr.message,
+      );
+      if (looksLikeEnumMissing) {
+        const fallbackRows = venueRows.map(
+          ({ event_roles: _er, ...rest }) => rest,
+        );
+        const { error: retryErr } = await sbVenues
+          .from("venues")
+          .insert(fallbackRows);
+        if (retryErr) {
+          console.error(
+            "[onboarding/complete] venue insert (fallback):",
+            retryErr.message,
+          );
+        }
+      } else {
+        console.error("[onboarding/complete] venue insert:", venueErr.message);
+      }
     }
   }
 
