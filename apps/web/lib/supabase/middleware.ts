@@ -48,12 +48,15 @@ export async function updateSession(request: NextRequest) {
     path.startsWith("/rsvp/") ||
     path.startsWith("/sign/") ||
     path.startsWith("/proposal/") ||
+    path.startsWith("/testimonial/") ||
     path.startsWith("/api/public/") ||
     path.startsWith("/api/rsvp/") ||
     path.startsWith("/api/signup") ||
     path.startsWith("/api/sign/") ||
     path.startsWith("/api/proposal/") ||
-    path.startsWith("/api/stripe/webhook");
+    path.startsWith("/api/testimonial/") ||
+    path.startsWith("/api/stripe/webhook") ||
+    path.startsWith("/api/email/webhook/");
 
   if (!user && !isAuthRoute && !isPublicRoute) {
     const url = request.nextUrl.clone();
