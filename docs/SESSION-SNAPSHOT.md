@@ -34,6 +34,35 @@ or when picking the work back up cold.
 > + 5 wedding-site themes (classic / modern / garden / beach /
 > bollywood). **25 migrations · ~115 routes · 26 seed scripts.**
 >
+> **WAVE 3 PARALLEL PUSH — AUTOPILOT (7-of-8 in one wave, May 7).**
+> The "tell me about your wedding once, watch the product do the work"
+> push. **Onboarding-AI** chat intake at /onboarding (Sonnet w/
+> extract_intake_fields tool, 12 fields, auto-redirect from empty couple
+> dashboard). **Budget-tree** at /budget (parent/child tree, slider per
+> line, AI baseline generator scaling with guest count + region,
+> 3-tier amount tracking estimated/committed/paid, vendor → line link
+> for auto-roll). **Gmail-connector** at /settings/gmail (OAuth read +
+> compose + send + modify scopes, sync via history.list, send via
+> users.messages.send from couple's wedding-only Gmail, draft via
+> drafts.create, signed state token). **Vendor-search** at /vendors/find
+> (Google Places Text Search v1 with Brave Search fallback, 7-day cache
+> in vendor_search_cache, batch-create vendor rows w/ autopilot_enabled,
+> gplaces_place_id + rating + photos). **Thread-analyzer** at
+> /api/autopilot/analyze-thread (Claude reads full vendor thread →
+> emit_vendor_status_change tool → patches vendors row + auto-rolls
+> quote_eur into linked budget_lines.amount_committed + creates alerts;
+> /run-all batch + /run-followup for 7-day silent follow-ups).
+> **Autopilot-dashboard** at /autopilot (today's queue alerts feed,
+> vendor pipeline grouped by category, Gmail status, recent activity).
+> **Alerts-digest**: alert helpers + /api/cron/digest 8am daily mailer
+> (x-cron-secret) + AlertsBell in nav (60s polling) + AlertsFeed
+> component + push notification scaffolding. **27 migrations · ~190
+> routes.**
+>
+> Wave 3 8th agent (VENDOR-FOLDERS) is being re-fired as a focused
+> follow-up after self-bailing. Per-vendor file uploads + side-by-side
+> /vendors/compare/[category] coming next.
+>
 > **WAVE 2 PARALLEL PUSH (12 features in one wave, May 7).** **Polish
 > layer:** WhatsApp deep links sprinkled across 5 surfaces (lead/vendor/
 > guest/booking/lead-controls), CSS-only mobile sweep across all dense
@@ -536,7 +565,11 @@ wedding-os/
 ## Recent commits (most recent first)
 
 ```
-[next]   docs: snapshot Wave 2 parallel push (THIS commit)
+[next]   docs: snapshot Wave 3 autopilot push (THIS commit)
+ffa1755 feat: post-merge wiring + alerts dismiss bridge
+[merges] ONBOARDING-AI, AUTOPILOT-DASHBOARD, THREAD-ANALYZER, ALERTS-DIGEST, BUDGET-TREE, GMAIL-CONNECTOR, VENDOR-SEARCH (Wave 3)
+17595a8 Wave 3 foundation — schema + libs for autopilot
+9e42d36 docs: snapshot Wave 2 parallel push (12 features)
 0220c17 fix: workspace.created_at + couples team_role + WelcomeBanner mount
 c99736d feat: UI-POLISH — WhatsApp deep links + couple-side copy + empty states
 [merges] MOBILE-SWEEP, CALENDAR-SYNC, TESTIMONIALS, EMAIL-TEMPLATES, TEAM-MEMBERS, DOCUMENT-CABINET, STUDIO-PNL, REPLY-TRACKING, RECURRING-TASKS
