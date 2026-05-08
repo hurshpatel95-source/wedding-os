@@ -1,10 +1,13 @@
 import { differenceInCalendarDays, formatDistanceToNow, parseISO } from "date-fns";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { ArrowRight, Camera, MapPin, Sparkles, Users } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { STATUS_LABEL, STATUS_VARIANT } from "@/lib/venue-status";
 import { Badge } from "@/components/ui/badge";
 import { WelcomeBanner } from "@/components/couples-welcome/welcome-banner";
+
+export const dynamic = "force-dynamic";
 
 type ActivityTone = "rose" | "amber" | "emerald" | "stone";
 type ActivityKind =
@@ -33,8 +36,78 @@ function timeAgo(iso: string): string {
   return formatDistanceToNow(new Date(iso), { addSuffix: true });
 }
 
-export default async function DashboardPage() {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams?: { "skip-onboarding"?: string; "just-onboarded"?: string };
+}) {
   const supabase = createClient();
+
+  // ── Onboarding redirect gate ────────────────────────────────────────
+  // For brand-new couples whose workspace has no wedding_date AND no
+  // completed intake session, route them through /onboarding first so
+  // the dashboard isn't a wall of empty cards. ?skip-onboarding=1 is the
+  // escape hatch (linked from inside the onboarding sidebar).
+  // ?just-onboarded=1 is set by the completion handler so we never bounce
+  // them back to onboarding right after they finished it.
+  const skipOnboarding =
+    searchParams?.["skip-onboarding"] === "1" ||
+    searchParams?.["just-onboarded"] === "1";
+  if (!skipOnboarding) {
+    const {
+      data: { user: gateUser },
+    } = await supabase.auth.getUser();
+    if (gateUser) {
+      const { data: gateProfile } = await supabase
+        .from("users")
+        .select("workspace_id, role")
+        .eq("id", gateUser.id)
+        .maybeSingle();
+      // Only couples are routed through onboarding — admins / planners
+      // viewing a workspace shouldn't be redirected.
+      if (gateProfile?.workspace_id && gateProfile.role === "couple") {
+        const { data: gateWs } = await supabase
+          .from("workspaces")
+          .select("wedding_date")
+          .eq("id", gateProfile.workspace_id)
+          .maybeSingle();
+        const noWeddingDate = !gateWs?.wedding_date;
+        if (noWeddingDate) {
+          // Check for a completed intake session (cast — table not in types).
+          const sbIntake = supabase as unknown as {
+            from: (t: string) => {
+              select: (c: string) => {
+                eq: (
+                  col: string,
+                  val: string,
+                ) => {
+                  eq: (
+                    col: string,
+                    val: string,
+                  ) => {
+                    limit: (
+                      n: number,
+                    ) => Promise<{
+                      data: Array<{ id: string }> | null;
+                    }>;
+                  };
+                };
+              };
+            };
+          };
+          const { data: completed } = await sbIntake
+            .from("intake_sessions")
+            .select("id")
+            .eq("workspace_id", gateProfile.workspace_id)
+            .eq("status", "completed")
+            .limit(1);
+          if (!completed || completed.length === 0) {
+            redirect("/onboarding");
+          }
+        }
+      }
+    }
+  }
 
   // `vendors` is not in the generated Database types yet; cast for that one call.
   const sbVendors = supabase as unknown as {

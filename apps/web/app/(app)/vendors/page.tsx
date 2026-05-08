@@ -1,7 +1,10 @@
+import Link from "next/link";
+import { Search } from "lucide-react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { VendorGrid } from "@/components/vendors/vendor-grid";
 import { VendorCreateButton } from "@/components/vendors/vendor-create-button";
+import { Button } from "@/components/ui/button";
 import type { VendorRow } from "@/lib/vendor-types";
 
 export const dynamic = "force-dynamic";
@@ -93,7 +96,15 @@ export default async function VendorsPage() {
             admin view.
           </p>
         </div>
-        <VendorCreateButton />
+        <div className="flex flex-wrap items-center gap-2">
+          <Button asChild variant="outline">
+            <Link href="/vendors/find">
+              <Search className="h-4 w-4" />
+              Find vendors
+            </Link>
+          </Button>
+          <VendorCreateButton />
+        </div>
       </header>
 
       <VendorGrid vendors={list} role="couple" />
