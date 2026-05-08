@@ -94,6 +94,33 @@ export default async function PublicBookingPage({
 
   const windows = (windowsRaw ?? []) as BookingWindowRow[];
 
+  // Calendar busy slots — used to dim/hide conflicting slots in the
+  // booking form. Anon-readable per RLS for orgs with public_slug set.
+  const nowIso = new Date().toISOString();
+  const horizonIso = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+  const { data: busyRaw } = await (
+    sb as unknown as {
+      from: (t: string) => {
+        select: (cols: string) => {
+          eq: (col: string, val: string) => {
+            gte: (col: string, val: string) => {
+              lte: (col: string, val: string) => Promise<{
+                data: { starts_at: string; ends_at: string }[] | null;
+              }>;
+            };
+          };
+        };
+      };
+    }
+  )
+    .from("calendar_busy_slots")
+    .select("starts_at, ends_at")
+    .eq("org_id", org.id)
+    .gte("ends_at", nowIso)
+    .lte("starts_at", horizonIso);
+
+  const busySlots = (busyRaw ?? []) as { starts_at: string; ends_at: string }[];
+
   // Published testimonials for the "What couples say" section. RLS policy
   // `testimonials_published_public_read` opens these to anon for orgs with
   // a public_slug.
@@ -228,6 +255,7 @@ export default async function PublicBookingPage({
             orgName={org.name}
             windows={windows}
             slotMinutes={org.booking_slot_minutes}
+            busySlots={busySlots}
           />
         </div>
       </div>

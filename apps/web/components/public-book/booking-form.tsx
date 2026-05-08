@@ -13,9 +13,15 @@ interface SlotOption {
   ts: number;
 }
 
+interface BusyRange {
+  startMs: number;
+  endMs: number;
+}
+
 function buildSlots(
   windows: BookingWindowRow[],
   slotMinutes: number,
+  busy: BusyRange[],
   daysAhead = 21,
 ): SlotOption[] {
   if (!windows.length) return [];
@@ -34,12 +40,21 @@ function buildSlots(
         slot.setMinutes(m);
         // Skip slots that are in the past today
         if (slot.getTime() > now.getTime() + 30 * 60 * 1000) {
-          out.push({
-            iso: slot.toISOString(),
-            dayLabel: format(slot, "EEE MMM d"),
-            timeLabel: format(slot, "h:mm a"),
-            ts: slot.getTime(),
-          });
+          const slotStart = slot.getTime();
+          const slotEnd = slotStart + slotMinutes * 60_000;
+          // Hide slot entirely if it overlaps with any busy window.
+          // Overlap = NOT (slotEnd <= busyStart OR slotStart >= busyEnd)
+          const conflicts = busy.some(
+            (b) => !(slotEnd <= b.startMs || slotStart >= b.endMs),
+          );
+          if (!conflicts) {
+            out.push({
+              iso: slot.toISOString(),
+              dayLabel: format(slot, "EEE MMM d"),
+              timeLabel: format(slot, "h:mm a"),
+              ts: slotStart,
+            });
+          }
         }
         m += slotMinutes;
       }
@@ -54,15 +69,33 @@ export function BookingForm({
   orgName,
   windows,
   slotMinutes,
+  busySlots = [],
 }: {
   orgSlug: string;
   orgName: string;
   windows: BookingWindowRow[];
   slotMinutes: number;
+  busySlots?: { starts_at: string; ends_at: string }[];
 }) {
+  const busyRanges = useMemo<BusyRange[]>(
+    () =>
+      busySlots
+        .map((b) => ({
+          startMs: new Date(b.starts_at).getTime(),
+          endMs: new Date(b.ends_at).getTime(),
+        }))
+        .filter(
+          (r) =>
+            Number.isFinite(r.startMs) &&
+            Number.isFinite(r.endMs) &&
+            r.endMs > r.startMs,
+        ),
+    [busySlots],
+  );
+
   const slots = useMemo(
-    () => buildSlots(windows, slotMinutes ?? 45),
-    [windows, slotMinutes],
+    () => buildSlots(windows, slotMinutes ?? 45, busyRanges),
+    [windows, slotMinutes, busyRanges],
   );
 
   const slotsByDay = useMemo(() => {
