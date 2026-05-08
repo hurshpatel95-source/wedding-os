@@ -7,6 +7,7 @@ import { STATUS_LABEL, STATUS_VARIANT } from "@/lib/venue-status";
 import { Badge } from "@/components/ui/badge";
 import { WelcomeBanner } from "@/components/couples-welcome/welcome-banner";
 import { AutopilotTodayWidget } from "@/components/autopilot/today-widget";
+import { currencySymbol } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -240,6 +241,10 @@ export default async function DashboardPage({
       ),
   ]);
 
+  // Currency: workspace.base_currency drives the symbol shown across the
+  // dashboard. Defaults to USD if the column is missing or unrecognized.
+  const currencySym = currencySymbol(workspace?.base_currency);
+
   type DueItem = {
     id: string;
     label: string;
@@ -278,7 +283,7 @@ export default async function DashboardPage({
         dueItems.push({
           id: `dep-${v.id}`,
           label: `Deposit: ${String(v.name)}`,
-          sub: `€${Number(v.deposit_amount_eur).toLocaleString()} due`,
+          sub: `${currencySym}${Number(v.deposit_amount_eur).toLocaleString()} due`,
           due_date: due,
           href: "/payments",
           kind: "deposit",
@@ -296,7 +301,7 @@ export default async function DashboardPage({
         dueItems.push({
           id: `fin-${v.id}`,
           label: `Final: ${String(v.name)}`,
-          sub: `€${Number(v.final_balance_eur).toLocaleString()} due`,
+          sub: `${currencySym}${Number(v.final_balance_eur).toLocaleString()} due`,
           due_date: due,
           href: "/payments",
           kind: "final",
@@ -483,7 +488,7 @@ export default async function DashboardPage({
           label="Working budget"
           value={
             estimatedTotalEur != null
-              ? `€${Math.round(estimatedTotalEur).toLocaleString()}`
+              ? `${currencySym}${Math.round(estimatedTotalEur).toLocaleString()}`
               : "—"
           }
           sub={

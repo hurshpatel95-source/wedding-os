@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { PaymentsCalendar } from "@/components/payments/payments-calendar";
 import type { VendorRow } from "@/lib/vendor-types";
-import { formatEUR } from "@/lib/utils";
+import { formatCurrency, currencySymbol } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -91,6 +91,7 @@ export default async function PaymentsPage({
     },
     { data: plannerInvoicesRaw },
     { data: paymentLinksRaw },
+    { data: workspace },
   ] = await Promise.all([
     sb
       .from("vendors")
@@ -108,7 +109,15 @@ export default async function PaymentsPage({
         "id, planner_invoice_id, stripe_payment_link_url, status, receipt_url, created_at",
       )
       .order("created_at", { ascending: false }),
+    supabase.from("workspaces").select("base_currency").limit(1).maybeSingle(),
   ]);
+
+  // Format helper bound to this workspace's base currency. The amount_eur
+  // columns are misnamed historically — they're really "amount in workspace
+  // base currency" (US couples store USD here, EU couples store EUR).
+  const baseCurrency = workspace?.base_currency ?? "USD";
+  const fmt = (n: number) => formatCurrency(n, baseCurrency);
+  const sym = currencySymbol(baseCurrency);
 
   const plannerInvoices = plannerInvoicesRaw ?? [];
 
@@ -244,30 +253,34 @@ export default async function PaymentsPage({
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <StatCard
           label="Total committed"
-          value={formatEUR(totalCommitted)}
+          value={fmt(totalCommitted)}
           sub="Booked vendors only"
         />
         <StatCard
           label="Paid to date"
-          value={formatEUR(paidToDate)}
+          value={fmt(paidToDate)}
           sub="Deposits + finals settled"
           tone="emerald"
         />
         <StatCard
           label="Due next 30 days"
-          value={formatEUR(dueIn30)}
+          value={fmt(dueIn30)}
           sub="Unpaid + upcoming"
           tone="amber"
         />
         <StatCard
           label="Overdue"
-          value={formatEUR(overdue)}
+          value={fmt(overdue)}
           sub="Past due, unpaid"
           tone="rose"
         />
       </div>
 
-      <PaymentsCalendar milestones={milestones} role={role} />
+      <PaymentsCalendar
+        milestones={milestones}
+        role={role}
+        baseCurrency={baseCurrency}
+      />
 
       {plannerInvoices.length > 0 && (
         <section className="rounded-2xl border border-stone-200 bg-white p-5">
@@ -305,7 +318,8 @@ export default async function PaymentsPage({
                   <tr key={inv.id} className="border-t border-stone-100">
                     <td className="px-3 py-2 font-medium">{inv.label}</td>
                     <td className="px-3 py-2 text-right tabular-nums">
-                      €{Number(inv.amount_eur).toLocaleString()}
+                      {sym}
+                      {Number(inv.amount_eur).toLocaleString()}
                     </td>
                     <td className="px-3 py-2 text-xs text-stone-600">
                       {inv.due_at

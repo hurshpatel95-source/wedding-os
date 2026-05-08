@@ -125,6 +125,32 @@ export function LineRow({
     setLabelDraft(line.label);
   }, [line.label]);
 
+  // Inline-edit state for the leaf-row amount — number entry is more precise
+  // than dragging the slider (which steps in 50/250/500 increments).
+  const [editingAmount, setEditingAmount] = useState(false);
+  const [amountDraft, setAmountDraft] = useState<string>(
+    String(Math.round(localEstimate)),
+  );
+  useEffect(() => {
+    if (!editingAmount) {
+      setAmountDraft(String(Math.round(sliderVal)));
+    }
+  }, [sliderVal, editingAmount]);
+
+  function commitAmount() {
+    setEditingAmount(false);
+    const cleaned = amountDraft.replace(/[^0-9.]/g, "");
+    const n = Number(cleaned);
+    if (!Number.isFinite(n) || n < 0) {
+      setAmountDraft(String(Math.round(sliderVal)));
+      return;
+    }
+    const rounded = Math.round(n);
+    if (rounded === Math.round(sliderVal)) return;
+    setSliderVal(rounded);
+    onSliderChange(line.id, rounded);
+  }
+
   // For parents: show rolled-up totals (sum of children).
   const estimated = isParent
     ? rolledUpTotal ?? sliderVal
@@ -141,9 +167,16 @@ export function LineRow({
     Math.round((localEstimate || 1000) * 3),
     5000,
   );
-  // Step: 50 for small, 250 for medium, 500 for large
+  // Step scales with magnitude. The number-entry input is the precise tool;
+  // the slider is a "feel it out" affordance — keep it snappy on small ranges.
   const sliderStep =
-    sliderMax >= 50000 ? 500 : sliderMax >= 10000 ? 250 : 50;
+    sliderMax >= 50000
+      ? 250
+      : sliderMax >= 10000
+      ? 100
+      : sliderMax >= 2500
+      ? 25
+      : 10;
 
   const denom = Math.max(estimated, committed, paid, 1);
   const pctCommitted = Math.min((committed / denom) * 100, 100);
@@ -269,11 +302,45 @@ export function LineRow({
           </Select>
         )}
 
-        {/* Amount */}
+        {/* Amount — leaf rows are click-to-edit, parents are read-only rollup */}
         <div className="text-right">
-          <div className="font-serif text-base font-medium tabular-nums">
-            {formatMoney(estimated, symbol)}
-          </div>
+          {!isParent && editingAmount ? (
+            <div className="flex items-center justify-end gap-1">
+              <span className="text-sm font-medium tabular-nums text-stone-500">
+                {symbol}
+              </span>
+              <input
+                autoFocus
+                type="text"
+                inputMode="numeric"
+                value={amountDraft}
+                onChange={(e) => setAmountDraft(e.target.value)}
+                onBlur={commitAmount}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    (e.target as HTMLInputElement).blur();
+                  } else if (e.key === "Escape") {
+                    setAmountDraft(String(Math.round(sliderVal)));
+                    setEditingAmount(false);
+                  }
+                }}
+                className="w-24 rounded border border-stone-300 bg-white px-2 py-1 text-right font-serif text-base font-medium tabular-nums focus:border-stone-900 focus:outline-none"
+              />
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => !isParent && setEditingAmount(true)}
+              disabled={isParent}
+              className={cn(
+                "block w-full text-right font-serif text-base font-medium tabular-nums",
+                !isParent && "rounded px-1 hover:bg-stone-50",
+              )}
+              title={isParent ? undefined : "Click to type an exact amount"}
+            >
+              {formatMoney(estimated, symbol)}
+            </button>
+          )}
           <div className="text-[10px] uppercase tracking-wider text-stone-500">
             estimated
           </div>

@@ -48,6 +48,7 @@ const links: { href: string; label: string; icon: LucideIcon }[] = [
   { href: "/compare", label: "Compare venues", icon: Users },
   { href: "/timeline", label: "Timeline", icon: Clock },
   { href: "/settings/public-site", label: "Public site", icon: Globe },
+  { href: "/settings/preferences", label: "Settings", icon: Settings },
   { href: "/feature-status", label: "Tour", icon: Compass },
 ];
 

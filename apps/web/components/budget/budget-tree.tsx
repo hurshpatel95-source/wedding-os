@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { LineRow } from "./line-row";
 import { AddLineForm } from "./add-line-form";
+import { AddCategoryForm } from "./add-category-form";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -304,6 +305,16 @@ export function BudgetTree({
           parents. Try regenerating from the empty state.
         </p>
       )}
+
+      {/* Add a new top-level category (e.g. forgot welcome bags, want a
+          custom "Honeymoon fund" bucket). Categories already on the tree
+          are filtered out automatically. */}
+      <AddCategoryForm
+        existingCategories={parents.map((p) => p.category)}
+        onCreated={handleCreated}
+        symbol={symbol}
+      />
+
       {/* Optional: small hint linking to category labels (used by parent rows). */}
       <div className="hidden">
         {/* Reference so the typecheck retains the label map */}

@@ -26,7 +26,7 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { cn, formatEUR } from "@/lib/utils";
+import { cn, formatCurrency } from "@/lib/utils";
 import {
   VENDOR_CATEGORY_ICON,
   VENDOR_CATEGORY_LABEL,
@@ -64,10 +64,14 @@ const TONE_LABEL: Record<Tone, string> = {
 export function PaymentsCalendar({
   milestones,
   role,
+  baseCurrency = "USD",
 }: {
   milestones: Milestone[];
   role: "admin" | "couple" | null;
+  /** Workspace base currency — controls money formatting throughout. */
+  baseCurrency?: string;
 }) {
+  const fmt = (n: number) => formatCurrency(n, baseCurrency);
   const router = useRouter();
   const [view, setView] = useState<View>("calendar");
   const [cursor, setCursor] = useState<Date>(() => {
@@ -322,7 +326,7 @@ export function PaymentsCalendar({
                             "block w-full truncate rounded px-1.5 py-0.5 text-left text-[11px] font-medium transition-colors",
                             PILL_TONE[tone],
                           )}
-                          title={`${m.vendor_name} · ${m.kind} · ${formatEUR(m.amount_eur)}`}
+                          title={`${m.vendor_name} · ${m.kind} · ${fmt(m.amount_eur)}`}
                         >
                           {m.kind === "deposit" ? "↓" : "↑"} {m.vendor_name}
                         </button>
@@ -350,7 +354,7 @@ export function PaymentsCalendar({
                   <div className="font-serif text-lg">{monthLabel}</div>
                   <div className="text-xs text-muted-foreground">
                     {items.length} milestone{items.length === 1 ? "" : "s"} ·{" "}
-                    {formatEUR(items.reduce((s, m) => s + m.amount_eur, 0))}
+                    {fmt(items.reduce((s, m) => s + m.amount_eur, 0))}
                   </div>
                 </div>
                 <table className="w-full text-sm">
@@ -392,7 +396,7 @@ export function PaymentsCalendar({
                             {m.kind}
                           </td>
                           <td className="px-4 py-2.5 text-right font-medium tabular-nums">
-                            {formatEUR(m.amount_eur)}
+                            {fmt(m.amount_eur)}
                           </td>
                           <td className="px-4 py-2.5">
                             {format(parseISO(m.due_at), "EEE, MMM d")}
@@ -471,7 +475,7 @@ export function PaymentsCalendar({
                 label="Vendor status"
                 value={VENDOR_STATUS_LABEL[selected.vendor_status]}
               />
-              <Field label="Amount" value={formatEUR(selected.amount_eur)} />
+              <Field label="Amount" value={fmt(selected.amount_eur)} />
               <Field
                 label="Due"
                 value={format(parseISO(selected.due_at), "EEEE, MMMM d, yyyy")}
