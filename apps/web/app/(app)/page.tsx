@@ -65,7 +65,7 @@ export default async function DashboardPage() {
   ] = await Promise.all([
     supabase
       .from("workspaces")
-      .select("name, wedding_date, base_currency")
+      .select("name, wedding_date, base_currency, created_at")
       .limit(1)
       .maybeSingle(),
     supabase
