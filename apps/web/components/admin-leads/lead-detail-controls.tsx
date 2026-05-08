@@ -17,6 +17,11 @@ const STATUSES: LeadStatus[] = [
   "lost",
 ];
 
+interface AssignableUser {
+  id: string;
+  email: string;
+}
+
 export function LeadDetailControls({
   leadId,
   currentStatus,
@@ -24,6 +29,8 @@ export function LeadDetailControls({
   email,
   phone,
   coupleNames,
+  assignedToUserId,
+  teamMembers,
 }: {
   leadId: string;
   currentStatus: LeadStatus;
@@ -31,10 +38,16 @@ export function LeadDetailControls({
   email: string | null;
   phone: string | null;
   coupleNames: string;
+  assignedToUserId?: string | null;
+  teamMembers?: AssignableUser[];
 }) {
   const router = useRouter();
   const [status, setStatus] = useState<LeadStatus>(currentStatus);
   const [busy, setBusy] = useState(false);
+  const [assignee, setAssignee] = useState<string>(
+    assignedToUserId ?? "",
+  );
+  const [savingAssignee, setSavingAssignee] = useState(false);
 
   const updateStatus = async (next: LeadStatus) => {
     setBusy(true);
@@ -76,8 +89,56 @@ export function LeadDetailControls({
     }
   };
 
+  const updateAssignee = async (next: string) => {
+    setSavingAssignee(true);
+    try {
+      const res = await fetch(`/api/admin/leads/${leadId}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          assigned_to_user_id: next === "" ? null : next,
+        }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(j.error || "Could not assign");
+      setAssignee(next);
+      const target = teamMembers?.find((m) => m.id === next);
+      const label = target ? target.email.split("@")[0] : "no one";
+      toast.success(`Assigned to ${label}`);
+      router.refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not assign");
+    } finally {
+      setSavingAssignee(false);
+    }
+  };
+
   return (
     <>
+      {teamMembers && teamMembers.length > 0 && (
+        <div className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
+          <div className="text-[10px] uppercase tracking-[0.2em] text-stone-500">
+            Assigned to
+          </div>
+          <select
+            value={assignee}
+            disabled={busy || savingAssignee}
+            onChange={(e) => updateAssignee(e.target.value)}
+            className="mt-3 w-full rounded-md border border-stone-200 bg-white px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+          >
+            <option value="">Unassigned</option>
+            {teamMembers.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.email.split("@")[0]} ({m.email})
+              </option>
+            ))}
+          </select>
+          <p className="mt-2 text-[11px] text-stone-500">
+            The teammate who&rsquo;s the point of contact for this lead.
+          </p>
+        </div>
+      )}
+
       <div className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
         <div className="text-[10px] uppercase tracking-[0.2em] text-stone-500">
           Status
