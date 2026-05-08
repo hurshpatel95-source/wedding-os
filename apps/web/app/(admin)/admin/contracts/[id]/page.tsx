@@ -149,8 +149,8 @@ export default async function ContractDetailPage({
       <StatusBanner contract={contract} />
 
       <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
-        <div className="space-y-6">
-          <section className="rounded-2xl border border-stone-200 bg-white p-8 shadow-sm">
+        <div className="space-y-6 lg:order-1">
+          <section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm sm:p-8">
             <div className="markdown-body space-y-3 text-[15px] leading-relaxed text-stone-800 [&_a]:text-rose-700 [&_a]:underline [&_em]:italic [&_h2]:mt-6 [&_h2]:font-serif [&_h2]:text-2xl [&_h2]:font-light [&_h3]:mt-5 [&_h3]:font-serif [&_h3]:text-xl [&_h3]:font-medium [&_li]:my-1 [&_p]:my-2 [&_strong]:font-semibold [&_ul]:list-disc [&_ul]:pl-6">
               <ReactMarkdown remarkPlugins={[remarkGfm]}>
                 {contract.body_md}
@@ -246,7 +246,7 @@ export default async function ContractDetailPage({
           </section>
         </div>
 
-        <aside className="space-y-4">
+        <aside className="order-first space-y-4 lg:order-2">
           <ContractDetailControls
             contractId={contract.id}
             status={contract.status}

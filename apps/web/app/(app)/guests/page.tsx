@@ -158,7 +158,7 @@ function Stat({
         <span className={`h-1.5 w-1.5 rounded-full ${dot}`} />
         {label}
       </div>
-      <div className="mt-2 font-serif text-3xl font-light leading-none">{value}</div>
+      <div className="mt-2 font-serif text-2xl font-light leading-none md:text-3xl">{value}</div>
     </div>
   );
 }

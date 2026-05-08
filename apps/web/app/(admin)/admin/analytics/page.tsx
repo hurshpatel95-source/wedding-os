@@ -598,8 +598,8 @@ export default async function AdminAnalyticsPage({
                 Billing tab.
               </div>
             ) : (
-              <div className="mt-4 overflow-hidden rounded-lg border border-stone-200">
-                <table className="w-full text-sm">
+              <div className="mt-4 overflow-x-auto rounded-lg border border-stone-200">
+                <table className="w-full min-w-[560px] text-sm">
                   <thead>
                     <tr className="border-b border-stone-200 bg-stone-50/60 text-[10px] uppercase tracking-[0.15em] text-stone-500">
                       <th className="px-3 py-2 text-left">Client</th>
@@ -831,7 +831,7 @@ function BigStat({
       <div className="text-[10px] uppercase tracking-[0.2em] opacity-70">
         {label}
       </div>
-      <div className="mt-1 font-serif text-3xl font-medium tabular-nums leading-tight md:text-4xl">
+      <div className="mt-1 font-serif text-2xl font-medium tabular-nums leading-tight md:text-4xl">
         {value}
       </div>
       {sub && (

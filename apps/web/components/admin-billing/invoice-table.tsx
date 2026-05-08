@@ -137,15 +137,15 @@ export function InvoiceTable({
             {err}
           </div>
         )}
-        <table className="w-full text-sm">
+        <table className="w-full min-w-[720px] text-sm">
           <thead className="bg-stone-50 text-[10px] uppercase tracking-[0.15em] text-stone-500">
             <tr>
               <th className="px-3 py-2 text-left">Client</th>
               <th className="px-3 py-2 text-left">Label</th>
               <th className="px-3 py-2 text-right">Amount</th>
-              <th className="px-3 py-2 text-left">Due</th>
+              <th className="hidden px-3 py-2 text-left md:table-cell">Due</th>
               <th className="px-3 py-2 text-left">Status</th>
-              <th className="px-3 py-2 text-left">Online pay</th>
+              <th className="hidden px-3 py-2 text-left md:table-cell">Online pay</th>
               <th className="px-3 py-2 text-right">Actions</th>
             </tr>
           </thead>
@@ -172,7 +172,7 @@ export function InvoiceTable({
                   <td className="px-3 py-2 text-right font-medium tabular-nums">
                     €{Number(inv.amount_eur).toLocaleString()}
                   </td>
-                  <td className="px-3 py-2 text-xs text-stone-600">
+                  <td className="hidden px-3 py-2 text-xs text-stone-600 md:table-cell">
                     {inv.due_at
                       ? format(parseISO(inv.due_at), "MMM d, yyyy")
                       : "—"}
@@ -196,7 +196,7 @@ export function InvoiceTable({
                       </Badge>
                     )}
                   </td>
-                  <td className="px-3 py-2">
+                  <td className="hidden px-3 py-2 md:table-cell">
                     {link?.status === "paid" ? (
                       <span className="inline-flex items-center gap-1 text-xs text-emerald-700">
                         <Check className="h-3 w-3" />

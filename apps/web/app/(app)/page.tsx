@@ -527,7 +527,7 @@ function StatCard({
   return (
     <div className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
       <div className="text-[10px] uppercase tracking-[0.2em] text-stone-500">{label}</div>
-      <div className="mb-1 mt-2 font-serif text-3xl font-light leading-none">{value}</div>
+      <div className="mb-1 mt-2 font-serif text-2xl font-light leading-none md:text-3xl">{value}</div>
       <div className="text-xs text-stone-500">{sub}</div>
     </div>
   );
