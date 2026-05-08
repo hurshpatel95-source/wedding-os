@@ -105,6 +105,45 @@ export default async function EstimatorPage() {
     vendors = [];
   }
 
+  // Tasks linked to budget lines — surface them under each line in the
+  // drill-down so couples see "Pay photographer deposit" right next to
+  // the photo_video line. Best-effort: budget_line_id column may not be
+  // applied yet (migration 0034). Treat missing column as zero links.
+  const sbTasks = supabase as unknown as {
+    from: (t: string) => {
+      select: (cols: string) => {
+        eq: (col: string, val: string) => Promise<{
+          data: Array<{
+            id: string;
+            title: string;
+            status: string;
+            budget_line_id: string | null;
+            estimated_cost: number | null;
+          }> | null;
+          error: { message: string } | null;
+        }>;
+      };
+    };
+  };
+  let linkedTasks: Array<{
+    id: string;
+    title: string;
+    status: string;
+    budget_line_id: string | null;
+    estimated_cost: number | null;
+  }> = [];
+  try {
+    const { data, error } = await sbTasks
+      .from("planning_tasks")
+      .select("id, title, status, budget_line_id, estimated_cost")
+      .eq("workspace_id", profile.workspace_id);
+    if (!error && data) {
+      linkedTasks = data.filter((t) => t.budget_line_id);
+    }
+  } catch {
+    linkedTasks = [];
+  }
+
   // Empty state — point them to /budget
   if (lines.length === 0) {
     return (
@@ -164,6 +203,7 @@ export default async function EstimatorPage() {
         baseCurrency={currency}
         target={target}
         guestCount={guestCount}
+        linkedTasks={linkedTasks}
       />
     </div>
   );

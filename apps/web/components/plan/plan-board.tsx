@@ -18,7 +18,10 @@ import {
   Pencil,
   Repeat,
 } from "lucide-react";
-import { TaskEditDrawer } from "@/components/plan/task-edit-drawer";
+import {
+  TaskEditDrawer,
+  type BudgetLineOption,
+} from "@/components/plan/task-edit-drawer";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -81,10 +84,14 @@ export function PlanBoard({
   tasks,
   workspaceId,
   orgId,
+  budgetLineOptions = [],
+  baseCurrency = "USD",
 }: {
   tasks: LiveTask[];
   workspaceId: string | null;
   orgId: string | null;
+  budgetLineOptions?: BudgetLineOption[];
+  baseCurrency?: string;
 }) {
   const router = useRouter();
   const [q, setQ] = useState("");
@@ -155,27 +162,53 @@ export function PlanBoard({
       due_date?: string | null;
       owner?: string;
       category?: string;
+      estimated_cost?: number | null;
+      budget_line_id?: string | null;
     },
   ) => {
-    const supabase = createClient();
     if (patch.status === "done" && !patch.done_at) {
       patch.done_at = new Date().toISOString();
     }
     if (patch.status && patch.status !== "done") {
       patch.done_at = null;
     }
-    // Cast for fields not in generated Database types yet (phase / category /
-    // owner are enums; description / due_date may not be typed either)
-    await (supabase as unknown as {
-      from: (t: string) => {
-        update: (p: unknown) => {
-          eq: (col: string, val: string) => Promise<{ error: unknown }>;
+
+    // Patches that touch budget go through the API route — it auto-creates
+    // a budget_line if needed and keeps line.amount_estimated in sync.
+    // Status-only / quick patches stay direct against Supabase.
+    const touchesBudget =
+      patch.estimated_cost !== undefined ||
+      patch.budget_line_id !== undefined;
+
+    if (touchesBudget) {
+      try {
+        const res = await fetch(`/api/planning-tasks/${taskId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(patch),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          console.error("Task update via API failed:", err);
+        }
+      } catch (err) {
+        console.error("Task update network error:", err);
+      }
+    } else {
+      // Cast for fields not in generated Database types yet (phase / category /
+      // owner are enums; description / due_date may not be typed either)
+      const supabase = createClient();
+      await (supabase as unknown as {
+        from: (t: string) => {
+          update: (p: unknown) => {
+            eq: (col: string, val: string) => Promise<{ error: unknown }>;
+          };
         };
-      };
-    })
-      .from("planning_tasks")
-      .update(patch)
-      .eq("id", taskId);
+      })
+        .from("planning_tasks")
+        .update(patch)
+        .eq("id", taskId);
+    }
     router.refresh();
   };
 
@@ -270,6 +303,8 @@ export function PlanBoard({
                       onUpdate={(p) => updateTask(t.id, p)}
                       onUpdateChild={(childId, p) => updateTask(childId, p)}
                       onDelete={t.is_user_added ? () => deleteTask(t.id) : undefined}
+                      budgetLineOptions={budgetLineOptions}
+                      baseCurrency={baseCurrency}
                     />
                   ))}
                   {phaseTasks.length === 0 && (
@@ -318,6 +353,8 @@ function TaskRow({
   onUpdate,
   onUpdateChild,
   onDelete,
+  budgetLineOptions,
+  baseCurrency,
 }: {
   task: LiveTask;
   recurrenceChildren?: LiveTask[];
@@ -331,12 +368,16 @@ function TaskRow({
     due_date?: string | null;
     owner?: string;
     category?: string;
+    estimated_cost?: number | null;
+    budget_line_id?: string | null;
   }) => void;
   onUpdateChild?: (
     childId: string,
     patch: { status?: TaskStatus; notes?: string | null; done_at?: string | null },
   ) => void;
   onDelete?: () => void;
+  budgetLineOptions?: BudgetLineOption[];
+  baseCurrency?: string;
 }) {
   const StatusIcon = STATUS_ICON[task.status];
   const isAuto = Boolean(task.auto_derive_kind);
@@ -434,6 +475,25 @@ function TaskRow({
                 open →
               </a>
             )}
+            {/* Cost link: show $X if the task has a price tied to it.
+                Hidden when nothing is set (most starter tasks). */}
+            {(() => {
+              const cost = (task as unknown as { estimated_cost?: number | null })
+                .estimated_cost;
+              if (!cost || cost <= 0) return null;
+              const sym =
+                (baseCurrency ?? "USD").toUpperCase() === "EUR" ? "€" : "$";
+              return (
+                <Badge
+                  variant="outline"
+                  className="border-amber-300 text-[10px] text-amber-900"
+                  title="Estimated cost — set in the task editor"
+                >
+                  {sym}
+                  {Math.round(Number(cost)).toLocaleString()}
+                </Badge>
+              );
+            })()}
           </div>
           {task.description && (
             <p className="text-xs text-muted-foreground">{task.description}</p>
@@ -512,7 +572,15 @@ function TaskRow({
             owner: (task as unknown as { owner?: string }).owner ?? "couple",
             due_date: task.due_date ?? null,
             notes: task.notes ?? null,
+            estimated_cost:
+              (task as unknown as { estimated_cost?: number | null })
+                .estimated_cost ?? null,
+            budget_line_id:
+              (task as unknown as { budget_line_id?: string | null })
+                .budget_line_id ?? null,
           }}
+          budgetLineOptions={budgetLineOptions}
+          baseCurrency={baseCurrency}
           open={editOpen}
           onClose={() => setEditOpen(false)}
           onSave={async (patch) => {

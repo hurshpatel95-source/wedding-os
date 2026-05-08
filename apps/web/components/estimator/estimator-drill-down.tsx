@@ -41,6 +41,14 @@ interface VendorOption {
   quoted_price_eur: number | null;
 }
 
+interface LinkedTask {
+  id: string;
+  title: string;
+  status: string;
+  budget_line_id: string | null;
+  estimated_cost: number | null;
+}
+
 interface CategoryBucket {
   category: string;
   estimated: number;
@@ -55,12 +63,14 @@ export function EstimatorDrillDown({
   baseCurrency,
   target,
   guestCount,
+  linkedTasks = [],
 }: {
   initialLines: BudgetLineRow[];
   vendors: VendorOption[];
   baseCurrency: string;
   target: number | null;
   guestCount: number | null;
+  linkedTasks?: LinkedTask[];
 }) {
   const [lines, setLines] = useState<BudgetLineRow[]>(initialLines);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
@@ -151,6 +161,18 @@ export function EstimatorDrillDown({
     }
     return m;
   }, [vendors]);
+
+  // Tasks indexed by budget_line_id so each leaf row can show its blockers
+  const tasksByLineId = useMemo(() => {
+    const m = new Map<string, LinkedTask[]>();
+    for (const t of linkedTasks) {
+      if (!t.budget_line_id) continue;
+      const list = m.get(t.budget_line_id) ?? [];
+      list.push(t);
+      m.set(t.budget_line_id, list);
+    }
+    return m;
+  }, [linkedTasks]);
 
   return (
     <div className="space-y-6">
@@ -292,6 +314,7 @@ export function EstimatorDrillDown({
                         fmt={fmt}
                         saving={savingLine === line.id}
                         onPatch={(patch) => patchLine(line.id, patch)}
+                        linkedTasks={tasksByLineId.get(line.id) ?? []}
                       />
                     ))}
                   </div>
@@ -348,6 +371,7 @@ function LeafEditRow({
   fmt,
   saving,
   onPatch,
+  linkedTasks = [],
 }: {
   line: BudgetLineRow;
   vendors: VendorOption[];
@@ -355,6 +379,7 @@ function LeafEditRow({
   fmt: (n: number) => string;
   saving: boolean;
   onPatch: (patch: Partial<BudgetLineRow>) => void;
+  linkedTasks?: LinkedTask[];
 }) {
   const initial = Number(line.amount_estimated ?? line.total_eur ?? 0);
   const [amount, setAmount] = useState<string>(String(Math.round(initial)));
@@ -371,6 +396,11 @@ function LeafEditRow({
     onPatch({ amount_estimated: Math.round(n), total_eur: Math.round(n) });
   }
 
+  const openTaskCount = linkedTasks.filter(
+    (t) => t.status !== "done" && t.status !== "na",
+  ).length;
+  const doneTaskCount = linkedTasks.filter((t) => t.status === "done").length;
+
   return (
     <div className="flex flex-wrap items-center gap-3 rounded-lg border border-stone-200 bg-white px-3 py-2.5 text-sm">
       <div className="min-w-0 flex-1">
@@ -381,6 +411,39 @@ function LeafEditRow({
             {Number(line.unit_price_eur).toLocaleString()}
           </div>
         ) : null}
+        {linkedTasks.length > 0 && (
+          <div className="mt-1 flex flex-wrap gap-1.5 text-[11px] text-stone-500">
+            <span className="font-medium text-stone-700">Tasks:</span>
+            {linkedTasks.slice(0, 3).map((t) => (
+              <span
+                key={t.id}
+                className={cn(
+                  "rounded-full px-2 py-0.5",
+                  t.status === "done"
+                    ? "bg-emerald-50 text-emerald-700"
+                    : t.status === "blocked"
+                    ? "bg-rose-50 text-rose-700"
+                    : t.status === "in_progress"
+                    ? "bg-amber-50 text-amber-700"
+                    : "bg-stone-100 text-stone-600",
+                )}
+                title={`Status: ${t.status.replace(/_/g, " ")}`}
+              >
+                {t.title}
+              </span>
+            ))}
+            {linkedTasks.length > 3 && (
+              <span className="text-stone-400">
+                +{linkedTasks.length - 3} more
+              </span>
+            )}
+            {(openTaskCount > 0 || doneTaskCount > 0) && (
+              <span className="ml-1 text-[10px] uppercase tracking-[0.12em] text-stone-400">
+                {doneTaskCount}/{linkedTasks.length} done
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Vendor swap */}

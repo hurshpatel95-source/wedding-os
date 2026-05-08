@@ -2,6 +2,11 @@ import { differenceInCalendarDays, parseISO, addMonths } from "date-fns";
 import { createClient } from "@/lib/supabase/server";
 import { applyAutoDerive } from "@/lib/plan-auto-derive";
 import { PlanBoard } from "@/components/plan/plan-board";
+import {
+  BUDGET_CATEGORY_LABEL,
+  type BudgetCategory,
+} from "@/lib/autopilot-types";
+import type { BudgetLineOption } from "@/components/plan/task-edit-drawer";
 
 export const dynamic = "force-dynamic";
 
@@ -27,7 +32,7 @@ export default async function PlanPage() {
   const [{ data: workspace }, { data: rawTasks }] = await Promise.all([
     supabase
       .from("workspaces")
-      .select("name, wedding_date")
+      .select("name, wedding_date, base_currency")
       .limit(1)
       .maybeSingle(),
     supabase
@@ -36,6 +41,60 @@ export default async function PlanPage() {
       .order("phase", { ascending: true })
       .order("sort_order", { ascending: true }),
   ]);
+
+  // Pull budget_lines so the task editor can offer "link this task to an
+  // existing line". budget_lines isn't in generated types yet.
+  const sbBudget = supabase as unknown as {
+    from: (t: string) => {
+      select: (cols: string) => {
+        order: (col: string, opts?: { ascending?: boolean }) => Promise<{
+          data: Array<{
+            id: string;
+            parent_line_id: string | null;
+            category: string;
+            label: string;
+          }> | null;
+        }>;
+      };
+    };
+  };
+  let budgetLineOptions: BudgetLineOption[] = [];
+  try {
+    const { data: lines } = await sbBudget
+      .from("budget_lines")
+      .select("id, parent_line_id, category, label")
+      .order("sort_order", { ascending: true });
+    if (lines) {
+      const byId = new Map(lines.map((l) => [l.id, l]));
+      // Surface parents first, then leaves grouped under their parent label.
+      const parents = lines.filter((l) => !l.parent_line_id);
+      const leaves = lines.filter((l) => l.parent_line_id);
+      budgetLineOptions = [
+        ...parents.map((p) => ({
+          id: p.id,
+          category: p.category,
+          label: p.label,
+          parent_label: null as string | null,
+          is_parent: true,
+        })),
+        ...leaves.map((l) => {
+          const parent = l.parent_line_id ? byId.get(l.parent_line_id) : null;
+          return {
+            id: l.id,
+            category: l.category,
+            label: l.label,
+            parent_label:
+              parent?.label ??
+              BUDGET_CATEGORY_LABEL[l.category as BudgetCategory] ??
+              l.category,
+            is_parent: false,
+          };
+        }),
+      ];
+    }
+  } catch {
+    budgetLineOptions = [];
+  }
 
   const weddingDate = workspace?.wedding_date ?? null;
   const daysUntil = weddingDate
@@ -91,7 +150,13 @@ export default async function PlanPage() {
         <Stat label="Progress" value={`${pct}%`} tone="muted" />
       </section>
 
-      <PlanBoard tasks={tasks} workspaceId={workspaceId} orgId={orgId} />
+      <PlanBoard
+        tasks={tasks}
+        workspaceId={workspaceId}
+        orgId={orgId}
+        budgetLineOptions={budgetLineOptions}
+        baseCurrency={workspace?.base_currency ?? "USD"}
+      />
     </div>
   );
 }

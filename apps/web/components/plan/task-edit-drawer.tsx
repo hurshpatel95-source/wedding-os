@@ -1,11 +1,21 @@
 "use client";
 
 import { useState } from "react";
-import { X } from "lucide-react";
+import { X, Coins } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { currencySymbol } from "@/lib/utils";
 
 // Monday.com-style per-task drawer. Edit any field on the task — phase,
-// due date, status, owner, category, title, notes — and save.
+// due date, status, owner, category, title, notes — and save. Also tie
+// the task to a budget line: type an estimated cost, optionally link to
+// an existing line, and the API auto-creates a leaf line if needed.
 
 const PHASE_OPTIONS: Array<{ value: string; label: string }> = [
   { value: "pre_12_months", label: "12+ months out" },
@@ -60,6 +70,17 @@ export interface TaskEditDrawerTask {
   owner: string;
   due_date: string | null;
   notes?: string | null;
+  estimated_cost?: number | null;
+  budget_line_id?: string | null;
+}
+
+export interface BudgetLineOption {
+  id: string;
+  category: string;
+  label: string;
+  parent_label: string | null;
+  /** Helps the dropdown sort: parents first, then leaves under each. */
+  is_parent: boolean;
 }
 
 export function TaskEditDrawer({
@@ -68,6 +89,8 @@ export function TaskEditDrawer({
   onClose,
   onSave,
   onDelete,
+  budgetLineOptions = [],
+  baseCurrency = "USD",
 }: {
   task: TaskEditDrawerTask;
   open: boolean;
@@ -81,8 +104,12 @@ export function TaskEditDrawer({
     owner?: string;
     due_date?: string | null;
     notes?: string | null;
+    estimated_cost?: number | null;
+    budget_line_id?: string | null;
   }) => Promise<void>;
   onDelete?: () => void;
+  budgetLineOptions?: BudgetLineOption[];
+  baseCurrency?: string;
 }) {
   const [title, setTitle] = useState(task.title);
   const [phase, setPhase] = useState(task.phase);
@@ -92,13 +119,23 @@ export function TaskEditDrawer({
   const [dueDate, setDueDate] = useState(task.due_date ?? "");
   const [notes, setNotes] = useState(task.notes ?? "");
   const [description, setDescription] = useState(task.description ?? "");
+  const [estimatedCost, setEstimatedCost] = useState<string>(
+    task.estimated_cost != null ? String(task.estimated_cost) : "",
+  );
+  const [budgetLineId, setBudgetLineId] = useState<string>(
+    task.budget_line_id ?? "none",
+  );
   const [saving, setSaving] = useState(false);
 
   if (!open) return null;
 
+  const sym = currencySymbol(baseCurrency);
+
   const handleSave = async () => {
     setSaving(true);
     try {
+      const cleanedCost = estimatedCost.replace(/[^0-9.]/g, "");
+      const costN = cleanedCost ? Number(cleanedCost) : null;
       await onSave({
         title: title.trim() || task.title,
         phase,
@@ -108,6 +145,11 @@ export function TaskEditDrawer({
         due_date: dueDate || null,
         description: description || null,
         notes: notes || null,
+        estimated_cost:
+          Number.isFinite(costN as number) && (costN as number) >= 0
+            ? (costN as number)
+            : null,
+        budget_line_id: budgetLineId === "none" ? null : budgetLineId,
       });
       onClose();
     } finally {
@@ -225,6 +267,67 @@ export function TaskEditDrawer({
               className="w-full resize-y rounded-md border border-stone-300 px-3 py-2 text-sm"
             />
           </Field>
+
+          {/* Cost link — ties this task to a budget line. Type a number
+              and we either auto-create a leaf budget line under the
+              matching category, OR push the value onto whichever line
+              you pick from the dropdown. /budget + /estimator stay in sync. */}
+          <div className="rounded-lg border border-amber-200 bg-amber-50/40 p-4">
+            <div className="mb-2 flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] text-amber-900">
+              <Coins className="h-3 w-3" />
+              Cost link
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field
+                label="Estimated cost"
+                hint="Optional — leaves blank if you don't know yet"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-stone-500">
+                    {sym}
+                  </span>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={estimatedCost}
+                    onChange={(e) => setEstimatedCost(e.target.value)}
+                    placeholder="0"
+                    className="w-full rounded-md border border-stone-300 px-3 py-2 text-sm tabular-nums"
+                  />
+                </div>
+              </Field>
+              <Field
+                label="Linked budget line"
+                hint="Or auto-create one"
+              >
+                <Select
+                  value={budgetLineId}
+                  onValueChange={setBudgetLineId}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Auto / no link" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">
+                      Auto-create on save
+                    </SelectItem>
+                    {budgetLineOptions.map((o) => (
+                      <SelectItem key={o.id} value={o.id}>
+                        {o.is_parent
+                          ? `${o.label} (category)`
+                          : `${o.parent_label ?? o.category}  ›  ${o.label}`}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
+            </div>
+            <p className="mt-2 text-[11px] text-amber-900/70">
+              Set a cost — we&apos;ll add a line on /budget and reflect
+              it on /estimator. Pick a specific line above to attach this
+              task to an existing one instead.
+            </p>
+          </div>
 
           <Field
             label="Notes / updates"
