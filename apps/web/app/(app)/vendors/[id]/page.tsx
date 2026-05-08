@@ -5,6 +5,7 @@ import { VendorDetailTabs } from "@/components/vendors/vendor-detail-tabs";
 import { VendorEditButton } from "@/components/vendors/vendor-edit-button";
 import { VendorComposeButton } from "@/components/email/vendor-compose-button";
 import { WhatsAppLink } from "@/components/whatsapp-link";
+import { AnalyzeWithAiButton } from "@/components/autopilot/analyze-button";
 import {
   VENDOR_CATEGORY_ICON,
   VENDOR_CATEGORY_LABEL,
@@ -207,6 +208,9 @@ export default async function VendorDetailPage({ params }: { params: { id: strin
             .last_outbound_at ?? null
         }
       />
+      <div className="flex flex-wrap gap-2">
+        <AnalyzeWithAiButton vendorId={vendor.id} />
+      </div>
 
       <VendorDetailTabs
         vendor={vendor}

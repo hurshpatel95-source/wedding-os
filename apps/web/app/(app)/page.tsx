@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { STATUS_LABEL, STATUS_VARIANT } from "@/lib/venue-status";
 import { Badge } from "@/components/ui/badge";
 import { WelcomeBanner } from "@/components/couples-welcome/welcome-banner";
+import { AutopilotTodayWidget } from "@/components/autopilot/today-widget";
 
 export const dynamic = "force-dynamic";
 
@@ -405,6 +406,7 @@ export default async function DashboardPage({
       {workspace?.created_at && (
         <WelcomeBanner workspaceCreatedAt={workspace.created_at} />
       )}
+      <AutopilotTodayWidget />
       {/* Hero */}
       <section className="grid grid-cols-1 gap-8 lg:grid-cols-12 lg:items-end">
         <div className="lg:col-span-8">

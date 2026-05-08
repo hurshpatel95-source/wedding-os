@@ -27,6 +27,7 @@ import { differenceInCalendarDays, parseISO } from "date-fns";
 import type { LucideIcon } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
+import { AlertsBell } from "@/components/alerts/alerts-bell";
 
 const links: { href: string; label: string; icon: LucideIcon }[] = [
   { href: "/", label: "Dashboard", icon: Sparkles },
@@ -165,6 +166,7 @@ export function Nav({
               {daysUntil !== null && daysUntil >= 0 ? daysUntil : "TBD"}
             </div>
           </div>
+          <AlertsBell />
           {userEmail && (
             <button
               type="button"
