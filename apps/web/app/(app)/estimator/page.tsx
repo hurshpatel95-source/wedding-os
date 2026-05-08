@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { ArrowRight, Columns, FileText, Plus, Sparkles } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent } from "@/components/ui/card";
@@ -41,6 +42,14 @@ export default async function EstimatorPage() {
     .order("sort_order", { ascending: true });
 
   const list: EstimateRow[] = (estimates as EstimateRow[] | null) ?? [];
+
+  // If the workspace has no estimates (i.e. they're not on a planner-seeded
+  // workspace), this page isn't useful — redirect to /budget which is the
+  // AI-region-aware tree builder. Estimator stays available via direct URL
+  // for workspaces with existing scenarios (Hursh+Nisha, Astia clients).
+  if (list.length === 0) {
+    redirect("/budget");
+  }
 
   return (
     <div className="space-y-6">
