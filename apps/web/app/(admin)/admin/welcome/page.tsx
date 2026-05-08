@@ -110,12 +110,16 @@ export default async function AdminWelcomePage({
 
   const librarySize = (librarySizeRaw ?? []).length;
   const playbookSeeded = (phasesRaw ?? []).length > 0;
-  // The signup flow auto-creates a workspace literally named "Sandbox"; only
-  // count workspaces beyond that as a "real" first client.
+  // The signup flow auto-creates a single placeholder workspace named after
+  // the studio (e.g. "Astia Events's studio"); we also tolerate the legacy
+  // "Sandbox" literal for orgs created before that rename. Anything else
+  // counts as a real first client.
+  const placeholderName = `${orgRow.name}'s studio`.trim().toLowerCase();
   const hasFirstClient = (workspacesRaw ?? []).some((w) => {
     const name = (w as { name?: string }).name;
     if (!name) return false;
-    return name.trim().toLowerCase() !== "sandbox";
+    const normalized = name.trim().toLowerCase();
+    return normalized !== "sandbox" && normalized !== placeholderName;
   });
 
   const state: WelcomeState = {

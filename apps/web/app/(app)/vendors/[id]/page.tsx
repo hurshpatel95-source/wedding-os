@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { VendorDetailTabs } from "@/components/vendors/vendor-detail-tabs";
 import { VendorEditButton } from "@/components/vendors/vendor-edit-button";
 import { VendorComposeButton } from "@/components/email/vendor-compose-button";
+import { WhatsAppLink } from "@/components/whatsapp-link";
 import {
   VENDOR_CATEGORY_ICON,
   VENDOR_CATEGORY_LABEL,
@@ -82,6 +83,40 @@ export default async function VendorDetailPage({ params }: { params: { id: strin
 
   const Icon = VENDOR_CATEGORY_ICON[vendor.category];
 
+  // Resolve studio + wedding date so we can pre-fill WhatsApp message:
+  // "Hi {vendor}, {studio} here — looking for {category} for a wedding on {date}."
+  const [{ data: workspaceRow }, { data: orgRow }] = await Promise.all([
+    supabase
+      .from("workspaces")
+      .select("name, wedding_date")
+      .eq("id", vendor.workspace_id)
+      .maybeSingle(),
+    supabase
+      .from("organizations")
+      .select("name")
+      .eq("id", vendor.org_id)
+      .maybeSingle(),
+  ]);
+  const studioName: string | null =
+    (orgRow as { name?: string | null } | null)?.name ?? null;
+  const weddingDate =
+    (workspaceRow as { wedding_date?: string | null } | null)?.wedding_date ??
+    null;
+  const formattedDate = weddingDate
+    ? new Date(weddingDate).toLocaleDateString(undefined, {
+        month: "long",
+        day: "numeric",
+        year: "numeric",
+      })
+    : null;
+  const categoryLabel = VENDOR_CATEGORY_LABEL[vendor.category].toLowerCase();
+  const whatsappText =
+    studioName && formattedDate
+      ? `Hi ${vendor.name}, ${studioName} here — looking for ${categoryLabel} for a wedding on ${formattedDate}.`
+      : studioName
+        ? `Hi ${vendor.name}, ${studioName} here — looking for ${categoryLabel} for an upcoming wedding.`
+        : undefined;
+
   return (
     <div className="space-y-6">
       <header className="flex flex-wrap items-start justify-between gap-4">
@@ -104,6 +139,13 @@ export default async function VendorDetailPage({ params }: { params: { id: strin
               <p className="text-sm text-muted-foreground">
                 {[vendor.contact_name, vendor.contact_email].filter(Boolean).join(" · ")}
               </p>
+            )}
+            {vendor.contact_phone && (
+              <WhatsAppLink
+                phone={vendor.contact_phone}
+                text={whatsappText}
+                variant="pill"
+              />
             )}
           </div>
         </div>

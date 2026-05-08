@@ -358,17 +358,32 @@ export async function POST(request: NextRequest) {
   //    library + playbook later, hence org_admin. role='couple' is the
   //    legacy workspace-level axis.
   if (authUserId) {
-    const { error: userErr } = await service.from("users").upsert(
-      {
-        id: authUserId,
-        email,
-        role: "couple",
-        org_role: "org_admin",
-        org_id: org.id,
-        workspace_id: workspace.id,
-      },
-      { onConflict: "id" },
-    );
+    // Cast through `unknown` because team_role isn't yet in the generated
+    // Database types (added in migration 0026 but types.gen.ts hasn't been
+    // regenerated). Column exists in DB.
+    const { error: userErr } = await (
+      service as unknown as {
+        from: (t: string) => {
+          upsert: (
+            row: unknown,
+            opts: { onConflict: string },
+          ) => Promise<{ error: { message: string } | null }>;
+        };
+      }
+    )
+      .from("users")
+      .upsert(
+        {
+          id: authUserId,
+          email,
+          role: "couple",
+          org_role: "org_admin",
+          team_role: "owner",
+          org_id: org.id,
+          workspace_id: workspace.id,
+        },
+        { onConflict: "id" },
+      );
     if (userErr) {
       warnings.push(`User link failed: ${userErr.message}`);
     }

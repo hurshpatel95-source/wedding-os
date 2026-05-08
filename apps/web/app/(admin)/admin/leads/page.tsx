@@ -1,9 +1,10 @@
 import { format, parseISO } from "date-fns";
 import Link from "next/link";
-import { ArrowUpRight, PlusCircle } from "lucide-react";
+import { ArrowUpRight, Inbox, PlusCircle } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@/components/ui/empty-state";
 import { LeadStatusBadge } from "@/components/admin-leads/lead-status-badge";
 import {
   LEAD_SOURCE_LABEL,
@@ -46,10 +47,26 @@ export default async function PlannerLeadsPage({
     };
   };
 
+  const orgSb = supabase as unknown as {
+    from: (t: string) => {
+      select: (c: string) => {
+        limit: (n: number) => {
+          maybeSingle: () => Promise<{
+            data: {
+              public_slug: string | null;
+              public_published_at: string | null;
+            } | null;
+          }>;
+        };
+      };
+    };
+  };
+
   const [
     { data: leadsRaw },
     { data: workspacesRaw },
     { data: teamMembersRaw },
+    { data: orgRow },
   ] = await Promise.all([
     sb
       .from("leads")
@@ -59,7 +76,14 @@ export default async function PlannerLeadsPage({
       .order("created_at", { ascending: false }),
     supabase.from("workspaces").select("id, name"),
     teamSb.from("users").select("id, email").eq("org_role", "org_admin"),
+    orgSb
+      .from("organizations")
+      .select("public_slug, public_published_at")
+      .limit(1)
+      .maybeSingle(),
   ]);
+
+  const bookingPublished = !!orgRow?.public_published_at && !!orgRow?.public_slug;
 
   const leads = (leadsRaw ?? []) as LeadRow[];
   const workspaces = (workspacesRaw ?? []) as WorkspaceLite[];
@@ -155,7 +179,30 @@ export default async function PlannerLeadsPage({
         all: totalCount,
       }} />
 
-      {filtered.length === 0 ? (
+      {totalCount === 0 ? (
+        bookingPublished ? (
+          <EmptyState
+            icon={Inbox}
+            title="No leads yet"
+            description={`Share /book/${orgRow?.public_slug} on Instagram so couples can request a consult — every inquiry lands here.`}
+            primary={{
+              label: "Open booking page",
+              href: `/book/${orgRow?.public_slug}`,
+            }}
+            secondary={{ label: "Booking settings", href: "/admin/booking" }}
+          />
+        ) : (
+          <EmptyState
+            icon={Inbox}
+            title="No leads yet"
+            description="Set up your booking page first — once it's live, share the link on Instagram and inquiries will start landing here."
+            primary={{
+              label: "Set up your booking page",
+              href: "/admin/booking",
+            }}
+          />
+        )
+      ) : filtered.length === 0 ? (
         <Card>
           <CardContent className="py-16 text-center">
             <PlusCircle className="mx-auto mb-3 h-8 w-8 text-stone-300" />
@@ -163,17 +210,9 @@ export default async function PlannerLeadsPage({
               No leads in this view
             </h3>
             <p className="mx-auto mt-2 max-w-sm text-sm text-stone-500">
-              Publish your booking page so couples can reach you, or add a
-              lead manually if someone DMed you.
+              Switch to another tab — or check back when your next inquiry
+              comes in.
             </p>
-            <div className="mt-5 flex justify-center gap-3">
-              <Link
-                href="/admin/booking"
-                className="inline-flex items-center gap-1.5 rounded-full bg-stone-900 px-4 py-2 text-xs font-medium text-white transition hover:bg-stone-800"
-              >
-                Set up booking page →
-              </Link>
-            </div>
           </CardContent>
         </Card>
       ) : (

@@ -87,10 +87,10 @@ export default async function VendorsPage() {
             Vendors
           </h1>
           <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-            Add anyone you&apos;re paying — Astia, photographer, florist, DJ,
-            transport. Track quotes and deposits here. Your planner&apos;s
-            internal CRM (contacts, RFP outreach, internal notes) stays in
-            their admin view.
+            Add anyone you&apos;re paying — your planner, photographer, florist,
+            DJ, transport. Track quotes and deposits here. Your planner&apos;s
+            internal CRM (contacts, RFP outreach, internal notes) stays in their
+            admin view.
           </p>
         </div>
         <VendorCreateButton />
