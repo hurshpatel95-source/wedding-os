@@ -31,7 +31,11 @@ export default async function SpendPage() {
     };
   };
 
-  const [{ data: vendors }, { data: scenarios }] = await Promise.all([
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const [{ data: vendors }, { data: scenarios }, profileRes] = await Promise.all([
     sb
       .from("vendors")
       .select(
@@ -41,7 +45,27 @@ export default async function SpendPage() {
       .from("pricing_scenarios")
       .select("id, name, calculated_total, inputs")
       .order("created_at", { ascending: true }),
+    user
+      ? supabase
+          .from("users")
+          .select("workspace_id")
+          .eq("id", user.id)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
   ]);
+
+  const workspaceId = (profileRes?.data as { workspace_id?: string | null } | null)
+    ?.workspace_id ?? null;
+  const { data: workspaceRow } = workspaceId
+    ? await supabase
+        .from("workspaces")
+        .select("base_currency")
+        .eq("id", workspaceId)
+        .maybeSingle()
+    : { data: null };
+  const baseCurrency =
+    (workspaceRow as { base_currency?: string | null } | null)?.base_currency ??
+    "USD";
 
   const vendorList = (vendors ?? []) as VendorSlim[];
   const scenarioList = (scenarios ?? []).map((s) => ({
@@ -66,7 +90,11 @@ export default async function SpendPage() {
         </p>
       </header>
 
-      <SpendTracker vendors={vendorList} scenarios={scenarioList} />
+      <SpendTracker
+        vendors={vendorList}
+        scenarios={scenarioList}
+        baseCurrency={baseCurrency}
+      />
     </div>
   );
 }

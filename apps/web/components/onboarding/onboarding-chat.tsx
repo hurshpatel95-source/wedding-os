@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
+import { cn, currencySymbol } from "@/lib/utils";
 import type {
   IntakeChatMessage,
   IntakeExtractedData,
@@ -45,11 +45,12 @@ function valuePresent(v: unknown): boolean {
 function chipDisplayValue(
   key: keyof IntakeExtractedData,
   v: IntakeExtractedData[keyof IntakeExtractedData],
+  budgetSymbol: string,
 ): string {
   if (!valuePresent(v)) return "";
   if (Array.isArray(v)) return v.slice(0, 2).join(", ");
   if (key === "budget_target_eur" && typeof v === "number")
-    return `€${v.toLocaleString()}`;
+    return `${budgetSymbol}${v.toLocaleString()}`;
   if (key === "guest_count_estimate" && typeof v === "number")
     return String(v);
   return String(v);
@@ -60,12 +61,15 @@ export function OnboardingChat({
   initialMessages,
   initialExtracted,
   workspaceName,
+  baseCurrency = "USD",
 }: {
   sessionId: string;
   initialMessages: IntakeChatMessage[];
   initialExtracted: IntakeExtractedData;
   workspaceName: string;
+  baseCurrency?: string;
 }) {
+  const budgetSymbol = currencySymbol(baseCurrency);
   const router = useRouter();
   const [messages, setMessages] = useState<IntakeChatMessage[]>(
     initialMessages.length > 0
@@ -284,7 +288,7 @@ export function OnboardingChat({
               {FIELD_CHIPS.map((f) => {
                 const v = extracted[f.key];
                 const filled = valuePresent(v);
-                const display = chipDisplayValue(f.key, v);
+                const display = chipDisplayValue(f.key, v, budgetSymbol);
                 return (
                   <li
                     key={f.key}

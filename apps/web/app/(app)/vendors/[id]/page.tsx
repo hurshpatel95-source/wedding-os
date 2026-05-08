@@ -16,6 +16,7 @@ import {
   VENDOR_AUTOPILOT_LABEL,
   type VendorAutopilotStatus,
 } from "@/lib/autopilot-types";
+import { formatCurrency } from "@/lib/utils";
 import type {
   VendorAttachmentRow,
   VendorRow,
@@ -93,7 +94,7 @@ export default async function VendorDetailPage({ params }: { params: { id: strin
   const [{ data: workspaceRow }, { data: orgRow }] = await Promise.all([
     supabase
       .from("workspaces")
-      .select("name, wedding_date")
+      .select("name, wedding_date, base_currency")
       .eq("id", vendor.workspace_id)
       .maybeSingle(),
     supabase
@@ -107,6 +108,11 @@ export default async function VendorDetailPage({ params }: { params: { id: strin
   const weddingDate =
     (workspaceRow as { wedding_date?: string | null } | null)?.wedding_date ??
     null;
+  // Default to USD — most B2C couples are American. Hursh's Barcelona
+  // workspace is the EUR exception.
+  const baseCurrency =
+    (workspaceRow as { base_currency?: string | null } | null)?.base_currency ??
+    "USD";
   const formattedDate = weddingDate
     ? new Date(weddingDate).toLocaleDateString(undefined, {
         month: "long",
@@ -199,6 +205,7 @@ export default async function VendorDetailPage({ params }: { params: { id: strin
         quoteEur={
           (vendor as unknown as { quote_eur?: number | null }).quote_eur ?? null
         }
+        baseCurrency={baseCurrency}
         lastInboundAt={
           (vendor as unknown as { last_inbound_at?: string | null })
             .last_inbound_at ?? null
@@ -218,6 +225,7 @@ export default async function VendorDetailPage({ params }: { params: { id: strin
         role={role}
         initialTasks={tasks}
         initialAttachments={attachments}
+        baseCurrency={baseCurrency}
       />
     </div>
   );
@@ -241,6 +249,7 @@ function AutopilotStatusBlock({
   autopilotEnabled,
   aiSummary,
   quoteEur,
+  baseCurrency,
   lastInboundAt,
   lastOutboundAt,
 }: {
@@ -248,6 +257,7 @@ function AutopilotStatusBlock({
   autopilotEnabled: boolean;
   aiSummary: string | null;
   quoteEur: number | null;
+  baseCurrency: string;
   lastInboundAt: string | null;
   lastOutboundAt: string | null;
 }) {
@@ -291,7 +301,7 @@ function AutopilotStatusBlock({
             <span>
               Quote{" "}
               <span className="font-medium text-stone-800">
-                €{Number(quoteEur).toLocaleString()}
+                {formatCurrency(Number(quoteEur), baseCurrency)}
               </span>
             </span>
           )}

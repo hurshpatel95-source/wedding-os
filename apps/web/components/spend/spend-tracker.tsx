@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { formatMoney } from "@/lib/utils";
+import { formatCurrency } from "@/lib/utils";
 import { VENDOR_CATEGORY_LABEL, VENDOR_STATUS_LABEL, VENDOR_STATUS_VARIANT } from "@/lib/vendor-categories";
 import type { VendorRow } from "@/lib/vendor-types";
 import type { ScenarioInputs } from "@/lib/scenario-types";
@@ -46,10 +46,13 @@ const num = (v: number | null | undefined): number =>
 export function SpendTracker({
   vendors,
   scenarios,
+  baseCurrency = "USD",
 }: {
   vendors: VendorSlim[];
   scenarios: ScenarioLite[];
+  baseCurrency?: string;
 }) {
+  const fmt = (amount: number) => formatCurrency(amount, baseCurrency);
   const [scenarioId, setScenarioId] = useState<string>(scenarios[0]?.id ?? "none");
 
   const activeScenario = scenarios.find((s) => s.id === scenarioId);
@@ -100,9 +103,13 @@ export function SpendTracker({
     };
   }, [vendors]);
 
-  // Forecast (active scenario hosts grand) vs actual + vendor commitments
+  // Forecast (active scenario hosts grand) vs actual + vendor commitments.
+  // Note: a previous build hardcoded a `* 1.21` Spanish VAT multiplier on
+  // the vendor stack. That inflated forecasts by 21% for every US couple.
+  // VAT/tax handling needs to live behind workspace.tax_rate; until that
+  // exists the forecast is the raw vendor-stack total.
   const scenarioForecast = activeScenario?.calculated_total ?? 0;
-  const grandForecast = scenarioForecast + totals.quoted_total * 1.21; // include 21% VAT on vendors
+  const grandForecast = scenarioForecast + totals.quoted_total;
   const paidPct =
     grandForecast > 0
       ? Math.min(100, Math.round((totals.total_paid / grandForecast) * 100))
@@ -118,24 +125,24 @@ export function SpendTracker({
       <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <Stat
           label="Total forecast"
-          value={formatMoney(grandForecast, "EUR")}
-          sub="Active scenario + vendor stack incl. VAT"
+          value={fmt(grandForecast)}
+          sub="Active scenario + vendor stack"
         />
         <Stat
           label="Total committed"
-          value={formatMoney(totals.total_committed, "EUR")}
+          value={fmt(totals.total_committed)}
           sub="Deposits + final balances signed for"
           tone="amber"
         />
         <Stat
           label="Paid to date"
-          value={formatMoney(totals.total_paid, "EUR")}
+          value={fmt(totals.total_paid)}
           sub={`${paidPct}% of total forecast`}
           tone="emerald"
         />
         <Stat
           label="Remaining to pay"
-          value={formatMoney(totals.remaining, "EUR")}
+          value={fmt(totals.remaining)}
           sub="Committed but not yet paid"
           tone="rose"
         />
@@ -153,15 +160,15 @@ export function SpendTracker({
               <SelectContent>
                 {scenarios.map((s) => (
                   <SelectItem key={s.id} value={s.id}>
-                    {s.name} — {formatMoney(s.calculated_total, "EUR")}
+                    {s.name} — {fmt(s.calculated_total)}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
             {activeScenario && (
               <span className="text-xs text-muted-foreground">
-                Scenario hosts'-cost: {formatMoney(scenarioForecast, "EUR")} · vendor stack:
-                {" "}{formatMoney(totals.quoted_total * 1.21, "EUR")} (incl. 21% VAT)
+                Scenario hosts&apos;-cost: {fmt(scenarioForecast)} · vendor stack:
+                {" "}{fmt(totals.quoted_total)}
               </span>
             )}
           </CardContent>
@@ -175,7 +182,7 @@ export function SpendTracker({
             <div className="mb-1.5 flex items-baseline justify-between text-xs">
               <span className="text-stone-700">Committed (signed contracts)</span>
               <span className="text-stone-500">
-                {formatMoney(totals.total_committed, "EUR")} / {formatMoney(grandForecast, "EUR")}
+                {fmt(totals.total_committed)} / {fmt(grandForecast)}
               </span>
             </div>
             <Bar pct={committedPct} tone="amber" />
@@ -184,7 +191,7 @@ export function SpendTracker({
             <div className="mb-1.5 flex items-baseline justify-between text-xs">
               <span className="text-stone-700">Paid to date</span>
               <span className="text-stone-500">
-                {formatMoney(totals.total_paid, "EUR")} / {formatMoney(grandForecast, "EUR")}
+                {fmt(totals.total_paid)} / {fmt(grandForecast)}
               </span>
             </div>
             <Bar pct={paidPct} tone="emerald" />
@@ -217,8 +224,8 @@ export function SpendTracker({
                           <td className="px-3 py-2">
                             {VENDOR_CATEGORY_LABEL[cat as keyof typeof VENDOR_CATEGORY_LABEL] ?? cat}
                           </td>
-                          <td className="px-3 py-2 text-right">{formatMoney(t.quoted, "EUR")}</td>
-                          <td className="px-3 py-2 text-right">{formatMoney(t.paid, "EUR")}</td>
+                          <td className="px-3 py-2 text-right">{fmt(t.quoted)}</td>
+                          <td className="px-3 py-2 text-right">{fmt(t.paid)}</td>
                           <td className="px-3 py-2 text-right">
                             <Badge variant={pct >= 100 ? "success" : pct > 0 ? "warning" : "muted"} className="text-[10px]">
                               {pct}%
@@ -286,13 +293,13 @@ export function SpendTracker({
                           </td>
                           <td className="px-3 py-2 text-right">
                             {v.quoted_price_eur != null
-                              ? formatMoney(num(v.quoted_price_eur), "EUR")
+                              ? fmt(num(v.quoted_price_eur))
                               : "—"}
                           </td>
                           <td className="px-3 py-2 text-right">
                             {da > 0 ? (
                               <div>
-                                <div>{formatMoney(da, "EUR")}</div>
+                                <div>{fmt(da)}</div>
                                 <div className="text-[10px] text-muted-foreground">
                                   {v.deposit_paid_at
                                     ? `paid ${format(parseISO(v.deposit_paid_at), "MMM d")}`
@@ -308,7 +315,7 @@ export function SpendTracker({
                           <td className="px-3 py-2 text-right">
                             {fa > 0 ? (
                               <div>
-                                <div>{formatMoney(fa, "EUR")}</div>
+                                <div>{fmt(fa)}</div>
                                 <div className="text-[10px] text-muted-foreground">
                                   {v.final_paid_at
                                     ? `paid ${format(parseISO(v.final_paid_at), "MMM d")}`
@@ -332,7 +339,7 @@ export function SpendTracker({
                                     : "text-stone-500"
                                 }
                               >
-                                {formatMoney(paid, "EUR")} / {formatMoney(total, "EUR")}
+                                {fmt(paid)} / {fmt(total)}
                               </span>
                             ) : (
                               <span className="text-stone-400">—</span>

@@ -50,6 +50,27 @@ export default async function VendorsPage() {
     supabase.auth.getUser(),
   ]);
 
+  // Resolve workspace.base_currency so the grid renders the right symbol
+  // for the couple's local currency.
+  const { data: profile } = user
+    ? await supabase
+        .from("users")
+        .select("workspace_id")
+        .eq("id", user.id)
+        .maybeSingle()
+    : { data: null };
+  const wsid = (profile as { workspace_id?: string | null } | null)?.workspace_id;
+  const { data: workspaceRow } = wsid
+    ? await supabase
+        .from("workspaces")
+        .select("base_currency")
+        .eq("id", wsid)
+        .maybeSingle()
+    : { data: null };
+  const baseCurrency =
+    (workspaceRow as { base_currency?: string | null } | null)?.base_currency ??
+    "USD";
+
   // Org_admins manage vendors via the planner CRM in /admin/vendors.
   // Send them there instead of the couple-facing read-only list.
   if (user) {
@@ -91,10 +112,9 @@ export default async function VendorsPage() {
             Vendors
           </h1>
           <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-            Add anyone you&apos;re paying — your planner, photographer, florist,
-            DJ, transport. Track quotes and deposits here. Your planner&apos;s
-            internal CRM (contacts, RFP outreach, internal notes) stays in their
-            admin view.
+            Add anyone you&apos;re paying — photographer, florist, DJ, caterer,
+            transport. Track quotes, deposits, and final balances all in one
+            place, and email each vendor directly from their detail page.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -126,7 +146,7 @@ export default async function VendorsPage() {
           }
         />
       ) : (
-        <VendorGrid vendors={list} role="couple" />
+        <VendorGrid vendors={list} role="couple" baseCurrency={baseCurrency} />
       )}
     </div>
   );

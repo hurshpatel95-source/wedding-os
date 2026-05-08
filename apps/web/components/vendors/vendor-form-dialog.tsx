@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { currencySymbol, normalizeCurrency } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -96,6 +97,31 @@ export function VendorFormDialog({
     vendor?.is_couple_visible ?? true,
   );
 
+  // Read workspace.base_currency to label the price inputs and stamp
+  // quoted_currency. Defaults to USD until the fetch resolves.
+  const [baseCurrency, setBaseCurrency] = useState<"USD" | "EUR">("USD");
+  useEffect(() => {
+    if (!open) return;
+    const supabase = createClient();
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
+      if (!user) return;
+      const { data: profile } = await supabase
+        .from("users")
+        .select("workspace_id")
+        .eq("id", user.id)
+        .maybeSingle();
+      const wsid = workspaceId ?? profile?.workspace_id;
+      if (!wsid) return;
+      const { data: ws } = (await supabase
+        .from("workspaces")
+        .select("base_currency")
+        .eq("id", wsid)
+        .maybeSingle()) as { data: { base_currency?: string | null } | null };
+      setBaseCurrency(normalizeCurrency(ws?.base_currency));
+    });
+  }, [open, workspaceId]);
+  const symbol = currencySymbol(baseCurrency);
+
   // Build grouped category options
   const groupedCategories = VENDOR_GROUP_ORDER.map((group) => ({
     group,
@@ -136,7 +162,7 @@ export function VendorFormDialog({
       website: website.trim() || null,
       instagram: instagram.trim() || null,
       quoted_price_eur: parsedQuoted,
-      quoted_currency: "EUR",
+      quoted_currency: baseCurrency,
       deposit_amount_eur: parsedDeposit,
       deposit_due_at: depositDueAt.trim() || null,
       notes: notes.trim() || null,
@@ -287,7 +313,7 @@ export function VendorFormDialog({
 
           <div className="grid grid-cols-3 gap-3">
             <div className="grid gap-1.5">
-              <Label htmlFor="vqp">Quoted price (EUR)</Label>
+              <Label htmlFor="vqp">Quoted price ({symbol})</Label>
               <Input
                 id="vqp"
                 inputMode="decimal"
@@ -297,7 +323,7 @@ export function VendorFormDialog({
               />
             </div>
             <div className="grid gap-1.5">
-              <Label htmlFor="vda">Deposit amount (EUR)</Label>
+              <Label htmlFor="vda">Deposit amount ({symbol})</Label>
               <Input
                 id="vda"
                 inputMode="decimal"

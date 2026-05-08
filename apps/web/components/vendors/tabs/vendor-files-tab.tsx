@@ -71,7 +71,9 @@ export function VendorFilesTab({
   initialAttachments: VendorAttachmentRow[];
 }) {
   const router = useRouter();
-  const isAdmin = role === "admin";
+  // Couples manage their own vendor files — they're the ones receiving
+  // contracts and quote PDFs. Storage policies still scope to workspace.
+  const canEdit = role === "admin" || role === "couple";
   const fileRef = useRef<HTMLInputElement>(null);
   const [pendingFiles, setPendingFiles] = useState<File[] | null>(null);
   const [pendingKind, setPendingKind] = useState<AttachmentKind>("contract");
@@ -107,7 +109,7 @@ export function VendorFilesTab({
   const groups = useMemo(() => groupAttachments(initialAttachments), [initialAttachments]);
 
   const queueFiles = (files: FileList | File[]) => {
-    if (!isAdmin) return;
+    if (!canEdit) return;
     const list = Array.from(files);
     if (list.length === 0) return;
     setPendingFiles(list);
@@ -171,7 +173,7 @@ export function VendorFilesTab({
   };
 
   const remove = async (a: VendorAttachmentRow) => {
-    if (!isAdmin) return;
+    if (!canEdit) return;
     if (!confirm(`Delete ${a.label ?? "this file"}?`)) return;
     const supabase = createClient();
     const sb = supabase as unknown as VendorClient;
@@ -199,7 +201,7 @@ export function VendorFilesTab({
 
   return (
     <div className="space-y-6">
-      {isAdmin && (
+      {canEdit && (
         <Card>
           <CardContent className="space-y-3 py-4">
             {!pendingFiles ? (
@@ -339,7 +341,7 @@ export function VendorFilesTab({
                         <ExternalLink className="h-4 w-4" />
                         Open
                       </Button>
-                      {isAdmin && (
+                      {canEdit && (
                         <Button
                           type="button"
                           variant="ghost"

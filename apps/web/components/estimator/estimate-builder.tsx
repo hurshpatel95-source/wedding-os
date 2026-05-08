@@ -14,7 +14,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { cn } from "@/lib/utils";
+import { cn, currencySymbol } from "@/lib/utils";
 import {
   documentBaseline,
   documentOverrideDelta,
@@ -34,6 +34,7 @@ interface Props {
   initialDoc: EstimateDocument;
   baselineTotal: number | null;
   guestCount: number | null;
+  baseCurrency?: string;
 }
 
 type SaveState =
@@ -47,7 +48,9 @@ export function EstimateBuilder({
   initialDoc,
   baselineTotal,
   guestCount,
+  baseCurrency = "USD",
 }: Props) {
+  const symbol = currencySymbol(baseCurrency);
   const [doc, setDoc] = useState<EstimateDocument>(initialDoc);
   const [openSections, setOpenSections] = useState<Set<string>>(
     () => new Set(initialDoc.sections.map((s) => s.id)),
@@ -174,7 +177,7 @@ export function EstimateBuilder({
             {guestCount && (
               <span className="text-muted-foreground">
                 {Math.round(total / guestCount).toLocaleString()}{" "}
-                <span className="text-[10px] uppercase">€/guest</span>
+                <span className="text-[10px] uppercase">{symbol}/guest</span>
               </span>
             )}
             <SaveIndicator state={saveState} />

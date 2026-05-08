@@ -74,9 +74,13 @@ export function InlineEmailComposer({
   const [sending, setSending] = useState(false);
   const [draftError, setDraftError] = useState<string | null>(null);
 
-  // Saved-template library state
+  // Saved-template library state. The /api/admin/email-templates endpoints
+  // 403 for couples; when the initial GET fails we mark the library as
+  // unavailable and hide the template-picker + save-as-template controls
+  // entirely so the composer stays usable.
   const [templates, setTemplates] = useState<EmailTemplateRow[] | null>(null);
   const [templatesLoading, setTemplatesLoading] = useState(false);
+  const [templatesAvailable, setTemplatesAvailable] = useState(true);
   const [pickedTemplateId, setPickedTemplateId] = useState<string>("");
 
   // Save-as-template inline form state
@@ -107,7 +111,12 @@ export function InlineEmailComposer({
         return (await res.json()) as { templates?: EmailTemplateRow[] };
       })
       .then((j) => setTemplates(j.templates ?? []))
-      .catch(() => setTemplates([]))
+      .catch(() => {
+        // Couple sessions hit 403 here — hide the library UI rather than
+        // surfacing a confusing "no saved templates" select.
+        setTemplates([]);
+        setTemplatesAvailable(false);
+      })
       .finally(() => setTemplatesLoading(false));
   }, [open, templates, templatesLoading, draftHelperKind]);
 
@@ -337,44 +346,47 @@ export function InlineEmailComposer({
           />
         </div>
 
-        {/* Use-template dropdown — always above subject */}
-        <div className="grid gap-1.5">
-          <Label htmlFor="compose-template">
-            <span className="inline-flex items-center gap-1.5">
-              <FileText className="h-3.5 w-3.5" />
-              Use template
-            </span>
-          </Label>
-          <Select
-            value={pickedTemplateId}
-            onValueChange={(v) => applyTemplate(v)}
-            disabled={templatesLoading || (templates !== null && templates.length === 0)}
-          >
-            <SelectTrigger id="compose-template">
-              <SelectValue
-                placeholder={
-                  templatesLoading
-                    ? "Loading templates…"
-                    : templates && templates.length === 0
-                      ? "No saved templates yet"
-                      : "Pick a saved template"
-                }
-              />
-            </SelectTrigger>
-            <SelectContent>
-              {sortedTemplates.map((t) => (
-                <SelectItem key={t.id} value={t.id}>
-                  <span className="font-medium">{t.name}</span>
-                  {t.kind && (
-                    <span className="ml-2 text-xs text-stone-500">
-                      · {kindLabel(t.kind)}
-                    </span>
-                  )}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+        {/* Use-template dropdown — always above subject. Hidden when the
+            template API is not available (e.g. couples lack permission). */}
+        {templatesAvailable && (
+          <div className="grid gap-1.5">
+            <Label htmlFor="compose-template">
+              <span className="inline-flex items-center gap-1.5">
+                <FileText className="h-3.5 w-3.5" />
+                Use template
+              </span>
+            </Label>
+            <Select
+              value={pickedTemplateId}
+              onValueChange={(v) => applyTemplate(v)}
+              disabled={templatesLoading || (templates !== null && templates.length === 0)}
+            >
+              <SelectTrigger id="compose-template">
+                <SelectValue
+                  placeholder={
+                    templatesLoading
+                      ? "Loading templates…"
+                      : templates && templates.length === 0
+                        ? "No saved templates yet"
+                        : "Pick a saved template"
+                  }
+                />
+              </SelectTrigger>
+              <SelectContent>
+                {sortedTemplates.map((t) => (
+                  <SelectItem key={t.id} value={t.id}>
+                    <span className="font-medium">{t.name}</span>
+                    {t.kind && (
+                      <span className="ml-2 text-xs text-stone-500">
+                        · {kindLabel(t.kind)}
+                      </span>
+                    )}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
 
         <div className="grid gap-1.5">
           <Label htmlFor="compose-subject">Subject</Label>
@@ -397,8 +409,10 @@ export function InlineEmailComposer({
           />
         </div>
 
-        {/* Save-as-template inline panel */}
-        {savePanelOpen ? (
+        {/* Save-as-template inline panel — only shown when the templates API
+            is available (admin / planner). Couples see neither the
+            inline panel nor the trigger button below. */}
+        {!templatesAvailable ? null : savePanelOpen ? (
           <div className="rounded-lg border border-stone-200 bg-stone-50 p-4">
             <div className="mb-3 flex items-center justify-between">
               <div className="text-[10px] uppercase tracking-[0.2em] text-stone-600">

@@ -3,12 +3,11 @@ import { ArrowLeft, ArrowRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
+import { cn, formatCurrency } from "@/lib/utils";
 import { CompareSelector } from "@/components/estimator/compare-selector";
 import {
   documentTotal,
   effectiveLineTotal,
-  formatEUR,
   sectionTotal,
   type BudgetEstimateRow,
   type EstimateDocument,
@@ -61,6 +60,30 @@ export default async function ComparePage({
   searchParams: { ids?: string };
 }) {
   const supabase = createClient();
+
+  // Resolve workspace.base_currency for currency-aware totals.
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const { data: profile } = user
+    ? await supabase
+        .from("users")
+        .select("workspace_id")
+        .eq("id", user.id)
+        .maybeSingle()
+    : { data: null };
+  const wsid = (profile as { workspace_id?: string | null } | null)?.workspace_id;
+  const { data: workspaceRow } = wsid
+    ? await supabase
+        .from("workspaces")
+        .select("base_currency")
+        .eq("id", wsid)
+        .maybeSingle()
+    : { data: null };
+  const baseCurrency =
+    (workspaceRow as { base_currency?: string | null } | null)?.base_currency ??
+    "USD";
+  const fmt = (amount: number) => formatCurrency(amount, baseCurrency);
 
   const { data: allEstimates } = await supabase
     .from("budget_estimates")
@@ -227,7 +250,7 @@ export default async function ComparePage({
                 </div>
               </div>
               <div className="mt-2 font-serif text-2xl font-medium tabular-nums">
-                {formatEUR(colTotals[i])}
+                {fmt(colTotals[i])}
               </div>
               <div className="line-clamp-1 text-[10px] text-muted-foreground">
                 {s.scenario_summary}
@@ -256,6 +279,7 @@ export default async function ComparePage({
                   key={sIdx}
                   row={sr}
                   cheapestIdx={cheapestIdx}
+                  fmt={fmt}
                 />
               ))}
               <tr className="border-t-2 border-stone-300 bg-stone-50 font-medium">
@@ -268,7 +292,7 @@ export default async function ComparePage({
                       i === cheapestIdx && "text-emerald-800",
                     )}
                   >
-                    {formatEUR(t)}
+                    {fmt(t)}
                   </td>
                 ))}
               </tr>
@@ -296,9 +320,11 @@ export default async function ComparePage({
 function SectionRows({
   row,
   cheapestIdx,
+  fmt,
 }: {
   row: SectionRow;
   cheapestIdx: number;
+  fmt: (amount: number) => string;
 }) {
   const N = row.totals.length;
   return (
@@ -320,7 +346,7 @@ function SectionRows({
               i === cheapestIdx && "text-emerald-800",
             )}
           >
-            {formatEUR(t)}
+            {fmt(t)}
           </td>
         ))}
       </tr>
@@ -350,7 +376,7 @@ function SectionRows({
                   ? "TBC"
                   : offCols[i]
                   ? "off"
-                  : formatEUR(effectives[i])}
+                  : fmt(effectives[i])}
               </td>
             ))}
           </tr>

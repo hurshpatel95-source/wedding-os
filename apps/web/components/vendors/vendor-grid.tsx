@@ -21,7 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { formatMoney } from "@/lib/utils";
+import { formatCurrency } from "@/lib/utils";
 import {
   VENDOR_CATEGORIES,
   VENDOR_CATEGORY_GROUP,
@@ -61,9 +61,11 @@ type Layout = "group" | "flat";
 export function VendorGrid({
   vendors,
   role,
+  baseCurrency = "USD",
 }: {
   vendors: VendorListItem[];
   role: "admin" | "couple" | null;
+  baseCurrency?: string;
 }) {
   const router = useRouter();
   const isAdmin = role === "admin";
@@ -292,6 +294,7 @@ export function VendorGrid({
                 isAdmin={isAdmin}
                 isSelected={selected.has(v.id)}
                 onToggleSelected={() => toggleOne(v.id)}
+                baseCurrency={baseCurrency}
               />
             ))}
         </div>
@@ -323,6 +326,7 @@ export function VendorGrid({
                         isAdmin={isAdmin}
                         isSelected={selected.has(v.id)}
                         onToggleSelected={() => toggleOne(v.id)}
+                        baseCurrency={baseCurrency}
                       />
                     ))}
                 </div>
@@ -340,11 +344,13 @@ function VendorCard({
   isAdmin,
   isSelected,
   onToggleSelected,
+  baseCurrency,
 }: {
   vendor: VendorListItem;
   isAdmin: boolean;
   isSelected: boolean;
   onToggleSelected: () => void;
+  baseCurrency: string;
 }) {
   const Icon = VENDOR_CATEGORY_ICON[vendor.category];
   const depositSoon = isDepositDueSoon(vendor.deposit_due_at, vendor.deposit_paid_at);
@@ -411,7 +417,7 @@ function VendorCard({
             <div className="text-stone-700">
               {vendor.quoted_price_eur != null ? (
                 <span className="font-medium">
-                  {formatMoney(Number(vendor.quoted_price_eur), "EUR")}
+                  {formatCurrency(Number(vendor.quoted_price_eur), baseCurrency)}
                 </span>
               ) : (
                 <span className="text-xs uppercase tracking-wider text-stone-400">

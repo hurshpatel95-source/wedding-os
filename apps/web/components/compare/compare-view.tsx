@@ -16,7 +16,7 @@ import {
 import { STATUS_LABEL, STATUS_VARIANT } from "@/lib/venue-status";
 import { EVENT_ROLE_SHORT } from "@/lib/event-roles";
 import { VENUE_HIRE } from "@/lib/venue-pricing";
-import { formatMoney } from "@/lib/utils";
+import { currencySymbol, formatCurrency } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import type { Database } from "@wedding-os/db";
 
@@ -40,7 +40,13 @@ type Venue = Pick<
 
 const MAX_SLOTS = 3;
 
-export function CompareView({ venues }: { venues: Venue[] }) {
+export function CompareView({
+  venues,
+  baseCurrency = "USD",
+}: {
+  venues: Venue[];
+  baseCurrency?: string;
+}) {
   const [selectedIds, setSelectedIds] = useState<(string | null)[]>([
     venues[0]?.id ?? null,
     venues[1]?.id ?? null,
@@ -71,7 +77,7 @@ export function CompareView({ venues }: { venues: Venue[] }) {
         ))}
       </div>
 
-      <ComparisonTable venues={selected} />
+      <ComparisonTable venues={selected} baseCurrency={baseCurrency} />
     </div>
   );
 }
@@ -146,7 +152,14 @@ function SlotPicker({
   );
 }
 
-function ComparisonTable({ venues }: { venues: (Venue | null)[] }) {
+function ComparisonTable({
+  venues,
+  baseCurrency,
+}: {
+  venues: (Venue | null)[];
+  baseCurrency: string;
+}) {
+  const symbol = currencySymbol(baseCurrency);
   const populated = venues.filter((v): v is Venue => !!v);
   if (populated.length < 2) {
     return (
@@ -197,7 +210,7 @@ function ComparisonTable({ venues }: { venues: (Venue | null)[] }) {
       render: (v) => {
         const p = VENUE_HIRE[v.name];
         return p?.weekend_eur != null
-          ? formatMoney(p.weekend_eur, "EUR")
+          ? formatCurrency(p.weekend_eur, baseCurrency)
           : <span className="text-stone-400">TBD</span>;
       },
     },
@@ -206,7 +219,9 @@ function ComparisonTable({ venues }: { venues: (Venue | null)[] }) {
       render: (v) => {
         const p = VENUE_HIRE[v.name];
         const val = p?.sunday_eur ?? p?.weekend_eur;
-        return val != null ? formatMoney(val, "EUR") : <span className="text-stone-400">—</span>;
+        return val != null
+          ? formatCurrency(val, baseCurrency)
+          : <span className="text-stone-400">—</span>;
       },
     },
     {
@@ -214,7 +229,7 @@ function ComparisonTable({ venues }: { venues: (Venue | null)[] }) {
       render: (v) => {
         const p = VENUE_HIRE[v.name];
         return p?.weekday_eur != null
-          ? formatMoney(p.weekday_eur, "EUR")
+          ? formatCurrency(p.weekday_eur, baseCurrency)
           : <span className="text-stone-400">—</span>;
       },
     },
@@ -226,7 +241,9 @@ function ComparisonTable({ venues }: { venues: (Venue | null)[] }) {
           return (
             <span>
               <Badge variant="warning" className="text-[10px]">Yes</Badge>{" "}
-              {p.shortfall_per_pax_eur ? `€${p.shortfall_per_pax_eur}/pax` : ""}
+              {p.shortfall_per_pax_eur
+                ? `${symbol}${p.shortfall_per_pax_eur}/pax`
+                : ""}
             </span>
           );
         }

@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { currencySymbol, normalizeCurrency } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -116,6 +117,35 @@ export function VenueFormDialog({
   const [spaces, setSpaces] = useState<{ label: string; price_eur: number }[]>(
     venue?.spaces ?? [],
   );
+
+  // Currency-aware labels — read base_currency from workspace and use the
+  // symbol in field labels and the placeholder hire-fee notes.
+  const [baseCurrency, setBaseCurrency] = useState<"USD" | "EUR">("USD");
+  useEffect(() => {
+    if (!open) return;
+    const supabase = createClient();
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
+      if (!user) return;
+      const { data: profile } = await supabase
+        .from("users")
+        .select("workspace_id")
+        .eq("id", user.id)
+        .maybeSingle();
+      const wsid = workspaceId ?? profile?.workspace_id;
+      if (!wsid) return;
+      const { data: ws } = (await supabase
+        .from("workspaces")
+        .select("base_currency")
+        .eq("id", wsid)
+        .maybeSingle()) as { data: { base_currency?: string | null } | null };
+      setBaseCurrency(normalizeCurrency(ws?.base_currency));
+    });
+  }, [open, workspaceId]);
+  const symbol = currencySymbol(baseCurrency);
+  const placeholderNotes =
+    baseCurrency === "EUR"
+      ? "e.g. 'Sat €14k / Fri €12.4k' or 'Friday rate not quoted'"
+      : "e.g. 'Sat $14k / Fri $12.4k' or 'Friday rate not quoted'";
   const [hireFeeNotes, setHireFeeNotes] = useState<string>(venue?.hire_fee_notes ?? "");
 
   // Pros & cons — stored as text[] arrays, edited as one-per-line text
@@ -383,7 +413,7 @@ export function VenueFormDialog({
             </div>
             <div className="grid grid-cols-3 gap-3">
               <div className="grid gap-1.5">
-                <Label>Weekend (Sat) €</Label>
+                <Label>Weekend (Sat) {symbol}</Label>
                 <Input
                   inputMode="decimal"
                   placeholder="14000"
@@ -394,7 +424,7 @@ export function VenueFormDialog({
                 />
               </div>
               <div className="grid gap-1.5">
-                <Label>Sunday €</Label>
+                <Label>Sunday {symbol}</Label>
                 <Input
                   inputMode="decimal"
                   placeholder="19000"
@@ -405,7 +435,7 @@ export function VenueFormDialog({
                 />
               </div>
               <div className="grid gap-1.5">
-                <Label>Weekday €</Label>
+                <Label>Weekday {symbol}</Label>
                 <Input
                   inputMode="decimal"
                   placeholder="12400"
@@ -437,7 +467,7 @@ export function VenueFormDialog({
                 />
               </div>
               <div className="grid gap-1.5">
-                <Label>Shortfall €/pax</Label>
+                <Label>Shortfall {symbol}/pax</Label>
                 <Input
                   inputMode="decimal"
                   placeholder="80"
@@ -498,7 +528,7 @@ export function VenueFormDialog({
               <Label>Hire fee notes</Label>
               <Textarea
                 rows={2}
-                placeholder="e.g. 'Sat €14k / Fri €12.4k' or 'Friday rate not quoted'"
+                placeholder={placeholderNotes}
                 value={hireFeeNotes}
                 onChange={(e) => setHireFeeNotes(e.target.value)}
               />

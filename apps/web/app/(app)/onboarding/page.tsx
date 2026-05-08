@@ -66,10 +66,12 @@ export default async function OnboardingPage() {
 
   const { data: workspace } = await supabase
     .from("workspaces")
-    .select("id, name, wedding_date")
+    .select("id, name, wedding_date, base_currency")
     .eq("id", profile.workspace_id)
     .maybeSingle();
   if (!workspace) redirect("/login");
+  const baseCurrency =
+    (workspace as { base_currency?: string | null }).base_currency ?? "USD";
 
   // Find the active intake_session for this workspace, or create one.
   const sb = supabase as unknown as IntakeSessionsTable;
@@ -129,6 +131,7 @@ export default async function OnboardingPage() {
         initialMessages={session.chat_messages}
         initialExtracted={session.extracted_data}
         workspaceName={workspace.name}
+        baseCurrency={baseCurrency}
       />
     </div>
   );

@@ -277,7 +277,9 @@ export function VendorOverviewTab({
 
         <Card>
           <CardHeader>
-            <CardTitle className="font-serif">Planner rating</CardTitle>
+            <CardTitle className="font-serif">
+              {role === "couple" ? "Your rating" : "Planner rating"}
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-1">
@@ -288,12 +290,12 @@ export function VendorOverviewTab({
                   <button
                     key={n}
                     type="button"
-                    disabled={!isAdmin || pendingRating !== null}
+                    disabled={!canEdit || pendingRating !== null}
                     onClick={() => setRating(n)}
                     className={cn(
                       "rounded p-1 transition-colors",
-                      isAdmin && "hover:bg-secondary",
-                      !isAdmin && "cursor-default",
+                      canEdit && "hover:bg-secondary",
+                      !canEdit && "cursor-default",
                       isPending && "opacity-60",
                     )}
                     aria-label={`Set rating to ${n}`}
@@ -313,7 +315,7 @@ export function VendorOverviewTab({
                 </span>
               )}
             </div>
-            {!isAdmin && vendor.planner_rating == null && (
+            {!canEdit && vendor.planner_rating == null && (
               <p className="mt-2 text-xs text-muted-foreground">Not yet rated.</p>
             )}
           </CardContent>

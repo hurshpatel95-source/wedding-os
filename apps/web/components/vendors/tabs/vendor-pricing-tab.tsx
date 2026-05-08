@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { formatMoney } from "@/lib/utils";
+import { currencySymbol, formatCurrency, normalizeCurrency } from "@/lib/utils";
 import type { VendorRow } from "@/lib/vendor-types";
 
 type VendorClient = {
@@ -22,15 +22,20 @@ type VendorClient = {
   };
 };
 
-const CURRENCY: "EUR" | "USD" = "EUR";
-
 export function VendorPricingTab({
   vendor,
   role,
+  baseCurrency = "USD",
 }: {
   vendor: VendorRow;
   role: "admin" | "couple" | null;
+  baseCurrency?: string;
 }) {
+  // The DB columns are still named *_eur for legacy reasons (Hursh's
+  // Barcelona workspace shipped first), but the value stored is in the
+  // workspace's base_currency. We render with the workspace's currency.
+  const currency = normalizeCurrency(baseCurrency);
+  const symbol = currencySymbol(currency);
   const router = useRouter();
   // Couples need to edit quotes + deposits to track their own payments
   // (they pay the planner directly). Admin-only fields stay gated below.
@@ -126,7 +131,7 @@ export function VendorPricingTab({
             {editingQuote ? (
               <div className="flex flex-wrap items-end gap-3">
                 <div className="grid gap-1.5">
-                  <Label htmlFor="quoted">Quote ({CURRENCY})</Label>
+                  <Label htmlFor="quoted">Quote ({symbol})</Label>
                   <Input
                     id="quoted"
                     type="number"
@@ -152,7 +157,7 @@ export function VendorPricingTab({
               </div>
             ) : vendor.quoted_price_eur != null ? (
               <p className="font-serif text-4xl">
-                {formatMoney(Number(vendor.quoted_price_eur), CURRENCY)}
+                {formatCurrency(Number(vendor.quoted_price_eur), currency)}
               </p>
             ) : (
               <p className="text-sm text-muted-foreground">No quote yet.</p>
@@ -180,7 +185,7 @@ export function VendorPricingTab({
             {editingDeposit ? (
               <div className="grid gap-3 md:grid-cols-2">
                 <div className="grid gap-1.5">
-                  <Label htmlFor="deposit-amt">Amount ({CURRENCY})</Label>
+                  <Label htmlFor="deposit-amt">Amount ({symbol})</Label>
                   <Input
                     id="deposit-amt"
                     type="number"
@@ -222,7 +227,7 @@ export function VendorPricingTab({
                     label="Amount"
                     value={
                       vendor.deposit_amount_eur != null
-                        ? formatMoney(Number(vendor.deposit_amount_eur), CURRENCY)
+                        ? formatCurrency(Number(vendor.deposit_amount_eur), currency)
                         : "—"
                     }
                   />
@@ -277,7 +282,7 @@ export function VendorPricingTab({
             {editingFinal ? (
               <div className="grid gap-3 md:grid-cols-2">
                 <div className="grid gap-1.5">
-                  <Label htmlFor="final-amt">Amount ({CURRENCY})</Label>
+                  <Label htmlFor="final-amt">Amount ({symbol})</Label>
                   <Input
                     id="final-amt"
                     type="number"
@@ -319,7 +324,7 @@ export function VendorPricingTab({
                     label="Amount"
                     value={
                       vendor.final_balance_eur != null
-                        ? formatMoney(Number(vendor.final_balance_eur), CURRENCY)
+                        ? formatCurrency(Number(vendor.final_balance_eur), currency)
                         : "—"
                     }
                   />
