@@ -5,6 +5,7 @@
 // Higher-level "draft and send for vendor X" lives in the route handlers.
 
 import "server-only";
+import crypto from "node:crypto";
 import { google } from "googleapis";
 import type { Auth } from "googleapis";
 
@@ -67,6 +68,102 @@ export async function clientWithCredentials(
     oauth2.setCredentials(fresh);
   }
   return oauth2;
+}
+
+// ─── State token (HMAC-signed JWT-ish) ──────────────────────────────
+//
+// The OAuth `state` round-trip needs to bind the consent to a specific
+// workspace + user. We stamp a tiny payload, HMAC-sign it with the
+// service role key, and verify on the way back. Keeps an attacker from
+// hijacking another user's consent redirect.
+
+interface GmailStatePayload {
+  workspace_id: string;
+  org_id: string;
+  user_id: string;
+  nonce: string;
+  iat: number; // seconds
+}
+
+const STATE_TTL_SECONDS = 10 * 60; // 10 minutes
+
+function stateSecret(): string {
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.GMAIL_OAUTH_CLIENT_SECRET;
+  if (!key) {
+    throw new Error(
+      "Cannot sign Gmail OAuth state — neither SUPABASE_SERVICE_ROLE_KEY nor GMAIL_OAUTH_CLIENT_SECRET is set",
+    );
+  }
+  return key;
+}
+
+function b64urlEncode(buf: Buffer | string): string {
+  return (typeof buf === "string" ? Buffer.from(buf) : buf)
+    .toString("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
+}
+
+function b64urlDecode(s: string): Buffer {
+  const base64 = s.replace(/-/g, "+").replace(/_/g, "/");
+  const padded = base64 + "=".repeat((4 - (base64.length % 4)) % 4);
+  return Buffer.from(padded, "base64");
+}
+
+export function makeGmailStateToken(payload: Omit<GmailStatePayload, "iat" | "nonce">): string {
+  const fullPayload: GmailStatePayload = {
+    ...payload,
+    nonce: crypto.randomBytes(8).toString("hex"),
+    iat: Math.floor(Date.now() / 1000),
+  };
+  const body = b64urlEncode(JSON.stringify(fullPayload));
+  const sig = crypto.createHmac("sha256", stateSecret()).update(body).digest();
+  return `${body}.${b64urlEncode(sig)}`;
+}
+
+export function verifyGmailStateToken(token: string): GmailStatePayload | null {
+  if (!token || typeof token !== "string") return null;
+  const parts = token.split(".");
+  if (parts.length !== 2) return null;
+  const [body, sig] = parts;
+
+  let expected: Buffer;
+  try {
+    expected = crypto.createHmac("sha256", stateSecret()).update(body).digest();
+  } catch {
+    return null;
+  }
+  let actual: Buffer;
+  try {
+    actual = b64urlDecode(sig);
+  } catch {
+    return null;
+  }
+  if (expected.length !== actual.length) return null;
+  if (!crypto.timingSafeEqual(expected, actual)) return null;
+
+  let parsed: GmailStatePayload;
+  try {
+    parsed = JSON.parse(b64urlDecode(body).toString("utf-8")) as GmailStatePayload;
+  } catch {
+    return null;
+  }
+
+  if (
+    !parsed ||
+    typeof parsed.workspace_id !== "string" ||
+    typeof parsed.org_id !== "string" ||
+    typeof parsed.user_id !== "string" ||
+    typeof parsed.iat !== "number"
+  ) {
+    return null;
+  }
+
+  const ageSeconds = Math.floor(Date.now() / 1000) - parsed.iat;
+  if (ageSeconds < 0 || ageSeconds > STATE_TTL_SECONDS) return null;
+
+  return parsed;
 }
 
 /** Build a base64-url-encoded RFC 2822 message for users.messages.send. */
