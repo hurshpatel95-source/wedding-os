@@ -36,6 +36,8 @@ export interface LeadRow {
   scheduled_call_duration_minutes: number | null;
   converted_workspace_id: string | null;
   converted_at: string | null;
+  // Wave 2 — lead-routing / team assignment.
+  assigned_to_user_id?: string | null;
   metadata: Record<string, unknown>;
   created_at: string;
   updated_at: string;

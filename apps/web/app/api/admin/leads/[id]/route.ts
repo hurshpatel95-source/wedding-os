@@ -51,11 +51,19 @@ export async function PATCH(
   if ("error" in auth) {
     return NextResponse.json({ error: auth.error }, { status: auth.status });
   }
-  const { supabase } = auth;
+  const { supabase, profile } = auth;
 
-  let body: { status?: string; notes?: string };
+  let body: {
+    status?: string;
+    notes?: string;
+    assigned_to_user_id?: string | null;
+  };
   try {
-    body = (await request.json()) as { status?: string; notes?: string };
+    body = (await request.json()) as {
+      status?: string;
+      notes?: string;
+      assigned_to_user_id?: string | null;
+    };
   } catch {
     return NextResponse.json({ error: "bad json" }, { status: 400 });
   }
@@ -69,6 +77,44 @@ export async function PATCH(
   }
   if (typeof body.notes === "string") {
     patch.notes = body.notes.slice(0, 4000);
+  }
+  if (body.assigned_to_user_id !== undefined) {
+    if (body.assigned_to_user_id === null || body.assigned_to_user_id === "") {
+      patch.assigned_to_user_id = null;
+    } else {
+      // Validate target user is in the same org and has org_admin access.
+      const sb = supabase as unknown as {
+        from: (t: string) => {
+          select: (cols: string) => {
+            eq: (col: string, val: string) => {
+              maybeSingle: () => Promise<{
+                data: {
+                  id?: string;
+                  org_id?: string | null;
+                  org_role?: string | null;
+                } | null;
+              }>;
+            };
+          };
+        };
+      };
+      const { data: target } = await sb
+        .from("users")
+        .select("id, org_id, org_role")
+        .eq("id", body.assigned_to_user_id)
+        .maybeSingle();
+      if (
+        !target?.id ||
+        target.org_id !== profile.org_id ||
+        target.org_role !== "org_admin"
+      ) {
+        return NextResponse.json(
+          { error: "assignee must be a teammate in your studio" },
+          { status: 400 },
+        );
+      }
+      patch.assigned_to_user_id = body.assigned_to_user_id;
+    }
   }
 
   if (Object.keys(patch).length === 0) {

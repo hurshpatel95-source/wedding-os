@@ -64,6 +64,7 @@ export default async function AdminHomePage({
     { data: planningTasksRaw },
     { data: scorecardsRaw },
     { data: librarySizeRaw },
+    { data: teamRaw },
   ] = await Promise.all([
     supabase
       .from("workspaces")
@@ -83,6 +84,24 @@ export default async function AdminHomePage({
         "id, org_id, url, title_text, meta_description, h1_count, word_count, has_call_to_action, has_contact_info, has_schema_org, page_speed_seconds, scorecard_md, recommendations, raw_excerpt, fetched_at, created_at",
       ),
     sb.from("library_venues").select("id"),
+    (
+      supabase as unknown as {
+        from: (t: string) => {
+          select: (c: string) => {
+            eq: (col: string, val: string) => Promise<{
+              data: Array<{
+                id: string;
+                email: string;
+                team_role: string | null;
+              }> | null;
+            }>;
+          };
+        };
+      }
+    )
+      .from("users")
+      .select("id, email, team_role")
+      .eq("org_role", "org_admin"),
   ]);
 
   const workspaces = (workspacesRaw ?? []) as Array<{
@@ -98,6 +117,14 @@ export default async function AdminHomePage({
   const planningTasks = (planningTasksRaw ?? []) as unknown as PlanningTaskRow[];
   const scorecards = (scorecardsRaw ?? []) as unknown as MarketingScorecardRow[];
   const librarySize = (librarySizeRaw ?? []).length;
+  const team = (teamRaw ?? []) as Array<{
+    id: string;
+    email: string;
+    team_role: string | null;
+  }>;
+  const teamCount = team.length;
+  const ownerRow = team.find((t) => t.team_role === "owner") ?? null;
+  const ownerName = ownerRow ? ownerRow.email.split("@")[0] : null;
 
   // Fetch the org row for booking-page status
   const {
@@ -586,6 +613,25 @@ export default async function AdminHomePage({
               <h3 className="font-serif text-lg">Studio</h3>
             </div>
             <ul className="mt-3 space-y-2 text-sm">
+              <li className="flex items-center justify-between rounded-md bg-stone-50/60 px-3 py-2">
+                <span className="text-stone-700">Your team</span>
+                <Link
+                  href="/admin/settings/team"
+                  className="inline-flex items-center gap-1 text-xs text-stone-700 hover:underline"
+                  title={
+                    ownerName
+                      ? `${teamCount} member${teamCount === 1 ? "" : "s"} · owner: ${ownerName}`
+                      : `${teamCount} member${teamCount === 1 ? "" : "s"}`
+                  }
+                >
+                  <span className="font-medium tabular-nums">{teamCount}</span>
+                  {ownerName && (
+                    <span className="text-[10px] capitalize text-stone-500">
+                      · {ownerName}
+                    </span>
+                  )}
+                </Link>
+              </li>
               <li className="flex items-center justify-between rounded-md bg-stone-50/60 px-3 py-2">
                 <span className="text-stone-700">Library venues</span>
                 <span className="font-medium tabular-nums">{librarySize}</span>

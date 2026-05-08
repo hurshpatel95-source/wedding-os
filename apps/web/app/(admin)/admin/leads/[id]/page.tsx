@@ -41,12 +41,32 @@ export default async function LeadDetailPage({
   const { data: lead } = await sb
     .from("leads")
     .select(
-      "id, org_id, referring_workspace_id, source, status, couple_names, partner_a_name, partner_b_name, email, phone, wedding_date, guest_count, budget_band, city_or_region, notes, scheduled_call_at, scheduled_call_duration_minutes, converted_workspace_id, converted_at, metadata, created_at, updated_at",
+      "id, org_id, referring_workspace_id, source, status, couple_names, partner_a_name, partner_b_name, email, phone, wedding_date, guest_count, budget_band, city_or_region, notes, scheduled_call_at, scheduled_call_duration_minutes, converted_workspace_id, converted_at, assigned_to_user_id, metadata, created_at, updated_at",
     )
     .eq("id", params.id)
     .maybeSingle();
 
   if (!lead) notFound();
+
+  // Team members in this org for the "Assigned to" dropdown.
+  const teamSb = supabase as unknown as {
+    from: (t: string) => {
+      select: (cols: string) => {
+        eq: (col: string, val: string) => {
+          order: (
+            col: string,
+            opts: { ascending: boolean },
+          ) => Promise<{ data: Array<{ id: string; email: string }> | null }>;
+        };
+      };
+    };
+  };
+  const { data: teamMembersRaw } = await teamSb
+    .from("users")
+    .select("id, email")
+    .eq("org_role", "org_admin")
+    .order("created_at", { ascending: true });
+  const teamMembers = teamMembersRaw ?? [];
 
   const referringName: string | null = lead.referring_workspace_id
     ? await (async () => {
@@ -188,6 +208,8 @@ export default async function LeadDetailPage({
             email={lead.email}
             phone={lead.phone}
             coupleNames={name}
+            assignedToUserId={lead.assigned_to_user_id ?? null}
+            teamMembers={teamMembers}
           />
         </aside>
       </div>

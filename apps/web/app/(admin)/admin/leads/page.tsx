@@ -36,19 +36,39 @@ export default async function PlannerLeadsPage({
     };
   };
 
-  const [{ data: leadsRaw }, { data: workspacesRaw }] = await Promise.all([
+  const teamSb = supabase as unknown as {
+    from: (t: string) => {
+      select: (c: string) => {
+        eq: (col: string, val: string) => Promise<{
+          data: Array<{ id: string; email: string }> | null;
+        }>;
+      };
+    };
+  };
+
+  const [
+    { data: leadsRaw },
+    { data: workspacesRaw },
+    { data: teamMembersRaw },
+  ] = await Promise.all([
     sb
       .from("leads")
       .select(
-        "id, org_id, referring_workspace_id, source, status, couple_names, partner_a_name, partner_b_name, email, phone, wedding_date, guest_count, budget_band, city_or_region, notes, scheduled_call_at, scheduled_call_duration_minutes, converted_workspace_id, converted_at, metadata, created_at, updated_at",
+        "id, org_id, referring_workspace_id, source, status, couple_names, partner_a_name, partner_b_name, email, phone, wedding_date, guest_count, budget_band, city_or_region, notes, scheduled_call_at, scheduled_call_duration_minutes, converted_workspace_id, converted_at, assigned_to_user_id, metadata, created_at, updated_at",
       )
       .order("created_at", { ascending: false }),
     supabase.from("workspaces").select("id, name"),
+    teamSb.from("users").select("id, email").eq("org_role", "org_admin"),
   ]);
 
   const leads = (leadsRaw ?? []) as LeadRow[];
   const workspaces = (workspacesRaw ?? []) as WorkspaceLite[];
   const workspaceById = new Map(workspaces.map((w) => [w.id, w.name]));
+  const teamMembers = (teamMembersRaw ?? []) as Array<{
+    id: string;
+    email: string;
+  }>;
+  const teamById = new Map(teamMembers.map((m) => [m.id, m.email]));
 
   // Top-of-funnel stats
   const newCount = leads.filter((l) => l.status === "new").length;
@@ -166,6 +186,9 @@ export default async function PlannerLeadsPage({
                 <th className="px-4 py-3 text-left">Wedding</th>
                 <th className="px-4 py-3 text-left">Budget</th>
                 <th className="px-4 py-3 text-left">Status</th>
+                <th className="hidden px-4 py-3 text-left md:table-cell">
+                  Assigned
+                </th>
                 <th className="px-4 py-3 text-left">Activity</th>
               </tr>
             </thead>
@@ -218,6 +241,17 @@ export default async function PlannerLeadsPage({
                         <div className="mt-1 text-[10px] text-amber-800">
                           Call {formatRelative(l.scheduled_call_at)}
                         </div>
+                      )}
+                    </td>
+                    <td className="hidden px-4 py-3 md:table-cell">
+                      {l.assigned_to_user_id ? (
+                        <AssigneeChip
+                          email={
+                            teamById.get(l.assigned_to_user_id) ?? null
+                          }
+                        />
+                      ) : (
+                        <span className="text-stone-300">—</span>
                       )}
                     </td>
                     <td className="px-4 py-3 text-xs text-stone-500">
@@ -307,6 +341,24 @@ function FilterBar({
         );
       })}
     </nav>
+  );
+}
+
+function AssigneeChip({ email }: { email: string | null }) {
+  const initial = email
+    ? (email.split("@")[0] || email).charAt(0).toUpperCase()
+    : "?";
+  const displayName = email ? email.split("@")[0] : "Unknown";
+  return (
+    <span
+      className="inline-flex items-center gap-2 text-xs text-stone-700"
+      title={email ?? "Unknown teammate"}
+    >
+      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-rose-100 font-medium text-rose-800">
+        {initial}
+      </span>
+      <span className="text-[11px] text-stone-500">{displayName}</span>
+    </span>
   );
 }
 
