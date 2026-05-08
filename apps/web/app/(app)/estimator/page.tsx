@@ -1,230 +1,311 @@
+// /estimator — couple-side total forecast view.
+//
+// Pulls from budget_lines (which already aggregates AI-estimated +
+// vendor-committed + paid amounts per line) and shows the bird's-eye
+// view: where the wedding lands today vs the target, what's locked vs
+// still hypothetical, what categories haven't been priced yet.
+//
+// This is NOT the old Astia-PDF Estimator. That code path is gone.
+
 import Link from "next/link";
-import { redirect } from "next/navigation";
-import { ArrowRight, Columns, FileText, Plus, Sparkles } from "lucide-react";
+import { ArrowRight, Coins, AlertCircle } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import {
-  documentBaseline,
-  documentOverrideDelta,
-  documentTotal,
-  formatEUR,
-  type EstimateDocument,
-  type BudgetEstimateRow,
-} from "@/lib/estimator-types";
+  BUDGET_CATEGORY_LABEL,
+  type BudgetCategory,
+  type BudgetLineRow,
+} from "@/lib/autopilot-types";
 
 export const dynamic = "force-dynamic";
 
-type EstimateRow = Pick<
-  BudgetEstimateRow,
-  | "id"
-  | "name"
-  | "source_label"
-  | "scenario_summary"
-  | "cover_emoji"
-  | "guest_count"
-  | "start_date"
-  | "end_date"
-  | "sections"
-  | "baseline_total_eur"
-  | "sort_order"
->;
+function formatMoney(n: number, currency: string): string {
+  const symbol = currency === "USD" ? "$" : "€";
+  return `${symbol}${Math.round(n).toLocaleString()}`;
+}
 
 export default async function EstimatorPage() {
   const supabase = createClient();
 
-  const { data: estimates } = await supabase
-    .from("budget_estimates")
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  const { data: profile } = await supabase
+    .from("users")
+    .select("workspace_id")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (!profile?.workspace_id) return null;
+
+  // Workspace context for currency + budget target
+  const sbWs = supabase as unknown as {
+    from: (t: string) => {
+      select: (cols: string) => {
+        eq: (col: string, val: string) => {
+          maybeSingle: () => Promise<{
+            data: {
+              name: string;
+              base_currency: string;
+              budget_target_eur: number | null;
+              guest_count_estimate: number | null;
+            } | null;
+          }>;
+        };
+      };
+    };
+  };
+  const { data: workspace } = await sbWs
+    .from("workspaces")
+    .select("name, base_currency, budget_target_eur, guest_count_estimate")
+    .eq("id", profile.workspace_id)
+    .maybeSingle();
+
+  const currency = workspace?.base_currency ?? "USD";
+  const target = workspace?.budget_target_eur ?? null;
+  const guestCount = workspace?.guest_count_estimate ?? null;
+
+  // Pull budget_lines (couples can read their own; org_admins read all)
+  const sbLines = supabase as unknown as {
+    from: (t: string) => {
+      select: (cols: string) => {
+        eq: (col: string, val: string) => Promise<{ data: BudgetLineRow[] | null }>;
+      };
+    };
+  };
+  const { data: linesRaw } = await sbLines
+    .from("budget_lines")
     .select(
-      "id, name, source_label, scenario_summary, cover_emoji, guest_count, start_date, end_date, sections, baseline_total_eur, sort_order",
+      "id, workspace_id, org_id, parent_line_id, category, label, qty, unit_price_eur, total_eur, amount_estimated, amount_committed, amount_paid, vendor_id, status, source, notes, sort_order, metadata, created_at, updated_at",
     )
-    .eq("is_active", true)
-    .order("sort_order", { ascending: true });
+    .eq("workspace_id", profile.workspace_id);
+  const lines = (linesRaw ?? []) as BudgetLineRow[];
 
-  const list: EstimateRow[] = (estimates as EstimateRow[] | null) ?? [];
-
-  // If the workspace has no estimates (i.e. they're not on a planner-seeded
-  // workspace), this page isn't useful — redirect to /budget which is the
-  // AI-region-aware tree builder. Estimator stays available via direct URL
-  // for workspaces with existing scenarios (Hursh+Nisha, Astia clients).
-  if (list.length === 0) {
-    redirect("/budget");
-  }
-
-  return (
-    <div className="space-y-6">
-      <header className="flex flex-wrap items-start justify-between gap-4">
-        <div>
+  // Empty state — point them to /budget
+  if (lines.length === 0) {
+    return (
+      <div className="space-y-6">
+        <header>
           <div className="text-[11px] uppercase tracking-[0.25em] text-stone-500">
-            Honest budget · planner-seeded · couple-edited
+            Forecast
           </div>
           <h1 className="mt-1 font-serif text-4xl font-light tracking-tight md:text-5xl">
             Estimator
           </h1>
           <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-            Estimated initial budgets for your scenarios. Toggle anything off,
-            override any number — your edits stay here, they don&apos;t touch
-            the master pricing template.
+            Where your wedding lands today: AI-estimated lines + locked-in
+            vendor quotes + paid amounts. All in one summary view.
           </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {list.length >= 2 && (
-            <Link
-              href="/estimator/compare"
-              className="inline-flex items-center gap-2 rounded-full border border-stone-300 bg-white px-4 py-2 text-sm font-medium text-stone-800 transition hover:border-stone-900 hover:shadow-sm"
-            >
-              <Columns className="h-4 w-4" />
-              Compare
-            </Link>
-          )}
-          <Link
-            href="/estimator/new"
-            className="inline-flex items-center gap-2 rounded-full bg-stone-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-stone-700"
-          >
-            <Plus className="h-4 w-4" />
-            New estimate
-          </Link>
-        </div>
-      </header>
-
-      {list.length === 0 ? (
+        </header>
         <Card>
-          <CardContent className="py-10 text-center text-sm text-muted-foreground">
-            <p>No estimates yet.</p>
-            <p className="mt-2 text-xs">
-              Try{" "}
-              <Link
-                href="/budget"
-                className="font-medium text-stone-700 underline"
-              >
-                /budget
-              </Link>{" "}
-              for a personalized AI-generated budget tree, or hit{" "}
-              <Link
-                href="/estimator/new"
-                className="font-medium text-stone-700 underline"
-              >
-                + New estimate
-              </Link>{" "}
-              above to start a scenario.
+          <CardContent className="py-12 text-center">
+            <Coins className="mx-auto mb-3 h-8 w-8 text-stone-300" />
+            <h3 className="font-serif text-xl font-light text-stone-800">
+              No budget yet
+            </h3>
+            <p className="mx-auto mt-2 max-w-sm text-sm text-stone-500">
+              Build your starter budget at <Link href="/budget" className="font-medium text-rose-700 underline">/budget</Link> first. AI generates a personalized 70+ line tree based on your guest count + region in seconds.
             </p>
+            <Link
+              href="/budget"
+              className="mt-5 inline-flex items-center gap-1.5 rounded-full bg-stone-900 px-4 py-2 text-xs font-medium text-white transition hover:bg-stone-800"
+            >
+              Build my budget <ArrowRight className="h-3 w-3" />
+            </Link>
           </CardContent>
         </Card>
-      ) : (
-        <div className="grid gap-4 md:grid-cols-2">
-          {list.map((est) => {
-            const doc = (est.sections ?? { version: 1, sections: [] }) as EstimateDocument;
-            const total = documentTotal(doc);
-            const baseline = documentBaseline(doc);
-            const delta = documentOverrideDelta(doc);
-            const printedBaseline = est.baseline_total_eur ?? baseline;
+      </div>
+    );
+  }
 
-            return (
-              <Link
-                key={est.id}
-                href={`/estimator/${est.id}`}
-                className="group block"
-              >
-                <Card className="h-full transition hover:-translate-y-0.5 hover:shadow-md">
-                  <CardContent className="space-y-4 py-6">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-rose-50 via-white to-amber-50 text-2xl">
-                          {est.cover_emoji ?? "💍"}
-                        </div>
-                        <div>
-                          <h3 className="font-serif text-2xl">{est.name}</h3>
-                          <p className="mt-0.5 text-xs text-muted-foreground">
-                            {est.scenario_summary}
-                          </p>
-                        </div>
-                      </div>
-                      <ArrowRight className="h-5 w-5 shrink-0 text-stone-400 transition group-hover:translate-x-0.5 group-hover:text-stone-700" />
-                    </div>
+  // Roll up totals
+  let totalEstimated = 0;
+  let totalCommitted = 0;
+  let totalPaid = 0;
+  let unpricedLines = 0;
+  const byCategory = new Map<string, { estimated: number; committed: number; paid: number; lineCount: number }>();
+  const leafLines = lines.filter((l) => !lines.some((other) => other.parent_line_id === l.id));
 
-                    <div className="rounded-xl border border-stone-200 bg-stone-50/50 p-4">
-                      <div className="flex items-baseline justify-between">
-                        <div className="text-[10px] uppercase tracking-[0.2em] text-stone-500">
-                          Effective total
-                        </div>
-                        <div className="font-serif text-3xl font-medium tracking-tight">
-                          {formatEUR(total)}
-                        </div>
-                      </div>
-                      <div className="mt-3 flex flex-wrap items-center gap-3 text-xs">
-                        <span className="text-muted-foreground">
-                          baseline {formatEUR(printedBaseline)}
-                        </span>
-                        {Math.abs(delta) > 0.5 && (
-                          <Badge
-                            variant={delta < 0 ? "success" : "warning"}
-                            className="text-[10px]"
-                          >
-                            {delta < 0 ? "−" : "+"}
-                            {formatEUR(Math.abs(delta))} your edits
-                          </Badge>
-                        )}
-                        {est.guest_count && (
-                          <span className="text-muted-foreground">
-                            ·{" "}
-                            {Math.round(total / est.guest_count).toLocaleString()}{" "}
-                            <span className="text-[10px] uppercase">€/guest</span>
-                          </span>
-                        )}
-                      </div>
-                    </div>
+  for (const l of leafLines) {
+    const est = Number(l.amount_estimated ?? l.total_eur ?? 0);
+    const com = Number(l.amount_committed ?? 0);
+    const paid = Number(l.amount_paid ?? 0);
+    totalEstimated += est;
+    totalCommitted += com;
+    totalPaid += paid;
+    if (est === 0 && com === 0 && paid === 0) unpricedLines++;
+    const cat = l.category ?? "misc";
+    const bucket = byCategory.get(cat) ?? { estimated: 0, committed: 0, paid: 0, lineCount: 0 };
+    bucket.estimated += est;
+    bucket.committed += com;
+    bucket.paid += paid;
+    bucket.lineCount += 1;
+    byCategory.set(cat, bucket);
+  }
 
-                    <div className="flex flex-wrap items-center gap-2 text-[11px] text-stone-500">
-                      <FileText className="h-3 w-3" />
-                      <span>{est.source_label}</span>
-                      <span>·</span>
-                      <span>
-                        {doc.sections.length} sections,{" "}
-                        {doc.sections.reduce((a, s) => a + s.lines.length, 0)} lines
-                      </span>
-                    </div>
-                  </CardContent>
-                </Card>
-              </Link>
-            );
-          })}
+  const targetUsd = target ?? 0;
+  const overUnder = targetUsd > 0 ? totalEstimated - targetUsd : null;
+  const perGuest = guestCount && guestCount > 0 ? totalEstimated / guestCount : null;
+
+  // Sort categories by estimated DESC
+  const sortedCats = Array.from(byCategory.entries()).sort(
+    (a, b) => b[1].estimated - a[1].estimated,
+  );
+
+  return (
+    <div className="space-y-6">
+      <header>
+        <div className="text-[11px] uppercase tracking-[0.25em] text-stone-500">
+          Forecast
+        </div>
+        <h1 className="mt-1 font-serif text-4xl font-light tracking-tight md:text-5xl">
+          Estimator
+        </h1>
+        <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
+          Where your wedding lands today across {leafLines.length} budget lines.
+          Estimated = AI baseline. Committed = signed quotes from vendors.
+          Paid = actually paid.
+        </p>
+      </header>
+
+      <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <BigStat
+          label="Estimated total"
+          value={formatMoney(totalEstimated, currency)}
+          sub={perGuest ? `~${formatMoney(perGuest, currency)} per guest` : `${leafLines.length} lines`}
+          tone="stone"
+        />
+        <BigStat
+          label="Committed"
+          value={formatMoney(totalCommitted, currency)}
+          sub={
+            totalEstimated > 0
+              ? `${Math.round((totalCommitted / totalEstimated) * 100)}% locked`
+              : "—"
+          }
+          tone="amber"
+        />
+        <BigStat
+          label="Paid"
+          value={formatMoney(totalPaid, currency)}
+          sub={
+            totalEstimated > 0
+              ? `${Math.round((totalPaid / totalEstimated) * 100)}% paid`
+              : "—"
+          }
+          tone="emerald"
+        />
+        {target ? (
+          <BigStat
+            label="Vs target"
+            value={`${(overUnder ?? 0) >= 0 ? "+" : "−"}${formatMoney(Math.abs(overUnder ?? 0), currency)}`}
+            sub={`Target: ${formatMoney(target, currency)}`}
+            tone={(overUnder ?? 0) > 0 ? "rose" : "emerald"}
+          />
+        ) : (
+          <BigStat
+            label="Target"
+            value="—"
+            sub="Set a target on /budget"
+            tone="stone"
+          />
+        )}
+      </section>
+
+      {unpricedLines > 0 && (
+        <div className="flex items-start gap-3 rounded-2xl border border-amber-300 bg-amber-50 p-4">
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
+          <div className="text-sm text-amber-900">
+            {unpricedLines} line{unpricedLines === 1 ? "" : "s"} still has no
+            estimate. Hop into{" "}
+            <Link href="/budget" className="font-medium underline">
+              /budget
+            </Link>{" "}
+            to fill them in or generate AI baselines.
+          </div>
         </div>
       )}
 
-      <Card className="border-rose-200 bg-gradient-to-br from-rose-50 via-white to-amber-50">
-        <CardContent className="flex flex-wrap items-start gap-4 py-5">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-rose-100 text-rose-700">
-            <Sparkles className="h-5 w-5" />
+      <Card>
+        <CardContent className="py-5">
+          <h2 className="font-serif text-xl">By category</h2>
+          <div className="mt-4 overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-stone-200 text-[10px] uppercase tracking-[0.15em] text-stone-500">
+                  <th className="px-3 py-2 text-left">Category</th>
+                  <th className="px-3 py-2 text-right">Lines</th>
+                  <th className="px-3 py-2 text-right">Estimated</th>
+                  <th className="px-3 py-2 text-right">Committed</th>
+                  <th className="px-3 py-2 text-right">Paid</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-stone-100">
+                {sortedCats.map(([cat, b]) => (
+                  <tr key={cat} className="hover:bg-stone-50/50">
+                    <td className="px-3 py-2 font-medium text-stone-900">
+                      {BUDGET_CATEGORY_LABEL[cat as BudgetCategory] ?? cat}
+                    </td>
+                    <td className="px-3 py-2 text-right text-stone-600">{b.lineCount}</td>
+                    <td className="px-3 py-2 text-right tabular-nums">
+                      {formatMoney(b.estimated, currency)}
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums text-amber-800">
+                      {b.committed > 0 ? formatMoney(b.committed, currency) : "—"}
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums text-emerald-800">
+                      {b.paid > 0 ? formatMoney(b.paid, currency) : "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-          <div className="flex-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <h3 className="font-serif text-lg">How the Estimator works</h3>
-              <Badge variant="muted" className="text-[10px]">
-                Local-only
-              </Badge>
-            </div>
-            <ul className="mt-1 space-y-1 text-sm text-stone-700">
-              <li>
-                <span className="font-medium">Baseline</span>: the original
-                quoted price stays locked + visible as a reference.
-              </li>
-              <li>
-                <span className="font-medium">Override</span>: click any number
-                to edit. Your edit stacks on top of the baseline.
-              </li>
-              <li>
-                <span className="font-medium">Toggle</span>: uncheck a line to
-                exclude it from your total without losing the data.
-              </li>
-              <li>
-                <span className="font-medium">Local-only</span>: changes here
-                don&apos;t touch the master pricing template or your /pricing
-                scenarios.
-              </li>
-            </ul>
+          <div className="mt-4 flex justify-end">
+            <Link
+              href="/budget"
+              className="inline-flex items-center gap-1.5 rounded-full border border-stone-300 bg-white px-4 py-2 text-xs font-medium text-stone-800 transition hover:border-stone-500"
+            >
+              Edit lines on /budget <ArrowRight className="h-3 w-3" />
+            </Link>
           </div>
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+function BigStat({
+  label,
+  value,
+  sub,
+  tone,
+}: {
+  label: string;
+  value: string;
+  sub?: string;
+  tone: "amber" | "rose" | "emerald" | "stone";
+}) {
+  const cls =
+    tone === "amber"
+      ? "border-amber-200 bg-amber-50 text-amber-900"
+      : tone === "rose"
+        ? "border-rose-200 bg-rose-50 text-rose-900"
+        : tone === "emerald"
+          ? "border-emerald-200 bg-emerald-50 text-emerald-900"
+          : "border-stone-200 bg-white";
+  return (
+    <div className={`rounded-2xl border ${cls} p-4`}>
+      <div className="text-[10px] uppercase tracking-[0.2em] opacity-70">
+        {label}
+      </div>
+      <div className="mt-1 font-serif text-2xl font-medium tabular-nums leading-tight md:text-3xl">
+        {value}
+      </div>
+      {sub && (
+        <div className="mt-1 text-[10px] uppercase tracking-[0.15em] opacity-70">
+          {sub}
+        </div>
+      )}
     </div>
   );
 }

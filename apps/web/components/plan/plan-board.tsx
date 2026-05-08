@@ -15,8 +15,10 @@ import {
   UserPlus,
   ChevronDown,
   ChevronRight,
+  Pencil,
   Repeat,
 } from "lucide-react";
+import { TaskEditDrawer } from "@/components/plan/task-edit-drawer";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -143,7 +145,17 @@ export function PlanBoard({
 
   const updateTask = async (
     taskId: string,
-    patch: { status?: TaskStatus; notes?: string | null; done_at?: string | null },
+    patch: {
+      status?: TaskStatus;
+      notes?: string | null;
+      done_at?: string | null;
+      title?: string;
+      description?: string | null;
+      phase?: string;
+      due_date?: string | null;
+      owner?: string;
+      category?: string;
+    },
   ) => {
     const supabase = createClient();
     if (patch.status === "done" && !patch.done_at) {
@@ -152,7 +164,18 @@ export function PlanBoard({
     if (patch.status && patch.status !== "done") {
       patch.done_at = null;
     }
-    await supabase.from("planning_tasks").update(patch).eq("id", taskId);
+    // Cast for fields not in generated Database types yet (phase / category /
+    // owner are enums; description / due_date may not be typed either)
+    await (supabase as unknown as {
+      from: (t: string) => {
+        update: (p: unknown) => {
+          eq: (col: string, val: string) => Promise<{ error: unknown }>;
+        };
+      };
+    })
+      .from("planning_tasks")
+      .update(patch)
+      .eq("id", taskId);
     router.refresh();
   };
 
@@ -298,7 +321,17 @@ function TaskRow({
 }: {
   task: LiveTask;
   recurrenceChildren?: LiveTask[];
-  onUpdate: (patch: { status?: TaskStatus; notes?: string | null; done_at?: string | null }) => void;
+  onUpdate: (patch: {
+    status?: TaskStatus;
+    notes?: string | null;
+    done_at?: string | null;
+    title?: string;
+    description?: string | null;
+    phase?: string;
+    due_date?: string | null;
+    owner?: string;
+    category?: string;
+  }) => void;
   onUpdateChild?: (
     childId: string,
     patch: { status?: TaskStatus; notes?: string | null; done_at?: string | null },
@@ -312,6 +345,7 @@ function TaskRow({
   const hasChildren = (childTasks?.length ?? 0) > 0;
   const isRecurringParent = Boolean(recurrenceRule) && hasChildren;
   const [expanded, setExpanded] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
 
   return (
     <div>
@@ -441,6 +475,16 @@ function TaskRow({
           </SelectContent>
         </Select>
 
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => setEditOpen(true)}
+          title="Edit task"
+          className="h-8 w-8"
+        >
+          <Pencil className="h-3.5 w-3.5 text-stone-400" />
+        </Button>
+
         {onDelete ? (
           <Button
             variant="ghost"
@@ -455,6 +499,31 @@ function TaskRow({
           <div className="hidden sm:block sm:w-8" aria-hidden />
         )}
       </div>
+
+      {editOpen && (
+        <TaskEditDrawer
+          task={{
+            id: task.id,
+            title: task.title,
+            description: (task as unknown as { description?: string | null }).description ?? null,
+            status: task.status,
+            phase: task.phase as string,
+            category: (task as unknown as { category?: string }).category ?? "other",
+            owner: (task as unknown as { owner?: string }).owner ?? "couple",
+            due_date: task.due_date ?? null,
+            notes: task.notes ?? null,
+          }}
+          open={editOpen}
+          onClose={() => setEditOpen(false)}
+          onSave={async (patch) => {
+            await onUpdate({
+              ...patch,
+              status: patch.status as TaskStatus | undefined,
+            });
+          }}
+          onDelete={onDelete}
+        />
+      )}
 
       {/* Expanded recurrence children — compact chronological sub-list. */}
       {isRecurringParent && expanded && (
