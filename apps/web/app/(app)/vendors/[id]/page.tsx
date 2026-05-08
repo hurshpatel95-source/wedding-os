@@ -11,6 +11,10 @@ import {
   VENDOR_STATUS_LABEL,
   VENDOR_STATUS_VARIANT,
 } from "@/lib/vendor-categories";
+import {
+  VENDOR_AUTOPILOT_LABEL,
+  type VendorAutopilotStatus,
+} from "@/lib/autopilot-types";
 import type {
   VendorAttachmentRow,
   VendorRow,
@@ -165,6 +169,45 @@ export default async function VendorDetailPage({ params }: { params: { id: strin
         </div>
       </header>
 
+      {/* ── Autopilot status block (read-only) ────────────────────────
+          Surfaces the AI-generated summary + autopilot lifecycle state at
+          the very top of the vendor detail page so the couple can see at
+          a glance "where this vendor stands" without scrolling.
+
+          MOUNT INSTRUCTIONS for the THREAD-ANALYZER agent's "Analyze with
+          AI" button:
+            import { AnalyzeButton } from "@/components/autopilot/analyze-button";
+          Render `<AnalyzeButton vendorId={vendor.id} />` inside the
+          `<div className="flex flex-wrap gap-2">` action row at the top
+          of the header above. Until that component lands, this block is
+          read-only — the AI summary is populated by background autopilot
+          runs, not on click.
+      */}
+      <AutopilotStatusBlock
+        autopilotStatus={
+          (vendor as unknown as { autopilot_status?: VendorAutopilotStatus | null })
+            .autopilot_status ?? "none"
+        }
+        autopilotEnabled={
+          (vendor as unknown as { autopilot_enabled?: boolean | null })
+            .autopilot_enabled ?? false
+        }
+        aiSummary={
+          (vendor as unknown as { ai_summary?: string | null }).ai_summary ?? null
+        }
+        quoteEur={
+          (vendor as unknown as { quote_eur?: number | null }).quote_eur ?? null
+        }
+        lastInboundAt={
+          (vendor as unknown as { last_inbound_at?: string | null })
+            .last_inbound_at ?? null
+        }
+        lastOutboundAt={
+          (vendor as unknown as { last_outbound_at?: string | null })
+            .last_outbound_at ?? null
+        }
+      />
+
       <VendorDetailTabs
         vendor={vendor}
         userId={user.id}
@@ -173,5 +216,103 @@ export default async function VendorDetailPage({ params }: { params: { id: strin
         initialAttachments={attachments}
       />
     </div>
+  );
+}
+
+// ─── Inline read-only autopilot block ───────────────────────────────
+// Lives inside the page rather than a standalone component so we don't
+// race with the THREAD-ANALYZER worktree which owns the components dir.
+const STATUS_PILL: Record<VendorAutopilotStatus, string> = {
+  none: "bg-stone-100 text-stone-700",
+  researching: "bg-sky-100 text-sky-800",
+  contacted: "bg-amber-100 text-amber-800",
+  quoted: "bg-violet-100 text-violet-800",
+  booked: "bg-emerald-100 text-emerald-800",
+  declined: "bg-stone-100 text-stone-500",
+  unavailable: "bg-stone-100 text-stone-500",
+};
+
+function AutopilotStatusBlock({
+  autopilotStatus,
+  autopilotEnabled,
+  aiSummary,
+  quoteEur,
+  lastInboundAt,
+  lastOutboundAt,
+}: {
+  autopilotStatus: VendorAutopilotStatus;
+  autopilotEnabled: boolean;
+  aiSummary: string | null;
+  quoteEur: number | null;
+  lastInboundAt: string | null;
+  lastOutboundAt: string | null;
+}) {
+  const fmt = (iso: string | null) => {
+    if (!iso) return null;
+    try {
+      return new Date(iso).toLocaleDateString(undefined, {
+        month: "short",
+        day: "numeric",
+      });
+    } catch {
+      return null;
+    }
+  };
+  const inbound = fmt(lastInboundAt);
+  const outbound = fmt(lastOutboundAt);
+
+  return (
+    <section className="rounded-2xl border border-stone-200 bg-gradient-to-br from-white via-white to-stone-50 p-5 shadow-sm">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] uppercase tracking-[0.2em] text-stone-500">
+            Autopilot
+          </span>
+          <span
+            className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_PILL[autopilotStatus]}`}
+          >
+            {VENDOR_AUTOPILOT_LABEL[autopilotStatus]}
+          </span>
+          {autopilotEnabled ? (
+            <span className="inline-flex items-center gap-1 text-[11px] text-emerald-700">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+              On
+            </span>
+          ) : (
+            <span className="text-[11px] text-stone-400">Off</span>
+          )}
+        </div>
+        <div className="flex flex-wrap items-center gap-3 text-[11px] text-stone-500">
+          {quoteEur != null && (
+            <span>
+              Quote{" "}
+              <span className="font-medium text-stone-800">
+                €{Number(quoteEur).toLocaleString()}
+              </span>
+            </span>
+          )}
+          {outbound && (
+            <span>
+              Last sent <span className="text-stone-700">{outbound}</span>
+            </span>
+          )}
+          {inbound && (
+            <span>
+              Last reply <span className="text-stone-700">{inbound}</span>
+            </span>
+          )}
+        </div>
+      </div>
+      {aiSummary ? (
+        <p className="mt-3 text-sm leading-relaxed text-stone-700">
+          {aiSummary}
+        </p>
+      ) : (
+        <p className="mt-3 text-xs italic text-stone-400">
+          No AI summary yet — Autopilot will generate one once you exchange
+          messages with this vendor.
+        </p>
+      )}
+    </section>
   );
 }
