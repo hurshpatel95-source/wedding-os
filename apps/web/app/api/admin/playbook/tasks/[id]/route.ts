@@ -1,8 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { requireOrgAdmin } from "../../_guard";
+import { isValidRecurrenceRule } from "@/lib/wave2-types";
 
 export const runtime = "nodejs";
+
+const VALID_RECURRENCE_ANCHORS = new Set([
+  "wedding_date",
+  "phase_start",
+  "created_at",
+]);
 
 export async function PATCH(
   request: NextRequest,
@@ -19,6 +26,8 @@ export async function PATCH(
     auto_derive_kind?: string | null;
     sort_order?: number;
     playbook_phase_id?: string;
+    recurrence_rule?: string | null;
+    recurrence_anchor?: string | null;
   };
 
   const patch: Record<string, unknown> = {};
@@ -31,6 +40,31 @@ export async function PATCH(
   if (typeof body.sort_order === "number") patch.sort_order = body.sort_order;
   if (typeof body.playbook_phase_id === "string")
     patch.playbook_phase_id = body.playbook_phase_id;
+
+  if (body.recurrence_rule !== undefined) {
+    if (body.recurrence_rule === null || body.recurrence_rule === "") {
+      patch.recurrence_rule = null;
+    } else if (!isValidRecurrenceRule(body.recurrence_rule)) {
+      return NextResponse.json(
+        { error: `invalid recurrence_rule: ${body.recurrence_rule}` },
+        { status: 400 },
+      );
+    } else {
+      patch.recurrence_rule = body.recurrence_rule;
+    }
+  }
+  if (body.recurrence_anchor !== undefined) {
+    if (body.recurrence_anchor === null || body.recurrence_anchor === "") {
+      patch.recurrence_anchor = null;
+    } else if (!VALID_RECURRENCE_ANCHORS.has(body.recurrence_anchor)) {
+      return NextResponse.json(
+        { error: `invalid recurrence_anchor: ${body.recurrence_anchor}` },
+        { status: 400 },
+      );
+    } else {
+      patch.recurrence_anchor = body.recurrence_anchor;
+    }
+  }
 
   if (Object.keys(patch).length === 0) {
     return NextResponse.json({ error: "nothing to update" }, { status: 400 });

@@ -3,7 +3,20 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { format, parseISO } from "date-fns";
-import { Sparkles, Check, Circle, Clock, AlertCircle, X, Plus, Trash2, UserPlus } from "lucide-react";
+import {
+  Sparkles,
+  Check,
+  Circle,
+  Clock,
+  AlertCircle,
+  X,
+  Plus,
+  Trash2,
+  UserPlus,
+  ChevronDown,
+  ChevronRight,
+  Repeat,
+} from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -51,6 +64,17 @@ const STATUS_ICON: Record<TaskStatus, React.ComponentType<{ className?: string }
   na: X,
 };
 
+// Recurrence columns are added in 20260507000001_wave2_foundation but not
+// yet in generated Database types — read via cast.
+function getRecurrenceRule(task: LiveTask): string | null {
+  return (task as unknown as { recurrence_rule?: string | null })
+    .recurrence_rule ?? null;
+}
+function getRecurrenceParentId(task: LiveTask): string | null {
+  return (task as unknown as { recurrence_parent_task_id?: string | null })
+    .recurrence_parent_task_id ?? null;
+}
+
 export function PlanBoard({
   tasks,
   workspaceId,
@@ -81,14 +105,40 @@ export function PlanBoard({
     });
   }, [tasks, q, category, owner, hideDone]);
 
+  // Group filtered tasks by phase, and within each phase fold recurrence
+  // children under their parent task. The phase list renders parents
+  // (and standalone tasks) at the top level; children render via the
+  // collapsible inside the parent's row.
   const grouped = useMemo(() => {
+    const filteredIds = new Set(filtered.map((t) => t.id));
+    const childrenByParent = new Map<string, LiveTask[]>();
+    const topLevel: LiveTask[] = [];
+    for (const t of filtered) {
+      const parentId = getRecurrenceParentId(t);
+      if (parentId && filteredIds.has(parentId)) {
+        const arr = childrenByParent.get(parentId) ?? [];
+        arr.push(t);
+        childrenByParent.set(parentId, arr);
+      } else {
+        // Either not a child, or its parent is filtered out — show at top.
+        topLevel.push(t);
+      }
+    }
+    // Sort children by due_date so the expand list is chronological.
+    for (const arr of childrenByParent.values()) {
+      arr.sort((a, b) => {
+        const ad = a.due_date ?? "";
+        const bd = b.due_date ?? "";
+        return ad.localeCompare(bd);
+      });
+    }
     const map = new Map<TaskPhase, LiveTask[]>();
     for (const phase of PHASE_ORDER) map.set(phase, []);
-    for (const t of filtered) {
+    for (const t of topLevel) {
       const arr = map.get(t.phase as TaskPhase);
       if (arr) arr.push(t);
     }
-    return map;
+    return { byPhase: map, childrenByParent };
   }, [filtered]);
 
   const updateTask = async (
@@ -173,7 +223,7 @@ export function PlanBoard({
       {/* Phase sections */}
       <div className="space-y-6">
         {PHASE_ORDER.map((phase) => {
-          const phaseTasks = grouped.get(phase) ?? [];
+          const phaseTasks = grouped.byPhase.get(phase) ?? [];
           if (phaseTasks.length === 0 && !canAddTasks) return null;
           const phaseDone = phaseTasks.filter((t) => t.status === "done").length;
           return (
@@ -193,7 +243,9 @@ export function PlanBoard({
                     <TaskRow
                       key={t.id}
                       task={t}
+                      recurrenceChildren={grouped.childrenByParent.get(t.id) ?? []}
                       onUpdate={(p) => updateTask(t.id, p)}
+                      onUpdateChild={(childId, p) => updateTask(childId, p)}
                       onDelete={t.is_user_added ? () => deleteTask(t.id) : undefined}
                     />
                   ))}
@@ -239,116 +291,243 @@ export function PlanBoard({
 
 function TaskRow({
   task,
+  recurrenceChildren: childTasks,
   onUpdate,
+  onUpdateChild,
   onDelete,
 }: {
   task: LiveTask;
+  recurrenceChildren?: LiveTask[];
   onUpdate: (patch: { status?: TaskStatus; notes?: string | null; done_at?: string | null }) => void;
+  onUpdateChild?: (
+    childId: string,
+    patch: { status?: TaskStatus; notes?: string | null; done_at?: string | null },
+  ) => void;
   onDelete?: () => void;
 }) {
   const StatusIcon = STATUS_ICON[task.status];
   const isAuto = Boolean(task.auto_derive_kind);
   const isDerivedDone = isAuto && task.derived_done;
+  const recurrenceRule = getRecurrenceRule(task);
+  const hasChildren = (childTasks?.length ?? 0) > 0;
+  const isRecurringParent = Boolean(recurrenceRule) && hasChildren;
+  const [expanded, setExpanded] = useState(false);
 
   return (
-    <div className="grid grid-cols-1 items-center gap-3 px-4 py-3 sm:grid-cols-[auto_minmax(0,1fr)_auto_auto_auto_auto]">
-      <button
-        type="button"
-        onClick={() =>
-          onUpdate({ status: task.status === "done" ? "not_started" : "done" })
-        }
-        className={cn(
-          "flex h-7 w-7 items-center justify-center rounded-full border-2 transition-colors",
-          task.status === "done"
-            ? "border-emerald-600 bg-emerald-600 text-white"
-            : "border-stone-300 bg-white hover:border-stone-500",
-        )}
-        aria-label={task.status === "done" ? "Mark not done" : "Mark done"}
-      >
-        {task.status === "done" ? <Check className="h-4 w-4" /> : <StatusIcon className="h-4 w-4 text-stone-400" />}
-      </button>
-
-      <div className="min-w-0">
-        <div className="flex flex-wrap items-center gap-2">
-          <span
-            className={cn(
-              "font-medium",
-              task.status === "done" && "text-stone-500 line-through",
-            )}
-          >
-            {task.title}
-          </span>
-          <Badge variant="secondary" className="text-[10px]">
-            {CATEGORY_LABEL[task.category as TaskCategory]}
-          </Badge>
-          {task.is_user_added && (
-            <Badge variant="secondary" className="flex items-center gap-1 text-[10px]">
-              <UserPlus className="h-3 w-3" />
-              custom
-            </Badge>
-          )}
-          {isDerivedDone && (
-            <Badge variant="success" className="flex items-center gap-1 text-[10px]">
-              <Sparkles className="h-3 w-3" />
-              auto
-            </Badge>
-          )}
-          {task.related_kind && task.related_id && (
-            <a
-              href={`/${task.related_kind}s/${task.related_id}`}
-              className="text-xs text-rose-700 underline"
+    <div>
+      <div className="grid grid-cols-1 items-center gap-3 px-4 py-3 sm:grid-cols-[auto_minmax(0,1fr)_auto_auto_auto_auto]">
+        <div className="flex items-center gap-1.5">
+          {isRecurringParent && (
+            <button
+              type="button"
+              onClick={() => setExpanded((v) => !v)}
+              className="flex h-6 w-6 items-center justify-center rounded text-stone-500 hover:bg-stone-100"
+              aria-label={expanded ? "Collapse occurrences" : "Expand occurrences"}
             >
-              open →
-            </a>
+              {expanded ? (
+                <ChevronDown className="h-4 w-4" />
+              ) : (
+                <ChevronRight className="h-4 w-4" />
+              )}
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() =>
+              onUpdate({ status: task.status === "done" ? "not_started" : "done" })
+            }
+            className={cn(
+              "flex h-7 w-7 items-center justify-center rounded-full border-2 transition-colors",
+              task.status === "done"
+                ? "border-emerald-600 bg-emerald-600 text-white"
+                : "border-stone-300 bg-white hover:border-stone-500",
+            )}
+            aria-label={task.status === "done" ? "Mark not done" : "Mark done"}
+          >
+            {task.status === "done" ? (
+              <Check className="h-4 w-4" />
+            ) : (
+              <StatusIcon className="h-4 w-4 text-stone-400" />
+            )}
+          </button>
+        </div>
+
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <span
+              className={cn(
+                "font-medium",
+                task.status === "done" && "text-stone-500 line-through",
+              )}
+            >
+              {task.title}
+            </span>
+            <Badge variant="secondary" className="text-[10px]">
+              {CATEGORY_LABEL[task.category as TaskCategory]}
+            </Badge>
+            {task.is_user_added && (
+              <Badge variant="secondary" className="flex items-center gap-1 text-[10px]">
+                <UserPlus className="h-3 w-3" />
+                custom
+              </Badge>
+            )}
+            {isDerivedDone && (
+              <Badge variant="success" className="flex items-center gap-1 text-[10px]">
+                <Sparkles className="h-3 w-3" />
+                auto
+              </Badge>
+            )}
+            {recurrenceRule && (
+              <Badge
+                variant="secondary"
+                className="flex items-center gap-1 text-[10px]"
+              >
+                <Repeat className="h-3 w-3" />
+                {recurrenceRule.replace(/_/g, " ")}
+                {hasChildren && (
+                  <span className="text-stone-500">
+                    · {childTasks!.length} occurrence
+                    {childTasks!.length === 1 ? "" : "s"}
+                  </span>
+                )}
+              </Badge>
+            )}
+            {task.related_kind && task.related_id && (
+              <a
+                href={`/${task.related_kind}s/${task.related_id}`}
+                className="text-xs text-rose-700 underline"
+              >
+                open →
+              </a>
+            )}
+          </div>
+          {task.description && (
+            <p className="text-xs text-muted-foreground">{task.description}</p>
           )}
         </div>
-        {task.description && (
-          <p className="text-xs text-muted-foreground">{task.description}</p>
+
+        <div className="text-xs text-muted-foreground">
+          {OWNER_LABEL[task.owner as TaskOwner]}
+        </div>
+
+        <div className="text-xs text-muted-foreground">
+          {/* Recurring parents have no concrete due date — children carry those */}
+          {isRecurringParent
+            ? "—"
+            : task.due_date
+            ? format(parseISO(task.due_date), "MMM d, yyyy")
+            : "—"}
+        </div>
+
+        <Select
+          value={task.status}
+          onValueChange={(v) => onUpdate({ status: v as TaskStatus })}
+        >
+          <SelectTrigger className="h-8 w-32 text-xs">
+            <SelectValue>
+              <div className="flex items-center gap-1.5">
+                <Badge variant={STATUS_VARIANT[task.status]} className="text-[10px]">
+                  {STATUS_LABEL[task.status]}
+                </Badge>
+              </div>
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            {STATUS_OPTIONS.map((s) => (
+              <SelectItem key={s} value={s}>
+                {STATUS_LABEL[s]}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        {onDelete ? (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onDelete}
+            title="Delete custom task"
+            className="h-8 w-8"
+          >
+            <Trash2 className="h-3.5 w-3.5 text-stone-400" />
+          </Button>
+        ) : (
+          <div className="hidden sm:block sm:w-8" aria-hidden />
         )}
       </div>
 
-      <div className="text-xs text-muted-foreground">
-        {OWNER_LABEL[task.owner as TaskOwner]}
-      </div>
-
-      <div className="text-xs text-muted-foreground">
-        {task.due_date ? format(parseISO(task.due_date), "MMM d, yyyy") : "—"}
-      </div>
-
-      <Select
-        value={task.status}
-        onValueChange={(v) => onUpdate({ status: v as TaskStatus })}
-      >
-        <SelectTrigger className="h-8 w-32 text-xs">
-          <SelectValue>
-            <div className="flex items-center gap-1.5">
-              <Badge variant={STATUS_VARIANT[task.status]} className="text-[10px]">
-                {STATUS_LABEL[task.status]}
-              </Badge>
-            </div>
-          </SelectValue>
-        </SelectTrigger>
-        <SelectContent>
-          {STATUS_OPTIONS.map((s) => (
-            <SelectItem key={s} value={s}>
-              {STATUS_LABEL[s]}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-
-      {onDelete ? (
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={onDelete}
-          title="Delete custom task"
-          className="h-8 w-8"
-        >
-          <Trash2 className="h-3.5 w-3.5 text-stone-400" />
-        </Button>
-      ) : (
-        <div className="hidden sm:block sm:w-8" aria-hidden />
+      {/* Expanded recurrence children — compact chronological sub-list. */}
+      {isRecurringParent && expanded && (
+        <div className="border-t border-stone-100 bg-stone-50/60">
+          <ul className="divide-y divide-stone-100">
+            {childTasks!.map((child) => {
+              const ChildIcon = STATUS_ICON[child.status];
+              return (
+                <li
+                  key={child.id}
+                  className="flex flex-wrap items-center gap-3 px-6 py-1.5 text-xs"
+                >
+                  <button
+                    type="button"
+                    onClick={() =>
+                      onUpdateChild?.(child.id, {
+                        status: child.status === "done" ? "not_started" : "done",
+                      })
+                    }
+                    className={cn(
+                      "flex h-5 w-5 items-center justify-center rounded-full border transition-colors",
+                      child.status === "done"
+                        ? "border-emerald-600 bg-emerald-600 text-white"
+                        : "border-stone-300 bg-white hover:border-stone-500",
+                    )}
+                    aria-label={
+                      child.status === "done" ? "Mark not done" : "Mark done"
+                    }
+                  >
+                    {child.status === "done" ? (
+                      <Check className="h-3 w-3" />
+                    ) : (
+                      <ChildIcon className="h-3 w-3 text-stone-400" />
+                    )}
+                  </button>
+                  <span
+                    className={cn(
+                      "min-w-[6rem] text-stone-600",
+                      child.status === "done" && "line-through",
+                    )}
+                  >
+                    {child.due_date
+                      ? format(parseISO(child.due_date), "EEE, MMM d, yyyy")
+                      : "no date"}
+                  </span>
+                  <Badge
+                    variant={STATUS_VARIANT[child.status]}
+                    className="text-[10px]"
+                  >
+                    {STATUS_LABEL[child.status]}
+                  </Badge>
+                  <Select
+                    value={child.status}
+                    onValueChange={(v) =>
+                      onUpdateChild?.(child.id, { status: v as TaskStatus })
+                    }
+                  >
+                    <SelectTrigger className="ml-auto h-6 w-28 text-[11px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {STATUS_OPTIONS.map((s) => (
+                        <SelectItem key={s} value={s} className="text-xs">
+                          {STATUS_LABEL[s]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
       )}
     </div>
   );

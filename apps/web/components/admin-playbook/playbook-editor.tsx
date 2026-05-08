@@ -41,6 +41,28 @@ import {
   type PlaybookTask,
 } from "@/lib/playbook-types";
 
+// Recurrence rule options shown in the task editor. Keep in sync with
+// isValidRecurrenceRule in lib/wave2-types.ts.
+const RECURRENCE_RULES: Array<{ value: string; label: string }> = [
+  { value: "weekly", label: "Weekly" },
+  { value: "biweekly", label: "Every 2 weeks" },
+  { value: "monthly", label: "Monthly" },
+  { value: "every_monday", label: "Every Monday" },
+  { value: "every_tuesday", label: "Every Tuesday" },
+  { value: "every_wednesday", label: "Every Wednesday" },
+  { value: "every_thursday", label: "Every Thursday" },
+  { value: "every_friday", label: "Every Friday" },
+  { value: "every_saturday", label: "Every Saturday" },
+  { value: "every_sunday", label: "Every Sunday" },
+  { value: "first_of_month", label: "First of the month" },
+];
+
+const RECURRENCE_ANCHORS: Array<{ value: string; label: string }> = [
+  { value: "wedding_date", label: "From wedding date" },
+  { value: "phase_start", label: "From phase start" },
+  { value: "created_at", label: "From task creation" },
+];
+
 interface WorkspaceOption {
   id: string;
   name: string;
@@ -209,7 +231,12 @@ export function PlaybookEditor({
                     No tasks yet.
                   </div>
                 ) : (
-                  phaseTasks.map((t) => (
+                  phaseTasks.map((t) => {
+                    // recurrence_rule is added in the wave2 migration but not
+                    // yet in generated Database types.
+                    const recRule = (t as unknown as { recurrence_rule?: string | null })
+                      .recurrence_rule;
+                    return (
                     <div
                       key={t.id}
                       className="flex flex-wrap items-start justify-between gap-2 px-3 py-2.5"
@@ -230,6 +257,11 @@ export function PlaybookEditor({
                           {t.auto_derive_kind && (
                             <Badge variant="secondary" className="text-[10px]">
                               auto: {t.auto_derive_kind}
+                            </Badge>
+                          )}
+                          {recRule && (
+                            <Badge variant="secondary" className="text-[10px]">
+                              recurring: {recRule.replace(/_/g, " ")}
                             </Badge>
                           )}
                         </div>
@@ -266,7 +298,8 @@ export function PlaybookEditor({
                         </Button>
                       </div>
                     </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
 
@@ -465,6 +498,21 @@ function TaskDialog({
   const [ownerDefault, setOwnerDefault] = useState(task?.owner_default ?? "couple");
   const [category, setCategory] = useState(task?.category ?? "other");
   const [autoDeriveKind, setAutoDeriveKind] = useState(task?.auto_derive_kind ?? "");
+  // recurrence_rule + recurrence_anchor are added in the wave2 migration but
+  // not yet in generated Database types — read via cast.
+  const initialRule =
+    (task as unknown as { recurrence_rule?: string | null } | undefined)
+      ?.recurrence_rule ?? null;
+  const initialAnchor =
+    (task as unknown as { recurrence_anchor?: string | null } | undefined)
+      ?.recurrence_anchor ?? "wedding_date";
+  const [recurring, setRecurring] = useState<boolean>(Boolean(initialRule));
+  const [recurrenceRule, setRecurrenceRule] = useState<string>(
+    initialRule ?? "weekly",
+  );
+  const [recurrenceAnchor, setRecurrenceAnchor] = useState<string>(
+    initialAnchor ?? "wedding_date",
+  );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -478,6 +526,8 @@ function TaskDialog({
         owner_default: ownerDefault || null,
         category: category || null,
         auto_derive_kind: autoDeriveKind.trim() || null,
+        recurrence_rule: recurring ? recurrenceRule : null,
+        recurrence_anchor: recurring ? recurrenceAnchor : null,
         ...(mode === "new" ? { playbook_phase_id: phaseId } : {}),
       };
       if (!body.title) {
@@ -580,6 +630,62 @@ function TaskDialog({
               When set, the task auto-completes from live workspace data. See
               lib/plan-auto-derive.ts for supported kinds.
             </p>
+          </div>
+          <div className="space-y-2 rounded-md border border-stone-200 bg-stone-50 p-3">
+            <label className="flex items-start gap-2 text-sm">
+              <input
+                type="checkbox"
+                className="mt-0.5"
+                checked={recurring}
+                onChange={(e) => setRecurring(e.target.checked)}
+              />
+              <span>
+                <span className="font-medium">Recurring task</span>{" "}
+                <span className="text-muted-foreground">
+                  (expands into N copies when applied to a workspace)
+                </span>
+              </span>
+            </label>
+            {recurring && (
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label>Rule</Label>
+                  <Select
+                    value={recurrenceRule}
+                    onValueChange={setRecurrenceRule}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {RECURRENCE_RULES.map((r) => (
+                        <SelectItem key={r.value} value={r.value}>
+                          {r.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Anchor</Label>
+                  <Select
+                    value={recurrenceAnchor}
+                    onValueChange={setRecurrenceAnchor}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {RECURRENCE_ANCHORS.map((a) => (
+                        <SelectItem key={a.value} value={a.value}>
+                          {a.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            )}
           </div>
           {error && <div className="text-xs text-rose-600">{error}</div>}
         </div>
