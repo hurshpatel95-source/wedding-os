@@ -1,8 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { requireOrgAdmin } from "../_guard";
+import { isValidRecurrenceRule } from "@/lib/wave2-types";
 
 export const runtime = "nodejs";
+
+const VALID_RECURRENCE_ANCHORS = new Set([
+  "wedding_date",
+  "phase_start",
+  "created_at",
+]);
 
 export async function POST(request: NextRequest) {
   const guard = await requireOrgAdmin();
@@ -16,6 +23,8 @@ export async function POST(request: NextRequest) {
     category?: string | null;
     auto_derive_kind?: string | null;
     sort_order?: number;
+    recurrence_rule?: string | null;
+    recurrence_anchor?: string | null;
   };
 
   if (!body.playbook_phase_id || !body.title) {
@@ -49,17 +58,45 @@ export async function POST(request: NextRequest) {
     nextSortOrder = (maxRows?.[0]?.sort_order ?? -1) + 1;
   }
 
+  // Validate optional recurrence fields. Falsy ⇒ null (non-recurring).
+  let recurrenceRule: string | null = null;
+  if (body.recurrence_rule) {
+    if (!isValidRecurrenceRule(body.recurrence_rule)) {
+      return NextResponse.json(
+        { error: `invalid recurrence_rule: ${body.recurrence_rule}` },
+        { status: 400 },
+      );
+    }
+    recurrenceRule = body.recurrence_rule;
+  }
+  let recurrenceAnchor: string | null = null;
+  if (body.recurrence_anchor) {
+    if (!VALID_RECURRENCE_ANCHORS.has(body.recurrence_anchor)) {
+      return NextResponse.json(
+        { error: `invalid recurrence_anchor: ${body.recurrence_anchor}` },
+        { status: 400 },
+      );
+    }
+    recurrenceAnchor = body.recurrence_anchor;
+  }
+
+  const insertRow = {
+    playbook_phase_id: body.playbook_phase_id,
+    title: body.title.trim(),
+    description: body.description ?? null,
+    owner_default: body.owner_default ?? null,
+    category: body.category ?? null,
+    auto_derive_kind: body.auto_derive_kind ?? null,
+    sort_order: nextSortOrder,
+    // Cast: recurrence_* columns added in 20260507000001_wave2_foundation
+    // but not yet in generated Database types.
+    recurrence_rule: recurrenceRule,
+    recurrence_anchor: recurrenceAnchor,
+  };
+
   const { data, error } = await supabase
     .from("playbook_tasks")
-    .insert({
-      playbook_phase_id: body.playbook_phase_id,
-      title: body.title.trim(),
-      description: body.description ?? null,
-      owner_default: body.owner_default ?? null,
-      category: body.category ?? null,
-      auto_derive_kind: body.auto_derive_kind ?? null,
-      sort_order: nextSortOrder,
-    })
+    .insert(insertRow as never)
     .select()
     .single();
 
