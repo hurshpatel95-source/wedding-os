@@ -145,6 +145,59 @@ export default async function AdminClientDrillPage({
     return ad - bd;
   });
 
+  // Per-client time entries (RLS-scoped)
+  type WireTimeEntry = {
+    id: string;
+    org_id: string;
+    workspace_id: string;
+    user_id: string | null;
+    started_at: string;
+    ended_at: string | null;
+    duration_minutes: number | null;
+    label: string | null;
+    billable: boolean;
+    hourly_rate_eur: number | null;
+    notes: string | null;
+    created_at: string;
+    updated_at: string;
+  };
+  let timeEntries: WireTimeEntry[] = [];
+  try {
+    const { data } = await sb
+      .from("time_entries")
+      .select(
+        "id, org_id, workspace_id, user_id, started_at, ended_at, duration_minutes, label, billable, hourly_rate_eur, notes, created_at, updated_at",
+      )
+      .eq("workspace_id", params.id);
+    timeEntries = (data ?? []) as unknown as WireTimeEntry[];
+  } catch {
+    timeEntries = [];
+  }
+  timeEntries.sort((a, b) => b.started_at.localeCompare(a.started_at));
+
+  // Cheap user-id → email map for the table.
+  const userById = new Map<string, string>();
+  try {
+    const usersClient = supabase as unknown as {
+      from: (table: string) => {
+        select: (
+          cols: string,
+        ) => Promise<{ data: Array<Record<string, unknown>> | null }>;
+      };
+    };
+    const { data: usersRaw } = await usersClient
+      .from("users")
+      .select("id, email");
+    for (const u of (usersRaw ?? []) as Array<{
+      id: string;
+      email: string;
+    }>) {
+      userById.set(u.id, u.email);
+    }
+  } catch {
+    // RLS may filter — that's fine, the column just shows "—".
+  }
+
   const today = new Date();
   const status = deriveClientStatus(workspace.wedding_date, today);
   const venuesOfInterest = venues.filter((v) =>
@@ -220,6 +273,8 @@ export default async function AdminClientDrillPage({
             : null
         }
         invoices={invoices}
+        timeEntries={timeEntries}
+        userById={userById}
       />
     </div>
   );
