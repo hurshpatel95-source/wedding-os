@@ -5,6 +5,12 @@ import { ArrowUpRight } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { InvoiceTable } from "@/components/admin-billing/invoice-table";
 import { NewInvoiceForm } from "@/components/admin-billing/new-invoice-form";
+import { NewTimeEntryDialog } from "@/components/admin-finances/new-time-entry-dialog";
+import {
+  ExtendedTimeEntriesTable,
+  formatHoursMinutes,
+} from "@/components/admin-finances/time-entries-table";
+import type { TimeEntryRow } from "@/lib/wave2-types";
 import type { WorkspaceBrandingRow } from "@/lib/admin-client-types";
 
 interface InvoiceRow {
@@ -54,11 +60,15 @@ export function ClientDrillTabs({
   stats,
   branding,
   invoices,
+  timeEntries = [],
+  userById,
 }: {
   workspace: WorkspaceShape;
   stats: DrillStats;
   branding: WorkspaceBrandingRow | null;
   invoices: InvoiceRow[];
+  timeEntries?: TimeEntryRow[];
+  userById?: Map<string, string>;
 }) {
   const outstandingTotal = invoices
     .filter((i) => !i.paid_at)
@@ -70,6 +80,22 @@ export function ClientDrillTabs({
   const workspaceById = new Map<string, string>([
     [workspace.id, workspace.name],
   ]);
+  const userMap = userById ?? new Map<string, string>();
+
+  // Per-client time roll-ups
+  const totalBillableMin = timeEntries
+    .filter((t) => t.billable && t.duration_minutes != null)
+    .reduce((acc, t) => acc + Number(t.duration_minutes), 0);
+  const totalInternalMin = timeEntries
+    .filter((t) => !t.billable && t.duration_minutes != null)
+    .reduce((acc, t) => acc + Number(t.duration_minutes), 0);
+  const totalBillableEur = timeEntries
+    .filter((t) => t.billable && t.duration_minutes != null && t.hourly_rate_eur != null)
+    .reduce(
+      (acc, t) =>
+        acc + (Number(t.duration_minutes) / 60) * Number(t.hourly_rate_eur),
+      0,
+    );
 
   return (
     <Tabs defaultValue="overview">
@@ -85,6 +111,14 @@ export function ClientDrillTabs({
           )}
         </TabsTrigger>
         <TabsTrigger value="activity">Activity</TabsTrigger>
+        <TabsTrigger value="time">
+          Time
+          {timeEntries.length > 0 && (
+            <span className="ml-1.5 inline-flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-stone-200 px-1 text-[10px]">
+              {timeEntries.length}
+            </span>
+          )}
+        </TabsTrigger>
         <TabsTrigger value="settings">Settings</TabsTrigger>
       </TabsList>
 
@@ -262,6 +296,57 @@ export function ClientDrillTabs({
             workspace logs notes, decisions, or vendor moves.
           </p>
         </div>
+      </TabsContent>
+
+      <TabsContent value="time" className="space-y-4">
+        <div className="grid gap-3 md:grid-cols-3">
+          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+            <div className="text-[10px] uppercase tracking-[0.2em] text-emerald-900">
+              Billable hours
+            </div>
+            <div className="mt-1 font-serif text-3xl font-medium tabular-nums text-emerald-900">
+              {formatHoursMinutes(totalBillableMin)}
+            </div>
+          </div>
+          <div className="rounded-2xl border border-stone-200 bg-white p-4">
+            <div className="text-[10px] uppercase tracking-[0.2em] text-stone-500">
+              Billable €
+            </div>
+            <div className="mt-1 font-serif text-3xl font-medium tabular-nums">
+              €{Math.round(totalBillableEur).toLocaleString()}
+            </div>
+            <div className="mt-1 text-[11px] text-stone-500">
+              At each entry&rsquo;s logged rate
+            </div>
+          </div>
+          <div className="rounded-2xl border border-stone-200 bg-white p-4">
+            <div className="text-[10px] uppercase tracking-[0.2em] text-stone-500">
+              Internal time
+            </div>
+            <div className="mt-1 font-serif text-3xl font-medium tabular-nums">
+              {formatHoursMinutes(totalInternalMin)}
+            </div>
+            <div className="mt-1 text-[11px] text-stone-500">
+              Non-billable, for context
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <NewTimeEntryDialog
+            workspaces={[{ id: workspace.id, name: workspace.name }]}
+            defaultWorkspaceId={workspace.id}
+            triggerLabel="Log time for this client"
+          />
+        </div>
+
+        <ExtendedTimeEntriesTable
+          entries={timeEntries}
+          workspaceById={workspaceById}
+          userById={userMap}
+          showClient={false}
+          emptyHint={`No time logged for ${workspace.name} yet.`}
+        />
       </TabsContent>
 
       <TabsContent value="settings">
