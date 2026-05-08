@@ -7,6 +7,7 @@ import {
   deriveClientStatus,
   type ClientStatus,
 } from "@/lib/admin-client-types";
+import type { DocumentRow } from "@/lib/wave2-types";
 
 interface VenueAggRow {
   id: string;
@@ -198,6 +199,24 @@ export default async function AdminClientDrillPage({
     // RLS may filter — that's fine, the column just shows "—".
   }
 
+  // Per-client documents
+  let documents: DocumentRow[] = [];
+  try {
+    const { data } = await sb
+      .from("documents")
+      .select(
+        "id, org_id, workspace_id, name, storage_path, file_size_bytes, mime_type, kind, uploaded_by, notes, created_at, updated_at",
+      )
+      .eq("workspace_id", params.id);
+    documents = (data ?? []) as unknown as DocumentRow[];
+  } catch {
+    documents = [];
+  }
+  documents.sort(
+    (a, b) =>
+      new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+  );
+
   const today = new Date();
   const status = deriveClientStatus(workspace.wedding_date, today);
   const venuesOfInterest = venues.filter((v) =>
@@ -275,6 +294,7 @@ export default async function AdminClientDrillPage({
         invoices={invoices}
         timeEntries={timeEntries}
         userById={userById}
+        documents={documents}
       />
     </div>
   );

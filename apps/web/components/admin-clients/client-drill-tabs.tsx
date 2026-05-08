@@ -10,7 +10,8 @@ import {
   ExtendedTimeEntriesTable,
   formatHoursMinutes,
 } from "@/components/admin-finances/time-entries-table";
-import type { TimeEntryRow } from "@/lib/wave2-types";
+import { DocumentsPanel } from "@/components/admin-documents/documents-panel";
+import type { TimeEntryRow, DocumentRow } from "@/lib/wave2-types";
 import type { WorkspaceBrandingRow } from "@/lib/admin-client-types";
 
 interface InvoiceRow {
@@ -62,6 +63,7 @@ export function ClientDrillTabs({
   invoices,
   timeEntries = [],
   userById,
+  documents = [],
 }: {
   workspace: WorkspaceShape;
   stats: DrillStats;
@@ -69,6 +71,7 @@ export function ClientDrillTabs({
   invoices: InvoiceRow[];
   timeEntries?: TimeEntryRow[];
   userById?: Map<string, string>;
+  documents?: DocumentRow[];
 }) {
   const outstandingTotal = invoices
     .filter((i) => !i.paid_at)
@@ -107,6 +110,14 @@ export function ClientDrillTabs({
           {invoices.length > 0 && (
             <span className="ml-1.5 inline-flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-stone-200 px-1 text-[10px]">
               {invoices.length}
+            </span>
+          )}
+        </TabsTrigger>
+        <TabsTrigger value="documents">
+          Documents
+          {documents.length > 0 && (
+            <span className="ml-1.5 inline-flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-stone-200 px-1 text-[10px]">
+              {documents.length}
             </span>
           )}
         </TabsTrigger>
@@ -284,6 +295,13 @@ export function ClientDrillTabs({
             retainer, milestone, or final balance.
           </div>
         )}
+      </TabsContent>
+
+      <TabsContent value="documents" className="space-y-4">
+        <DocumentsPanel
+          workspaceId={workspace.id}
+          initialDocuments={documents}
+        />
       </TabsContent>
 
       <TabsContent value="activity">
