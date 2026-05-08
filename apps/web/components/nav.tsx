@@ -10,6 +10,7 @@ import {
   CheckSquare,
   Clock,
   Coins,
+  Compass,
   Globe,
   Heart,
   LogOut,
@@ -48,6 +49,7 @@ const links: { href: string; label: string; icon: LucideIcon }[] = [
   { href: "/timeline", label: "Timeline", icon: Clock },
   { href: "/settings/public-site", label: "Public site", icon: Globe },
   { href: "/settings/pricing", label: "Pricing template", icon: Settings },
+  { href: "/feature-status", label: "Tour", icon: Compass },
 ];
 
 export function Nav({

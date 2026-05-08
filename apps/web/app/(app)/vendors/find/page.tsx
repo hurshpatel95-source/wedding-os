@@ -2,6 +2,8 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { VendorSearchForm } from "@/components/vendor-search/vendor-search-form";
+import { isFeatureReady } from "@/lib/feature-flags";
+import { FeaturePreviewCard } from "@/components/feature-status/feature-preview-card";
 
 export const dynamic = "force-dynamic";
 
@@ -76,7 +78,11 @@ export default async function VendorFindPage() {
         </div>
       </header>
 
-      <VendorSearchForm defaultRegion={defaultRegion} />
+      {isFeatureReady("google_places") || isFeatureReady("brave_search") ? (
+        <VendorSearchForm defaultRegion={defaultRegion} />
+      ) : (
+        <FeaturePreviewCard feature="google_places" />
+      )}
     </div>
   );
 }

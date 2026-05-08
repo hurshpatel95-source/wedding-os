@@ -27,7 +27,8 @@
     "db:seed-library-from-proposal": "tsx supabase/seed/seed_library_from_proposal.ts",
     "db:seed-library-photos-from-web": "tsx supabase/seed/seed_library_photos_from_web.ts",
     "db:seed-marketing": "tsx supabase/seed/seed_astia_marketing.ts",
-    "db:seed-demo-studio": "tsx supabase/seed/seed_demo_studio.ts"
+    "db:seed-demo-studio": "tsx supabase/seed/seed_demo_studio.ts",
+    "db:seed-kc": "tsx supabase/seed/seed_kc_friend.ts"
   },
   "devDependencies": {
     "@supabase/supabase-js": "^2.46.1",

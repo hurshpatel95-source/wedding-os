@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { gmailOauthReady } from "@/lib/gmail-server";
 import { loadMostRecentGmailConnection } from "@/lib/gmail-connection-loader";
 import { GmailConnectionPanel } from "@/components/gmail/gmail-connection-panel";
+import { FeaturePreviewCard } from "@/components/feature-status/feature-preview-card";
 
 export const dynamic = "force-dynamic";
 
@@ -79,23 +80,27 @@ export default async function GmailSettingsPage({ searchParams }: PageProps) {
         </p>
       </header>
 
-      <GmailConnectionPanel
-        connection={
-          connection
-            ? {
-                id: connection.id,
-                email: connection.email,
-                status: connection.status,
-                last_synced_at: connection.last_synced_at,
-                last_error: connection.last_error,
-                created_at: connection.created_at,
-              }
-            : null
-        }
-        gmailConfigured={gmailOauthReady}
-        flashConnected={searchParams?.connected ?? null}
-        flashError={searchParams?.error ?? null}
-      />
+      {!gmailOauthReady ? (
+        <FeaturePreviewCard feature="gmail" />
+      ) : (
+        <GmailConnectionPanel
+          connection={
+            connection
+              ? {
+                  id: connection.id,
+                  email: connection.email,
+                  status: connection.status,
+                  last_synced_at: connection.last_synced_at,
+                  last_error: connection.last_error,
+                  created_at: connection.created_at,
+                }
+              : null
+          }
+          gmailConfigured={gmailOauthReady}
+          flashConnected={searchParams?.connected ?? null}
+          flashError={searchParams?.error ?? null}
+        />
+      )}
     </div>
   );
 }

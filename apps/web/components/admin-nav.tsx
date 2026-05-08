@@ -10,6 +10,7 @@ import {
   Calendar,
   ChevronDown,
   Coins,
+  Compass,
   FileSignature,
   FileText,
   Heart,
@@ -42,6 +43,7 @@ const links: { href: string; label: string; icon: LucideIcon }[] = [
   { href: "/admin/analytics", label: "Analytics", icon: BarChart3 },
   { href: "/admin/booking", label: "Booking", icon: Calendar },
   { href: "/admin/marketing", label: "Marketing", icon: Sparkles },
+  { href: "/admin/feature-status", label: "Tour", icon: Compass },
   { href: "/admin/settings", label: "Settings", icon: SettingsIcon },
 ];
 
