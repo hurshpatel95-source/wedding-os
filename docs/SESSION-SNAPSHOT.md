@@ -34,6 +34,36 @@ or when picking the work back up cold.
 > + 5 wedding-site themes (classic / modern / garden / beach /
 > bollywood). **25 migrations · ~115 routes · 26 seed scripts.**
 >
+> **WAVE 2 PARALLEL PUSH (12 features in one wave, May 7).** **Polish
+> layer:** WhatsApp deep links sprinkled across 5 surfaces (lead/vendor/
+> guest/booking/lead-controls), CSS-only mobile sweep across all dense
+> tables + stat grids + drill pages (sidebar reorders above main on
+> mobile), dev-leak copy purged ("Sandbox" → "{Studio}'s studio",
+> "Astha"/"Astia" hardcodes neutralized, stat captions rewritten),
+> empty-states for contracts/proposals/leads with situational CTAs.
+> **Comms hub:** Resend webhook (delivered/opened/clicked/bounced/
+> complained + inbound parse w/ In-Reply-To threading), email
+> confirmations on contract sign + proposal accept/decline, EmailStatusPill
+> rendered in thread list. **Studio ops:** /admin/settings/team (invite
+> + team_role mgmt + lead assignment dropdown + assignee column),
+> /admin/settings/email-templates (save-from-composer, use-from-composer,
+> use-count tracking), /admin/settings/lead-routing (auto-assign rules
+> ordered by priority, integrated into /api/public/leads), per-client
+> Documents tab + drag-drop upload + signed-URL download +
+> `documents` storage bucket, /admin/finances Studio P&L view
+> (planner_expenses + time_entries + monthly P&L bars + per-client
+> Time tab), recurring tasks in playbook (rule + anchor selectors,
+> expansion to planning_tasks on apply, plan board groups children
+> under parents), /admin/testimonials request → /testimonial/<token>
+> couple submit → publish flow + "What couples say" on /book/<slug>,
+> /admin/settings/calendar (Google OAuth + iCal feed connectors,
+> busy-slot caching, /book/<slug> hides conflicting slots). **B2C
+> unlock:** /couples-signup self-serve flow (creates org + workspace
+> + magic link + 9-phase 22-task playbook + couple as dual
+> org_admin/team_role=owner), WelcomeBanner on couple dashboard,
+> /marketing landing now pitches both planners and DIY couples.
+> **26 migrations · ~155 routes.**
+>
 > **End-of-session state**: production-safe, planner-CRM-complete,
 > SaaS GTM surface live, polish boundaries in place. Multi-tenant from
 > day one, workspace impersonation, library push in onboarding, billing
@@ -506,7 +536,13 @@ wedding-os/
 ## Recent commits (most recent first)
 
 ```
-[next]   docs: snapshot Tier 1 parallel push (THIS commit)
+[next]   docs: snapshot Wave 2 parallel push (THIS commit)
+0220c17 fix: workspace.created_at + couples team_role + WelcomeBanner mount
+c99736d feat: UI-POLISH — WhatsApp deep links + couple-side copy + empty states
+[merges] MOBILE-SWEEP, CALENDAR-SYNC, TESTIMONIALS, EMAIL-TEMPLATES, TEAM-MEMBERS, DOCUMENT-CABINET, STUDIO-PNL, REPLY-TRACKING, RECURRING-TASKS
+9e8d1ae feat: LEAD-ROUTING + COUPLES-SIGNUP (landed in main)
+431b33d Wave 2 foundation — schema + libs for 11 parallel polish/feature streams
+28f63bc docs: snapshot Tier 1 parallel push (Wave 1 = 8 features)
 0edf64e feat: RSVP-PLUS-THEMES — plus-one self-serve + 5 wedding-site themes
 647f1c8 feat: GUEST-MESSAGING — /guests/message couple-side mass send
 80a11a1 feat: COUPLE-VIEWS — /timeline/day-of mobile + /guests/dashboard live
