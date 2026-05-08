@@ -4,6 +4,7 @@
 
 import Link from "next/link";
 import type { LucideIcon } from "lucide-react";
+import type { ReactNode } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -16,6 +17,11 @@ interface EmptyStateProps {
   primary?: { label: string; href: string };
   /** Optional secondary link */
   secondary?: { label: string; href: string };
+  /**
+   * Custom action node — use when the CTA isn't a simple link
+   * (e.g. it opens a dialog). Rendered in the same slot as primary/secondary.
+   */
+  action?: ReactNode;
   className?: string;
 }
 
@@ -25,8 +31,10 @@ export function EmptyState({
   description,
   primary,
   secondary,
+  action,
   className,
 }: EmptyStateProps) {
+  const hasActions = primary || secondary || action;
   return (
     <Card className={cn("border-dashed border-stone-300 bg-stone-50/40", className)}>
       <CardContent className="flex flex-col items-center justify-center gap-3 py-14 text-center">
@@ -41,8 +49,9 @@ export function EmptyState({
         {description && (
           <p className="max-w-md text-sm text-stone-600">{description}</p>
         )}
-        {(primary || secondary) && (
+        {hasActions && (
           <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
+            {action}
             {primary && (
               <Link href={primary.href}>
                 <Button>{primary.label}</Button>

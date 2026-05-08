@@ -141,9 +141,17 @@ export function TimelineEditor({
     <div className="grid gap-6 lg:grid-cols-3">
       <div className="space-y-8 lg:col-span-2">
         {grouped.length === 0 ? (
-          <Card>
-            <CardContent className="py-12 text-center text-sm text-muted-foreground">
-              No timeline yet — start by adding the wedding ceremony start time.
+          <Card className="border-dashed border-stone-300 bg-stone-50/40">
+            <CardContent className="space-y-2 py-12 text-center">
+              <h3 className="font-serif text-2xl font-light text-stone-900">
+                Build your run of show
+              </h3>
+              <p className="mx-auto max-w-md text-sm text-stone-600">
+                Use the composer on the right to add your first item — usually
+                the ceremony start time. Each item belongs to an event
+                (ceremony, cocktails, reception) so vendors can see just their
+                slice.
+              </p>
             </CardContent>
           </Card>
         ) : (

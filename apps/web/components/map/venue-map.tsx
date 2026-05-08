@@ -30,16 +30,7 @@ export interface VenuePoint {
 }
 
 export function VenueMap({ venues }: { venues: VenuePoint[] }) {
-  if (venues.length === 0) {
-    return (
-      <Card>
-        <CardContent className="py-12 text-center text-sm text-muted-foreground">
-          No venues with coordinates yet. Open a venue → Edit → fill in the address (or run{" "}
-          <code className="rounded bg-stone-100 px-1.5 py-0.5">pnpm tsx
-          supabase/seed/geocode_venues.ts</code>).
-        </CardContent>
-      </Card>
-    );
-  }
+  // Empty case is handled at the page level so couples see a real
+  // header + CTA instead of an inline blank card.
   return <MapInner venues={venues} />;
 }

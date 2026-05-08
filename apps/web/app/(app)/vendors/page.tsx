@@ -1,10 +1,11 @@
 import Link from "next/link";
-import { Search } from "lucide-react";
+import { Briefcase, Search } from "lucide-react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { VendorGrid } from "@/components/vendors/vendor-grid";
 import { VendorCreateButton } from "@/components/vendors/vendor-create-button";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import type { VendorRow } from "@/lib/vendor-types";
 
 export const dynamic = "force-dynamic";
@@ -107,7 +108,26 @@ export default async function VendorsPage() {
         </div>
       </header>
 
-      <VendorGrid vendors={list} role="couple" />
+      {list.length === 0 ? (
+        <EmptyState
+          icon={Briefcase}
+          title="No vendors on your list yet"
+          description="Track every vendor you're paying — planner, photographer, florist, DJ, transport. Quotes, deposits, and contact info live here."
+          action={
+            <>
+              <Button asChild>
+                <Link href="/vendors/find">
+                  <Search className="h-4 w-4" />
+                  Find vendors with AI
+                </Link>
+              </Button>
+              <VendorCreateButton />
+            </>
+          }
+        />
+      ) : (
+        <VendorGrid vendors={list} role="couple" />
+      )}
     </div>
   );
 }

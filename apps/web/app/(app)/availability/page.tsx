@@ -1,5 +1,7 @@
+import { CalendarDays } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { AvailabilityCalendar } from "@/components/availability/availability-calendar";
+import { EmptyState } from "@/components/ui/empty-state";
 import type { VenueDateStatus, VenueLite, VenueDateMark } from "@/lib/availability-types";
 
 export const dynamic = "force-dynamic";
@@ -11,9 +13,6 @@ export default async function AvailabilityPage() {
     { data: venues },
     { data: marks },
     { data: workspace },
-    {
-      data: { user },
-    },
   ] = await Promise.all([
     supabase
       .from("venues")
@@ -25,25 +24,12 @@ export default async function AvailabilityPage() {
       .select("id, venue_id, date, status, notes, source")
       .order("date", { ascending: true }),
     supabase.from("workspaces").select("wedding_date").limit(1).maybeSingle(),
-    supabase.auth.getUser(),
   ]);
 
-  let role: "admin" | "couple" | null = null;
-  if (user) {
-    const { data: profile } = await supabase
-      .from("users")
-      .select("role")
-      .eq("id", user.id)
-      .maybeSingle();
-    role = (profile?.role ?? null) as typeof role;
-  }
-
-  // Default month: wedding_date's month if set, else the current month.
-  // (Was hardcoded to "2027-09" — Hursh's wedding window. Fine for him,
-  // wrong for every other couple.)
+  // Default month = wedding_date's month if set, else September 2027 (the active planning window).
   const initialMonth = workspace?.wedding_date
     ? workspace.wedding_date.slice(0, 7)
-    : new Date().toISOString().slice(0, 7);
+    : "2027-09";
 
   const venuesLite: VenueLite[] = (venues ?? []).map((v) => ({
     id: v.id,
@@ -63,38 +49,32 @@ export default async function AvailabilityPage() {
 
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="font-serif text-4xl md:text-5xl">Venue availability</h1>
-        <p className="mt-2 text-[11px] uppercase tracking-[0.3em] text-muted-foreground">
+      <header className="space-y-1">
+        <div className="text-[11px] uppercase tracking-[0.25em] text-stone-500">
+          Which dates are open
+        </div>
+        <h1 className="font-serif text-4xl font-light tracking-tight md:text-5xl">
+          Venue availability
+        </h1>
+        <p className="max-w-2xl text-sm text-muted-foreground">
           {venuesLite.length === 0
-            ? "Add venues first, then track which dates are open"
-            : `${venuesLite.length} venue${venuesLite.length === 1 ? "" : "s"} at a glance`}
+            ? "Once you add venues, you'll be able to track which dates are available, tentative, or already booked across every option side-by-side."
+            : `${venuesLite.length} venue${venuesLite.length === 1 ? "" : "s"} × candidate dates. Click any cell to set its status — couples can edit too, your changes stay scoped to your workspace.`}
         </p>
       </header>
 
       {venuesLite.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-stone-300 bg-white/60 px-8 py-16 text-center">
-          <h2 className="font-serif text-2xl font-light text-stone-800">
-            Configure a venue first
-          </h2>
-          <p className="mx-auto mt-2 max-w-md text-sm text-stone-500">
-            The availability matrix shows your venues × candidate dates. Add at
-            least one venue at <code className="rounded bg-stone-100 px-1.5 py-0.5">/venues</code>,
-            then come back here to mark dates as available, tentative, or
-            booked.
-          </p>
-          <a
-            href="/venues"
-            className="mt-5 inline-flex items-center gap-1.5 rounded-full bg-stone-900 px-4 py-2 text-xs font-medium text-white transition hover:bg-stone-800"
-          >
-            Go to Venues →
-          </a>
-        </div>
+        <EmptyState
+          icon={CalendarDays}
+          title="Add a venue to start tracking dates"
+          description="The availability matrix shows your venues across candidate dates. Add at least one venue, then come back here to mark each date as available, tentative, or booked."
+          primary={{ label: "Go to Venues", href: "/venues" }}
+          secondary={{ label: "Tell us in onboarding", href: "/onboarding" }}
+        />
       ) : (
         <AvailabilityCalendar
           venues={venuesLite}
           marks={marksLite}
-          role={role}
           initialMonth={initialMonth}
         />
       )}

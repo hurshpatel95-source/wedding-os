@@ -148,9 +148,7 @@ export function GuestList({
       {filtered.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center text-sm text-muted-foreground">
-            {guests.length === 0
-              ? "No guests yet. Use the Import button to drop in your Excel list, or add one manually."
-              : "No guests match these filters."}
+            No guests match these filters.
           </CardContent>
         </Card>
       ) : (

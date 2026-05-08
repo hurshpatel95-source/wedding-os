@@ -274,16 +274,7 @@ export function VendorGrid({
         </div>
       )}
 
-      {vendors.length === 0 ? (
-        <Card>
-          <CardContent className="py-16 text-center">
-            <p className="font-serif text-2xl text-stone-700">No vendors yet</p>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Add florists, photographers, DJs, MUAs, transport — every vendor for the wedding.
-            </p>
-          </CardContent>
-        </Card>
-      ) : filtered.length === 0 ? (
+      {filtered.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center text-sm text-muted-foreground">
             No vendors match these filters.

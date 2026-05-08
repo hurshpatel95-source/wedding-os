@@ -1,7 +1,8 @@
 import Link from "next/link";
-import { Printer, Smartphone } from "lucide-react";
+import { CalendarClock, Printer, Smartphone } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import { TimelineEditor } from "@/components/timeline/timeline-editor";
 import type { Database } from "@wedding-os/db";
 
@@ -39,13 +40,23 @@ export default async function TimelinePage() {
     role = (profile?.role ?? null) as typeof role;
   }
 
+  const itemsList = (items ?? []) as TimelineItem[];
+  const hasWeddingDate = !!workspace?.wedding_date;
+
   return (
     <div className="space-y-8">
       <header className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="font-serif text-4xl md:text-5xl">Run of show</h1>
-          <p className="mt-2 text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+        <div className="space-y-1">
+          <div className="text-[11px] uppercase tracking-[0.25em] text-stone-500">
             Day-of timeline · per event · printable for vendors
+          </div>
+          <h1 className="font-serif text-4xl font-light tracking-tight md:text-5xl">
+            Run of show
+          </h1>
+          <p className="max-w-2xl text-sm text-muted-foreground">
+            {itemsList.length === 0
+              ? "Build your minute-by-minute day-of schedule. Group items by ceremony, cocktails, reception, and after-party so vendors know exactly when they're up."
+              : `${itemsList.length} item${itemsList.length === 1 ? "" : "s"} on the run-of-show. Add more, reorder, and print a copy for every vendor.`}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -66,8 +77,18 @@ export default async function TimelinePage() {
         </div>
       </header>
 
+      {itemsList.length === 0 && !hasWeddingDate && (
+        <EmptyState
+          icon={CalendarClock}
+          title="Set your wedding date first"
+          description="The run-of-show is anchored to your wedding date. Add it in onboarding (or settings) and we'll suggest a starter timeline you can edit minute-by-minute."
+          primary={{ label: "Open onboarding", href: "/onboarding" }}
+          secondary={{ label: "Workspace settings", href: "/settings/preferences" }}
+        />
+      )}
+
       <TimelineEditor
-        items={(items ?? []) as TimelineItem[]}
+        items={itemsList}
         role={role}
         workspaceId={workspace?.id ?? null}
         orgId={workspace?.org_id ?? null}

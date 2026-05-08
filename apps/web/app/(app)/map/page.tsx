@@ -1,5 +1,7 @@
+import { MapPin } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { VenueMap } from "@/components/map/venue-map";
+import { EmptyState } from "@/components/ui/empty-state";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +15,8 @@ export default async function MapPage() {
     )
     .order("name", { ascending: true });
 
-  const points = (venues ?? []).filter(
+  const allVenues = venues ?? [];
+  const points = allVenues.filter(
     (v): v is typeof v & { geo_lat: number; geo_lng: number } =>
       v.geo_lat !== null && v.geo_lng !== null,
   );
@@ -28,18 +31,29 @@ export default async function MapPage() {
           Venue map
         </h1>
         <p className="max-w-2xl text-sm text-muted-foreground">
-          Every venue you&apos;ve added, plotted on a single map. Click a
-          marker for quick facts; lead-pick badges mark your shortlist.
-          {points.length === 0 && (
-            <span className="block mt-2 text-amber-700">
-              Add venues at /venues to see them here — addresses get
-              auto-geocoded.
-            </span>
-          )}
+          {points.length === 0
+            ? "We pin every venue with an address on a single map so you can see how they cluster — beach, city, countryside — at a glance."
+            : "Click a marker for quick facts. Lead-pick badges flag the venues at the top of your shortlist."}
         </p>
       </header>
 
-      <VenueMap venues={points} />
+      {allVenues.length === 0 ? (
+        <EmptyState
+          icon={MapPin}
+          title="No venues to map yet"
+          description="Add a few venues to your shortlist and they'll all appear here on one map — clustered by location with capacity, status, and lead-pick info on hover."
+          primary={{ label: "Go to Venues", href: "/venues" }}
+        />
+      ) : points.length === 0 ? (
+        <EmptyState
+          icon={MapPin}
+          title="Your venues need addresses"
+          description="You have venues on your list, but none have addresses yet. Open any venue and add its address — we'll auto-geocode it from Google Places."
+          primary={{ label: "Open Venues", href: "/venues" }}
+        />
+      ) : (
+        <VenueMap venues={points} />
+      )}
     </div>
   );
 }

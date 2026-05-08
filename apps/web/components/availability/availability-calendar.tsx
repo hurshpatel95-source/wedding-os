@@ -80,12 +80,10 @@ function dowFor(y: number, m: number, d: number): number {
 export function AvailabilityCalendar({
   venues,
   marks,
-  role,
   initialMonth,
 }: {
   venues: VenueLite[];
   marks: VenueDateMark[];
-  role: "admin" | "couple" | null;
   initialMonth: string;
 }) {
   const router = useRouter();
@@ -96,7 +94,8 @@ export function AvailabilityCalendar({
   const [draftNotes, setDraftNotes] = useState<string>("");
   const [saving, setSaving] = useState<boolean>(false);
 
-  const isAdmin = true; // Couples + admins both edit (RLS handles workspace scope)
+  // Couples + admins both edit (RLS handles workspace scope).
+  const canEdit = true;
 
   // Index marks by `${venue_id}|${date}` for O(1) lookup.
   const markIndex = useMemo(() => {
@@ -253,13 +252,13 @@ export function AvailabilityCalendar({
                       <button
                         type="button"
                         title={tooltip}
-                        disabled={!isAdmin}
-                        onClick={() => isAdmin && openCell(v.id, date)}
+                        disabled={!canEdit}
+                        onClick={() => canEdit && openCell(v.id, date)}
                         className={cn(
                           "block h-7 w-full rounded-sm text-[10px] transition-colors",
                           cellClass,
-                          !isAdmin && "cursor-default",
-                          isAdmin && "cursor-pointer",
+                          !canEdit && "cursor-default",
+                          canEdit && "cursor-pointer",
                         )}
                       >
                         <span className="sr-only">
@@ -286,15 +285,13 @@ export function AvailabilityCalendar({
             <span className="text-stone-700">{STATUS_LABEL[s]}</span>
           </div>
         ))}
-        {!isAdmin && (
-          <span className="ml-auto text-[11px] italic text-muted-foreground">
-            Read-only — admin can edit cells
-          </span>
-        )}
+        <span className="ml-auto text-[11px] italic text-muted-foreground">
+          Click any cell to set its status.
+        </span>
       </div>
 
       {/* Edit dialog (admin) */}
-      {isAdmin && (
+      {canEdit && (
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogContent>
             <DialogHeader>

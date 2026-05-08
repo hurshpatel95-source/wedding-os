@@ -1,7 +1,8 @@
 import Link from "next/link";
-import { BarChart3, Send, Upload } from "lucide-react";
+import { BarChart3, Send, Upload, Users } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import { GuestList } from "@/components/guests/guest-list";
 import { GuestCreateButton } from "@/components/guests/guest-create-button";
 import { GuestComposeButton } from "@/components/email/guest-compose-button";
@@ -123,15 +124,36 @@ export default async function GuestsPage() {
         </div>
       </header>
 
-      <section className="grid grid-cols-2 gap-3 md:grid-cols-5">
-        <Stat label="Total" value={total} />
-        <Stat label="Yes" value={yes} tone="emerald" />
-        <Stat label="Maybe" value={maybe} tone="amber" />
-        <Stat label="No" value={no} tone="rose" />
-        <Stat label="Pending" value={pending} tone="muted" />
-      </section>
+      {total === 0 ? (
+        <EmptyState
+          icon={Users}
+          title="No guests on your list yet"
+          description="Drop in your existing spreadsheet — we map the columns for you. Or add guests one at a time. Every name flows into RSVP tracking, seating, and dietary lists automatically."
+          action={
+            <>
+              <Button asChild>
+                <Link href="/guests/import">
+                  <Upload className="h-4 w-4" />
+                  Import from Excel
+                </Link>
+              </Button>
+              <GuestCreateButton />
+            </>
+          }
+        />
+      ) : (
+        <>
+          <section className="grid grid-cols-2 gap-3 md:grid-cols-5">
+            <Stat label="Total" value={total} />
+            <Stat label="Yes" value={yes} tone="emerald" />
+            <Stat label="Maybe" value={maybe} tone="amber" />
+            <Stat label="No" value={no} tone="rose" />
+            <Stat label="Pending" value={pending} tone="muted" />
+          </section>
 
-      <GuestList guests={list} role={role} />
+          <GuestList guests={list} role={role} />
+        </>
+      )}
     </div>
   );
 }

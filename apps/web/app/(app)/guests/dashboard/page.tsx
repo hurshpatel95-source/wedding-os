@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, PartyPopper } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { EmptyState } from "@/components/ui/empty-state";
 import { RsvpDashboard } from "@/components/guests/rsvp-dashboard";
 import type { Database } from "@wedding-os/db";
 
@@ -45,12 +46,23 @@ export default async function GuestsDashboardPage() {
         <h1 className="font-serif text-4xl font-light tracking-tight md:text-5xl">
           Your guest list
         </h1>
-        <p className="text-sm text-muted-foreground">
-          Live RSVP dashboard — refreshes when guests respond.
+        <p className="max-w-2xl text-sm text-muted-foreground">
+          {list.length === 0
+            ? "Once guests RSVP, this dashboard fills with live counts, dietary needs, allergies to flag for catering, and a celebratory progress ring."
+            : "Live RSVP dashboard — refreshes the moment a guest responds."}
         </p>
       </header>
 
-      <RsvpDashboard guests={list} />
+      {list.length === 0 ? (
+        <EmptyState
+          icon={PartyPopper}
+          title="No RSVPs to show yet"
+          description="Add guests to your list, send save-the-dates, and watch this dashboard light up — yes / no / maybe counts, dietary breakdown, plus-ones outstanding, side-by-side splits."
+          primary={{ label: "Add or import guests", href: "/guests" }}
+        />
+      ) : (
+        <RsvpDashboard guests={list} />
+      )}
     </div>
   );
 }

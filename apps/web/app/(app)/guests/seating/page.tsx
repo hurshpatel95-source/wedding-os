@@ -1,8 +1,9 @@
 import Link from "next/link";
-import { ArrowRight, Plus, Users } from "lucide-react";
+import { ArrowRight, Plus, UserPlus, Users } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@/components/ui/empty-state";
 import { CreateFloorPlanForm } from "@/components/seating/create-floor-plan-form";
 import type { FloorPlanRow } from "@/lib/seating-types";
 import { planCapacity } from "@/lib/seating-types";
@@ -66,6 +67,11 @@ export default async function SeatingListPage() {
     .select("id, name")
     .order("name", { ascending: true });
 
+  // Need at least one guest before seating is meaningful.
+  const { count: guestCount } = await supabase
+    .from("guests")
+    .select("id", { count: "exact", head: true });
+
   return (
     <div className="space-y-6">
       <header className="flex flex-wrap items-start justify-between gap-4">
@@ -90,7 +96,14 @@ export default async function SeatingListPage() {
         </Link>
       </header>
 
-      {plans.length > 0 ? (
+      {(guestCount ?? 0) === 0 ? (
+        <EmptyState
+          icon={UserPlus}
+          title="Add guests before you build a seating plan"
+          description="The seating organizer pulls from your guest list — once you've imported guests, you can drop them onto tables. The same guest can sit at different tables across different events."
+          primary={{ label: "Add or import guests", href: "/guests" }}
+        />
+      ) : plans.length > 0 ? (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {plans.map((plan) => {
             const cap = planCapacity(plan);
@@ -140,22 +153,30 @@ export default async function SeatingListPage() {
           })}
         </div>
       ) : (
-        <Card>
-          <CardContent className="py-10 text-center text-sm text-muted-foreground">
-            No seating plans yet. Create your first one below.
+        <Card className="border-dashed border-stone-300 bg-stone-50/40">
+          <CardContent className="space-y-2 py-10 text-center">
+            <h3 className="font-serif text-2xl font-light text-stone-900">
+              Build your first floor plan
+            </h3>
+            <p className="mx-auto max-w-md text-sm text-stone-600">
+              Pick a venue, choose how many tables and seats per table, and
+              we&apos;ll lay them out so you can drag guests in.
+            </p>
           </CardContent>
         </Card>
       )}
 
-      <Card>
-        <CardContent className="py-5">
-          <h3 className="mb-3 inline-flex items-center gap-2 font-serif text-xl">
-            <Plus className="h-4 w-4" />
-            New floor plan
-          </h3>
-          <CreateFloorPlanForm venues={(venues ?? []) as VenueOpt[]} />
-        </CardContent>
-      </Card>
+      {(guestCount ?? 0) > 0 && (
+        <Card>
+          <CardContent className="py-5">
+            <h3 className="mb-3 inline-flex items-center gap-2 font-serif text-xl">
+              <Plus className="h-4 w-4" />
+              New floor plan
+            </h3>
+            <CreateFloorPlanForm venues={(venues ?? []) as VenueOpt[]} />
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
