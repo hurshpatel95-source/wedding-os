@@ -18,8 +18,8 @@ const manrope = Manrope({
 });
 
 export const metadata: Metadata = {
-  title: "wedding-os",
-  description: "Venue intelligence portal — Barcelona Sept 2027",
+  title: "Acquired Planner",
+  description: "Wedding planning, AI-assisted.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
