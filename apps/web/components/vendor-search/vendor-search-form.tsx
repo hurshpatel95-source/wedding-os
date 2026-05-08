@@ -24,6 +24,7 @@ import {
 import type { VendorCategory } from "@/lib/vendor-types";
 import type { VendorSearchResult } from "@/lib/autopilot-types";
 import { ResultCard } from "./result-card";
+import { DraftOutreachModal } from "./draft-outreach-modal";
 
 export interface VendorSearchFormProps {
   defaultRegion?: string | null;
@@ -87,6 +88,14 @@ export function VendorSearchForm({
 
   const [adding, setAdding] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
+
+  // After a successful add, hold the new vendor_ids + names so the
+  // "Draft personalized RFPs" modal can fire on demand.
+  const [pendingDraft, setPendingDraft] = useState<{
+    ids: string[];
+    names: string[];
+  } | null>(null);
+  const [draftModalOpen, setDraftModalOpen] = useState(false);
 
   const grouped = groupCategories();
 
@@ -181,9 +190,18 @@ export function VendorSearchForm({
         setAddError(json.error ?? "Couldn't add those vendors.");
         return;
       }
-      // Success — bounce back to /vendors
-      router.push("/vendors");
-      router.refresh();
+      // Success — capture the new vendor_ids so the user can click
+      // "Draft personalized RFPs" before bouncing back to /vendors.
+      const ids = json.vendor_ids ?? [];
+      const names = selected.map((s) => s.name);
+      if (ids.length > 0) {
+        setPendingDraft({ ids, names });
+        setDraftModalOpen(true);
+      } else {
+        // Edge case: succeeded but no ids returned; just go back
+        router.push("/vendors");
+        router.refresh();
+      }
     } catch (err) {
       setAddError(
         err instanceof Error ? err.message : "Network error — please retry.",
@@ -376,6 +394,20 @@ export function VendorSearchForm({
           </div>
         </>
       ) : null}
+
+      {pendingDraft && (
+        <DraftOutreachModal
+          vendorIds={pendingDraft.ids}
+          vendorNames={pendingDraft.names}
+          open={draftModalOpen}
+          onClose={() => {
+            setDraftModalOpen(false);
+            // Bounce to /vendors after closing the modal
+            router.push("/vendors");
+            router.refresh();
+          }}
+        />
+      )}
     </div>
   );
 }
