@@ -32,12 +32,34 @@ export default async function GuestsPage() {
   const { data: guests } = await supabase
     .from("guests")
     .select(
-      "id, full_name, email, phone, side, relationship, dietary, allergies, overall_rsvp, address, city, region, postal_code, country, notes, created_at, plus_one_max",
+      "id, full_name, email, phone, side, relationship, dietary, allergies, overall_rsvp, address, city, region, postal_code, country, notes, created_at, updated_at, plus_one_max",
     )
     .order("full_name", { ascending: true });
 
+  // Per-event invitation rows for the per-event badge column. RLS scopes to
+  // the current workspace; bucket client-side by guest_id.
+  const { data: invitationsRaw } = await supabase
+    .from("guest_event_invitations")
+    .select("guest_id, event_role, rsvp, is_invited");
+  const invitationsByGuest = new Map<
+    string,
+    Array<{ event_role: string; rsvp: string }>
+  >();
+  for (const row of invitationsRaw ?? []) {
+    const r = row as {
+      guest_id: string;
+      event_role: string;
+      rsvp: string;
+      is_invited: boolean;
+    };
+    if (!r.is_invited) continue;
+    const existing = invitationsByGuest.get(r.guest_id) ?? [];
+    existing.push({ event_role: r.event_role, rsvp: r.rsvp });
+    invitationsByGuest.set(r.guest_id, existing);
+  }
+
   type GuestRow = Database["public"]["Tables"]["guests"]["Row"];
-  const list = (guests ?? []) as unknown as Array<
+  const baseList = (guests ?? []) as unknown as Array<
     Pick<
       GuestRow,
       | "id"
@@ -56,8 +78,13 @@ export default async function GuestsPage() {
       | "country"
       | "notes"
       | "created_at"
+      | "updated_at"
     > & { plus_one_max: number | null }
   >;
+  const list = baseList.map((g) => ({
+    ...g,
+    event_invitations: invitationsByGuest.get(g.id) ?? [],
+  }));
 
   const total = list.length;
   const yes = list.filter((g) => g.overall_rsvp === "yes").length;

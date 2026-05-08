@@ -49,10 +49,33 @@ type Guest = Pick<
 > & {
   // post-0025; not yet in generated types
   plus_one_max?: number | null;
+  // Per-event RSVP rows joined in the parent loader. Empty when the couple
+  // hasn't categorized any venues / events yet.
+  event_invitations?: Array<{ event_role: string; rsvp: string }>;
 };
 
 type SideFilter = "all" | GuestSide;
 type RsvpFilter = "all" | RsvpStatus;
+// "Has RSVP'd" filter — answered (yes/no/maybe), not yet (still pending),
+// or all. Sits next to the RSVP-status select for quick triage.
+type ResponseFilter = "all" | "answered" | "not_yet";
+
+const RSVP_ICON: Record<RsvpStatus, string> = {
+  yes: "✓",
+  no: "✗",
+  maybe: "?",
+  pending: "•",
+};
+const RSVP_BADGE_TONE: Record<RsvpStatus, string> = {
+  yes: "bg-emerald-50 text-emerald-700 ring-emerald-200",
+  no: "bg-rose-50 text-rose-700 ring-rose-200",
+  maybe: "bg-amber-50 text-amber-800 ring-amber-200",
+  pending: "bg-stone-50 text-stone-600 ring-stone-200",
+};
+
+function isRsvp(s: string): s is RsvpStatus {
+  return s === "yes" || s === "no" || s === "maybe" || s === "pending";
+}
 
 export function GuestList({
   guests,
@@ -65,6 +88,7 @@ export function GuestList({
   const [q, setQ] = useState("");
   const [side, setSide] = useState<SideFilter>("all");
   const [rsvp, setRsvp] = useState<RsvpFilter>("all");
+  const [response, setResponse] = useState<ResponseFilter>("all");
   const [editing, setEditing] = useState<Guest | null>(null);
   const isAdmin = role === "admin";
 
@@ -73,6 +97,8 @@ export function GuestList({
     return guests.filter((g) => {
       if (side !== "all" && g.side !== side) return false;
       if (rsvp !== "all" && g.overall_rsvp !== rsvp) return false;
+      if (response === "answered" && g.overall_rsvp === "pending") return false;
+      if (response === "not_yet" && g.overall_rsvp !== "pending") return false;
       if (
         needle &&
         ![g.full_name, g.email, g.phone, g.relationship, g.dietary]
@@ -82,7 +108,7 @@ export function GuestList({
         return false;
       return true;
     });
-  }, [guests, q, side, rsvp]);
+  }, [guests, q, side, rsvp, response]);
 
   const handleDelete = async (g: Guest) => {
     if (!confirm(`Delete ${g.full_name}?`)) return;
@@ -141,6 +167,34 @@ export function GuestList({
         </div>
       </div>
 
+      {/* Quick-triage chips. "Has RSVP'd" = anyone whose overall_rsvp is no
+          longer pending; "Not yet" = the inverse. Cheap visual filter. */}
+      <div className="flex flex-wrap items-center gap-2">
+        {(
+          [
+            { key: "all", label: "All" },
+            { key: "answered", label: "Has RSVP'd" },
+            { key: "not_yet", label: "Not yet" },
+          ] as Array<{ key: ResponseFilter; label: string }>
+        ).map((chip) => {
+          const active = response === chip.key;
+          return (
+            <button
+              key={chip.key}
+              type="button"
+              onClick={() => setResponse(chip.key)}
+              className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
+                active
+                  ? "border-stone-900 bg-stone-900 text-white"
+                  : "border-stone-300 bg-white text-stone-700 hover:border-stone-500"
+              }`}
+            >
+              {chip.label}
+            </button>
+          );
+        })}
+      </div>
+
       <div className="text-xs text-muted-foreground">
         Showing {filtered.length} of {guests.length}
       </div>
@@ -148,7 +202,9 @@ export function GuestList({
       {filtered.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center text-sm text-muted-foreground">
-            No guests match these filters.
+            {guests.length === 0
+              ? "No guests yet. Use the Import button to drop in your Excel list, or add one manually."
+              : "No guests match these filters."}
           </CardContent>
         </Card>
       ) : (
@@ -163,6 +219,7 @@ export function GuestList({
                   <th className="px-3 py-2 text-left">Contact</th>
                   <th className="px-3 py-2 text-left">Dietary</th>
                   <th className="px-3 py-2 text-left">RSVP</th>
+                  <th className="px-3 py-2 text-left">Per event</th>
                   {isAdmin && <th className="px-3 py-2"></th>}
                 </tr>
               </thead>
@@ -229,6 +286,29 @@ export function GuestList({
                         <Badge variant={RSVP_VARIANT[g.overall_rsvp]} className="text-[10px]">
                           {RSVP_LABEL[g.overall_rsvp]}
                         </Badge>
+                      )}
+                    </td>
+                    <td className="px-3 py-2">
+                      {(g.event_invitations ?? []).length === 0 ? (
+                        <span className="text-xs text-stone-400">—</span>
+                      ) : (
+                        <div className="flex flex-wrap gap-1">
+                          {(g.event_invitations ?? []).map((inv) => {
+                            const status = isRsvp(inv.rsvp) ? inv.rsvp : "pending";
+                            return (
+                              <span
+                                key={`${g.id}-${inv.event_role}`}
+                                title={`${inv.event_role}: ${RSVP_LABEL[status]}`}
+                                className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ring-1 ${RSVP_BADGE_TONE[status]}`}
+                              >
+                                <span aria-hidden="true">{RSVP_ICON[status]}</span>
+                                <span className="capitalize">
+                                  {inv.event_role.replace(/_/g, " ")}
+                                </span>
+                              </span>
+                            );
+                          })}
+                        </div>
                       )}
                     </td>
                     {isAdmin && (

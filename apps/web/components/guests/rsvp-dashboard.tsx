@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { format, parseISO, differenceInDays } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { AlertCircle, Utensils, Users as UsersIcon } from "lucide-react";
 import type { Database } from "@wedding-os/db";
 
@@ -121,19 +121,19 @@ export function RsvpDashboard({ guests }: { guests: Guest[] }) {
     };
   }, [guests]);
 
-  // Recent RSVPs — guests updated in the last 7 days who actually responded
+  // Recent RSVPs — last 10 guests who actually responded, newest first.
+  // We rely on the guests table's updated_at being touched whenever a row's
+  // overall_rsvp flips; the public RSVP API does that on every submit, and
+  // admin Select edits in /guests do too via supabase.update.
   const recent = useMemo(() => {
-    const now = new Date();
-    return guests
+    return [...guests]
       .filter((g) => g.overall_rsvp !== "pending")
-      .filter((g) => {
-        try {
-          return differenceInDays(now, parseISO(g.updated_at)) <= 7;
-        } catch {
-          return false;
-        }
+      .sort((a, b) => {
+        const ta = a.updated_at ?? "";
+        const tb = b.updated_at ?? "";
+        return tb.localeCompare(ta);
       })
-      .slice(0, 8);
+      .slice(0, 10);
   }, [guests]);
 
   const filtered = useMemo(() => {
@@ -298,7 +298,7 @@ export function RsvpDashboard({ guests }: { guests: Guest[] }) {
       {recent.length > 0 && (
         <section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
           <div className="text-[10px] uppercase tracking-[0.2em] text-stone-500">
-            Recent RSVPs (last 7 days)
+            Recent RSVPs
           </div>
           <ul className="mt-3 divide-y divide-stone-100">
             {recent.map((g) => {

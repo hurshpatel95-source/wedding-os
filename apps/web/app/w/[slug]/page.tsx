@@ -5,6 +5,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { Database } from "@wedding-os/db";
 import { InquiryForm } from "@/components/public-site/inquiry-form";
+import { RsvpForm } from "@/components/public-site/rsvp-form";
 import { SITE_THEMES, type SiteThemeSlug } from "@/lib/tier1-types";
 
 export const dynamic = "force-dynamic";
@@ -251,6 +252,18 @@ export default async function PublicWeddingSite({
     .eq("workspace_id", workspace.id);
 
   const venues: PublicVenue[] = (venuesRaw as PublicVenue[] | null) ?? [];
+
+  // Distinct event_roles across all venues drives the per-event radio set
+  // on the RSVP form. "stay" is just lodging, never an RSVPable event.
+  // If the couple hasn't categorized any venue yet, default to ["wedding"].
+  const eventRolesSet = new Set<string>();
+  for (const v of venues) {
+    for (const r of v.event_roles ?? []) {
+      if (r && r !== "stay") eventRolesSet.add(r);
+    }
+  }
+  const rsvpEventRoles =
+    eventRolesSet.size > 0 ? [...eventRolesSet] : ["wedding"];
 
   // Fetch the planner org so we can offer "Plan with <planner>" CTA at the
   // bottom — this is the couple-referral lead-gen surface.
@@ -558,14 +571,17 @@ export default async function PublicWeddingSite({
           Find your invite
         </h2>
         <p className="mt-4 opacity-80">
-          Each guest received a personal RSVP link by text or email — open it
-          to confirm your attendance, share dietary needs, and let us know
-          about plus-ones. Lost it? Reply to the message and we&rsquo;ll
-          re-send.
+          Type your name to find yourself on the guest list and share your
+          plans, dietary needs, and any plus-one details.
         </p>
-        <div className={`mt-8 inline-flex items-center gap-2 rounded-full px-5 py-3 text-sm ${theme.cardClass}`}>
-          <span className="h-2 w-2 rounded-full bg-emerald-500" />
-          We&rsquo;re tracking RSVPs &mdash; check your inbox
+        <div className="mt-8">
+          <RsvpForm
+            workspaceSlug={params.slug}
+            eventRoles={rsvpEventRoles}
+            cardClassName={theme.cardClass}
+            buttonClassName={theme.bookCtaClass}
+            badgeClassName={theme.accentBadge}
+          />
         </div>
       </section>
 
