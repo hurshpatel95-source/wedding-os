@@ -5,6 +5,8 @@ import type {
   IntakeExtractedData,
   IntakeSessionRow,
 } from "@/lib/autopilot-types";
+import { STARTER_CHECKLIST } from "@/lib/starter-checklist";
+import { googlePlacesReady, searchPlaces } from "@/lib/google-places";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -200,6 +202,135 @@ export async function POST(request: NextRequest) {
         .from("planning_tasks")
         .update({ due_date: computed })
         .eq("id", t.id);
+    }
+  }
+
+  // ─── Insert venue candidates from chat ───────────────────────────
+  // For each name the AI captured, INSERT a venue row. If Google Places
+  // is configured, enrich each with address/phone/photo/rating from the
+  // first matching Place. Best-effort — failures don't block the flow.
+  const venueCandidates = data.venue_candidates ?? [];
+  if (venueCandidates.length > 0) {
+    const region = data.wedding_region ?? "";
+    type VenueInsertRow = {
+      workspace_id: string;
+      org_id: string;
+      name: string;
+      status: "shortlisted" | "visited" | "decided";
+      address?: string | null;
+      contact_phone?: string | null;
+      hero_photo_url?: string | null;
+    };
+    const venueRows: VenueInsertRow[] = [];
+    for (const v of venueCandidates) {
+      const row: VenueInsertRow = {
+        workspace_id: profile.workspace_id,
+        org_id: profile.org_id,
+        name: v.name,
+        status: v.status ?? "shortlisted",
+      };
+      if (googlePlacesReady) {
+        try {
+          const query = region ? `${v.name} ${region}` : `${v.name} wedding venue`;
+          const results = await searchPlaces(query, { maxResults: 1 });
+          const top = results[0];
+          if (top) {
+            if (top.address) row.address = top.address;
+            if (top.phone) row.contact_phone = top.phone;
+            if (top.photos && top.photos.length > 0) {
+              row.hero_photo_url = top.photos[0];
+            }
+          }
+        } catch {
+          // Places error — just insert without enrichment.
+        }
+      }
+      venueRows.push(row);
+    }
+    const sbVenues = supabase as unknown as {
+      from: (t: string) => {
+        insert: (
+          rows: unknown,
+        ) => Promise<{ error: { message: string } | null }>;
+      };
+    };
+    const { error: venueErr } = await sbVenues
+      .from("venues")
+      .insert(venueRows);
+    if (venueErr) {
+      // Non-fatal — log and continue
+      console.error("[onboarding/complete] venue insert:", venueErr.message);
+    }
+  }
+
+  // ─── Auto-seed the 84-task starter checklist if planning_tasks empty ──
+  const sbCheck = supabase as unknown as {
+    from: (t: string) => {
+      select: (c: string) => {
+        eq: (col: string, val: string) => {
+          limit: (n: number) => Promise<{ data: unknown[] | null }>;
+        };
+      };
+      insert: (rows: unknown) => Promise<{ error: { message: string } | null }>;
+    };
+  };
+  const { data: existingTasks } = await sbCheck
+    .from("planning_tasks")
+    .select("id")
+    .eq("workspace_id", profile.workspace_id)
+    .limit(1);
+  if (!existingTasks || existingTasks.length === 0) {
+    function mapPhase(friendly: string, m: number): string {
+      if (friendly === "Wedding week") return "final_week";
+      if (friendly === "After") return "post_wedding";
+      if (friendly === "Final stretch") return "final_month";
+      if (m >= 12) return "pre_12_months";
+      if (m >= 9) return "months_9_12";
+      if (m >= 6) return "months_6_9";
+      if (m >= 3) return "months_3_6";
+      if (m >= 1) return "months_1_3";
+      return "day_of";
+    }
+    function mapCategory(c: string | undefined): string {
+      if (!c) return "other";
+      if (c === "venue") return "venue";
+      if (c === "attire") return "attire";
+      if (c === "transportation" || c === "rentals") return "logistics";
+      if (c === "officiant") return "ritual";
+      if (
+        ["photo_video", "catering", "music", "flowers_decor", "bar", "hair_makeup"].includes(c)
+      ) {
+        return "vendor";
+      }
+      return "other";
+    }
+    const computeDue = (months: number): string | null => {
+      if (!newWeddingDate) return null;
+      try {
+        const wedding = parseISO(newWeddingDate);
+        if (Number.isNaN(wedding.getTime())) return null;
+        return formatISO(addMonths(wedding, -months), { representation: "date" });
+      } catch {
+        return null;
+      }
+    };
+    const tasks = STARTER_CHECKLIST.map((t, i) => ({
+      workspace_id: profile.workspace_id,
+      org_id: profile.org_id,
+      phase: mapPhase(t.phase, t.months_before),
+      category: mapCategory(t.category),
+      title: t.title,
+      months_before: t.months_before,
+      sort_order: i,
+      status: "not_started",
+      owner: "couple",
+      due_date: computeDue(t.months_before),
+    }));
+    const { error: seedErr } = await sbCheck
+      .from("planning_tasks")
+      .insert(tasks);
+    if (seedErr) {
+      console.error("[onboarding/complete] checklist seed:", seedErr.message);
     }
   }
 

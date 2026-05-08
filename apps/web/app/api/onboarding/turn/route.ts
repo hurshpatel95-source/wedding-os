@@ -64,9 +64,12 @@ Required fields for completion (ALL of these must be filled — or the user must
   - top_concerns
   - first_priority_category
 
-Set complete=true ONLY after you've ASKED about all of the above (even if some end up null because they skipped). Do NOT bail out early after just 4 questions. The user expects a thorough 8-12 question intake.
+Set complete=true ONLY after you've ASKED about all of the above AND asked the FINAL anything-else question.
 
-When you DO complete, your ai_message should be a warm wrap-up: "That's everything I needed — let me set up your dashboard."
+ANYTHING-ELSE PHASE (do this BEFORE setting complete=true):
+After all the structured fields are covered (filled or skipped), ask ONE final open question: "Anything else important you want to share before I set up your dashboard? Vendors you've already booked, family quirks, budget gotchas, anything that's stressing you, anything you're excited about — anything." Capture their reply into free_form_notes via the tool. If they have nothing more, that's fine — just complete.
+
+When you DO complete, your ai_message should be a warm wrap-up: "That's everything I needed — let me set up your dashboard." then complete=true.
 
 EVERY turn you MUST call the extract_intake_fields tool. The extracted_patch can be empty {} if the user said something that didn't add new info, but the tool call is required so we always have ai_message.
 
@@ -110,6 +113,28 @@ const EXTRACT_TOOL: Anthropic.Tool = {
             items: { type: "string" },
           },
           first_priority_category: { type: "string" },
+          venue_candidates: {
+            type: "array",
+            description:
+              "Capture every venue the user mentions BY NAME. Use status='decided' if signed/locked, 'visited' if toured, 'shortlisted' otherwise.",
+            items: {
+              type: "object",
+              required: ["name"],
+              properties: {
+                name: { type: "string" },
+                status: {
+                  type: "string",
+                  enum: ["shortlisted", "visited", "decided"],
+                },
+                notes: { type: "string" },
+              },
+            },
+          },
+          free_form_notes: {
+            type: "string",
+            description:
+              "Captured from the final 'anything else important you want to share?' question. May be null.",
+          },
         },
       },
       ai_message: {
