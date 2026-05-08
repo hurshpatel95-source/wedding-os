@@ -38,10 +38,12 @@ export default async function AvailabilityPage() {
     role = (profile?.role ?? null) as typeof role;
   }
 
-  // Default month = wedding_date's month if set, else September 2027 (the active planning window).
+  // Default month: wedding_date's month if set, else the current month.
+  // (Was hardcoded to "2027-09" — Hursh's wedding window. Fine for him,
+  // wrong for every other couple.)
   const initialMonth = workspace?.wedding_date
     ? workspace.wedding_date.slice(0, 7)
-    : "2027-09";
+    : new Date().toISOString().slice(0, 7);
 
   const venuesLite: VenueLite[] = (venues ?? []).map((v) => ({
     id: v.id,

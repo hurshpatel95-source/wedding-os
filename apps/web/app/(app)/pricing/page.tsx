@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { ScenarioStudio } from "@/components/pricing/scenario-studio";
 import type { ScenarioInputs } from "@/lib/scenario-types";
@@ -6,6 +7,25 @@ export const dynamic = "force-dynamic";
 
 export default async function PricingPage() {
   const supabase = createClient();
+
+  // /pricing is the legacy Astia scenario studio (EUR + 21% VAT + planner
+  // language). For B2C couples it's never the right surface — they want
+  // /budget and /estimator. Bounce them.
+  {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (user) {
+      const { data: profile } = await supabase
+        .from("users")
+        .select("role")
+        .eq("id", user.id)
+        .maybeSingle();
+      if ((profile?.role ?? "couple") === "couple") {
+        redirect("/budget");
+      }
+    }
+  }
 
   const [{ data: scenarios }, { data: venues }, { data: vendors }] = await Promise.all([
     supabase

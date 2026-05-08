@@ -28,8 +28,14 @@ export default async function MapPage() {
           Venue map
         </h1>
         <p className="max-w-2xl text-sm text-muted-foreground">
-          Sitges-area venues clustered south, Barcelona venues to the north. Click a marker for
-          quick facts; the lead-pick badges show which 3 are top of the shortlist.
+          Every venue you&apos;ve added, plotted on a single map. Click a
+          marker for quick facts; lead-pick badges mark your shortlist.
+          {points.length === 0 && (
+            <span className="block mt-2 text-amber-700">
+              Add venues at /venues to see them here — addresses get
+              auto-geocoded.
+            </span>
+          )}
         </p>
       </header>
 

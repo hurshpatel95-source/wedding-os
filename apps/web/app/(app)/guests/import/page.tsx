@@ -11,12 +11,9 @@ export default async function GuestImportPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { data: profile } = await supabase
-    .from("users")
-    .select("role")
-    .eq("id", user.id)
-    .maybeSingle();
-  if (profile?.role !== "admin") redirect("/guests");
+  // B2C couples need to import their own guest list — the prior admin gate
+  // turned the button on /guests into a dead-end loop. Both planners and
+  // couples can land here; the upsert API still scopes to workspace_id.
 
   return (
     <div className="space-y-6">

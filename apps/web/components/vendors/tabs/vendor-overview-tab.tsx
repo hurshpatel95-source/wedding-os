@@ -46,8 +46,12 @@ export function VendorOverviewTab({
   const [pendingStatus, setPendingStatus] = useState<VendorStatus | null>(null);
   const [pendingRating, setPendingRating] = useState<number | null>(null);
 
+  // Couples drive their own pipeline (researching → quoted → booked) — they
+  // are the buyer, after all. Admin and couple both can advance.
+  const canEdit = role === "admin" || role === "couple";
+
   const advanceStatus = async (next: VendorStatus) => {
-    if (!isAdmin) return;
+    if (!canEdit) return;
     setPendingStatus(next);
     const supabase = createClient();
     const sb = supabase as unknown as VendorClient;
@@ -60,7 +64,7 @@ export function VendorOverviewTab({
   };
 
   const setRating = async (n: number) => {
-    if (!isAdmin) return;
+    if (!canEdit) return;
     setPendingRating(n);
     const supabase = createClient();
     const sb = supabase as unknown as VendorClient;
@@ -94,7 +98,7 @@ export function VendorOverviewTab({
           </CardContent>
         </Card>
 
-        {isAdmin && (
+        {canEdit && (
           <Card>
             <CardHeader>
               <CardTitle className="font-serif">Conversation</CardTitle>
@@ -126,7 +130,7 @@ export function VendorOverviewTab({
                   const isCurrent = idx === currentIndex;
                   const isPast = idx < currentIndex;
                   const isFuture = idx > currentIndex;
-                  const canAdvance = isAdmin && isFuture;
+                  const canAdvance = canEdit && isFuture;
                   const isPending = pendingStatus === s;
                   return (
                     <div key={s} className="flex items-center gap-2">
@@ -154,7 +158,7 @@ export function VendorOverviewTab({
                     </div>
                   );
                 })}
-                {isAdmin && (
+                {canEdit && (
                   <Button
                     type="button"
                     variant="ghost"
@@ -173,119 +177,80 @@ export function VendorOverviewTab({
       </div>
 
       <div className="space-y-4">
-        {/* Full Contact card is CRM data — admin only. Couples get a slim
-            web/Instagram-only card below if those public links exist. */}
-        {isAdmin ? (
-          <Card>
-            <CardHeader>
-              <CardTitle className="font-serif">Contact</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2 text-sm">
-              <div>
-                <div className="text-muted-foreground">Name</div>
-                <div className="font-medium">{vendor.contact_name ?? "—"}</div>
-              </div>
-              <div>
-                <div className="text-muted-foreground">Email</div>
-                <div className="font-medium">
-                  {vendor.contact_email ? (
-                    <a className="hover:underline" href={`mailto:${vendor.contact_email}`}>
-                      {vendor.contact_email}
-                    </a>
-                  ) : (
-                    "—"
-                  )}
-                </div>
-              </div>
-              <div>
-                <div className="text-muted-foreground">Phone</div>
-                <div className="font-medium">
-                  {vendor.contact_phone ? (
-                    <a className="hover:underline" href={`tel:${vendor.contact_phone}`}>
-                      {vendor.contact_phone}
-                    </a>
-                  ) : (
-                    "—"
-                  )}
-                </div>
-              </div>
-              <div>
-                <div className="text-muted-foreground">Website</div>
-                <div className="font-medium">
-                  {vendor.website ? (
-                    <a
-                      className="inline-flex items-center gap-1 hover:underline"
-                      href={vendor.website}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      {prettyHost(vendor.website)}
-                      <ExternalLink className="h-3 w-3" />
-                    </a>
-                  ) : (
-                    "—"
-                  )}
-                </div>
-              </div>
-              <div>
-                <div className="text-muted-foreground">Instagram</div>
-                <div className="font-medium">
-                  {vendor.instagram ? (
-                    <a
-                      className="inline-flex items-center gap-1 hover:underline"
-                      href={instagramUrl(vendor.instagram)}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      <Instagram className="h-3 w-3" />
-                      {prettyInstagram(vendor.instagram)}
-                    </a>
-                  ) : (
-                    "—"
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ) : (
-          (vendor.website || vendor.instagram) && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="font-serif">Links</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2 text-sm">
-                {vendor.website && (
-                  <div>
-                    <div className="text-muted-foreground">Website</div>
-                    <a
-                      className="inline-flex items-center gap-1 font-medium hover:underline"
-                      href={vendor.website}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      {prettyHost(vendor.website)}
-                      <ExternalLink className="h-3 w-3" />
-                    </a>
-                  </div>
+        {/* Couples need the full contact info — they're the ones reaching
+            out. They paid (or are paying) the planner for this vendor's
+            information. Visibility settings stay admin-only below. */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="font-serif">Contact</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm">
+            <div>
+              <div className="text-muted-foreground">Name</div>
+              <div className="font-medium">{vendor.contact_name ?? "—"}</div>
+            </div>
+            <div>
+              <div className="text-muted-foreground">Email</div>
+              <div className="font-medium">
+                {vendor.contact_email ? (
+                  <a className="hover:underline" href={`mailto:${vendor.contact_email}`}>
+                    {vendor.contact_email}
+                  </a>
+                ) : (
+                  "—"
                 )}
-                {vendor.instagram && (
-                  <div>
-                    <div className="text-muted-foreground">Instagram</div>
-                    <a
-                      className="inline-flex items-center gap-1 font-medium hover:underline"
-                      href={instagramUrl(vendor.instagram)}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      <Instagram className="h-3 w-3" />
-                      {prettyInstagram(vendor.instagram)}
-                    </a>
-                  </div>
+              </div>
+            </div>
+            <div>
+              <div className="text-muted-foreground">Phone</div>
+              <div className="font-medium">
+                {vendor.contact_phone ? (
+                  <a className="hover:underline" href={`tel:${vendor.contact_phone}`}>
+                    {vendor.contact_phone}
+                  </a>
+                ) : (
+                  "—"
                 )}
-              </CardContent>
-            </Card>
-          )
-        )}
+              </div>
+            </div>
+            <div>
+              <div className="text-muted-foreground">Website</div>
+              <div className="font-medium">
+                {vendor.website ? (
+                  <a
+                    className="inline-flex items-center gap-1 hover:underline"
+                    href={vendor.website}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    {prettyHost(vendor.website)}
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                ) : (
+                  "—"
+                )}
+              </div>
+            </div>
+            <div>
+              <div className="text-muted-foreground">Instagram</div>
+              <div className="font-medium">
+                {vendor.instagram ? (
+                  <a
+                    className="inline-flex items-center gap-1 hover:underline"
+                    href={instagramUrl(vendor.instagram)}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    <Instagram className="h-3 w-3" />
+                    {prettyInstagram(vendor.instagram)}
+                  </a>
+                ) : (
+                  "—"
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Visibility settings are CRM-internal. Hide from couples. */}
         {isAdmin && (

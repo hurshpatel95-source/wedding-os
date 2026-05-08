@@ -121,7 +121,7 @@ export function Nav({
           )}
           <div className="leading-none">
             <div className="font-serif text-lg font-medium tracking-tight">
-              {workspaceName ?? "Hursh & Co."}
+              {workspaceName ?? "Your wedding"}
             </div>
             <div className="mt-1 text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
               {[plannerDisplayName, ...subtitleParts].filter(Boolean).join(" · ") || "Wedding portal"}
