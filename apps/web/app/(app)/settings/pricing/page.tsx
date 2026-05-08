@@ -57,7 +57,7 @@ export default async function PricingTemplatePage() {
           Pricing template
         </h1>
         <p className="max-w-2xl text-sm text-muted-foreground">
-          {template?.name ?? "Astia Wedding Standard"} — every default price the scenario builder
+          {template?.name ?? "Wedding Standard"} — every default price the scenario builder
           uses. Update via the AI intake (preferred) or directly on each venue's Pricing tab.
         </p>
       </header>
@@ -77,7 +77,7 @@ export default async function PricingTemplatePage() {
                   </Badge>
                 </div>
                 <p className="mt-1 text-sm text-stone-700">
-                  Drop a screenshot of Astha's WhatsApp, a PDF of her latest deck, or paste an
+                  Drop a screenshot of your planner's WhatsApp screenshot, a PDF of the latest deck, or paste an
                   email thread. Claude reads it, matches to your existing line items, and shows
                   proposed changes for review. Nothing applies until you confirm.
                 </p>

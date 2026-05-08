@@ -137,7 +137,7 @@ export function PricingTab({
         <Card className="h-fit">
           <CardContent className="space-y-2 py-4 text-sm">
             <p className="text-stone-700">
-              These are Astha's quoted hire fees. The full cost (catering, room block, vendor &
+              These are the quoted hire fees. The full cost (catering, room block, vendor &
               misc) is on the{" "}
               <a href="/pricing" className="font-medium underline">
                 Full pricing

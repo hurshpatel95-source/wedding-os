@@ -263,7 +263,7 @@ export function NewEstimateForm({ venues, templates }: Props) {
             <h3 className="font-serif text-xl">Baseline template</h3>
             <Badge variant="muted" className="text-[10px]">
               <Sparkles className="mr-1 h-3 w-3" />
-              Astia line items
+              Imported line items
             </Badge>
           </div>
           <p className="text-xs text-muted-foreground">

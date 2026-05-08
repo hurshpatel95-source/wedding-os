@@ -64,16 +64,38 @@ export default async function AvailabilityPage() {
       <header>
         <h1 className="font-serif text-4xl md:text-5xl">Venue availability</h1>
         <p className="mt-2 text-[11px] uppercase tracking-[0.3em] text-muted-foreground">
-          September 2027 · all {venuesLite.length} venues at a glance
+          {venuesLite.length === 0
+            ? "Add venues first, then track which dates are open"
+            : `${venuesLite.length} venue${venuesLite.length === 1 ? "" : "s"} at a glance`}
         </p>
       </header>
 
-      <AvailabilityCalendar
-        venues={venuesLite}
-        marks={marksLite}
-        role={role}
-        initialMonth={initialMonth}
-      />
+      {venuesLite.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-stone-300 bg-white/60 px-8 py-16 text-center">
+          <h2 className="font-serif text-2xl font-light text-stone-800">
+            Configure a venue first
+          </h2>
+          <p className="mx-auto mt-2 max-w-md text-sm text-stone-500">
+            The availability matrix shows your venues × candidate dates. Add at
+            least one venue at <code className="rounded bg-stone-100 px-1.5 py-0.5">/venues</code>,
+            then come back here to mark dates as available, tentative, or
+            booked.
+          </p>
+          <a
+            href="/venues"
+            className="mt-5 inline-flex items-center gap-1.5 rounded-full bg-stone-900 px-4 py-2 text-xs font-medium text-white transition hover:bg-stone-800"
+          >
+            Go to Venues →
+          </a>
+        </div>
+      ) : (
+        <AvailabilityCalendar
+          venues={venuesLite}
+          marks={marksLite}
+          role={role}
+          initialMonth={initialMonth}
+        />
+      )}
     </div>
   );
 }

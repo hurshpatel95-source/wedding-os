@@ -96,7 +96,7 @@ export function AvailabilityCalendar({
   const [draftNotes, setDraftNotes] = useState<string>("");
   const [saving, setSaving] = useState<boolean>(false);
 
-  const isAdmin = role === "admin";
+  const isAdmin = true; // Couples + admins both edit (RLS handles workspace scope)
 
   // Index marks by `${venue_id}|${date}` for O(1) lookup.
   const markIndex = useMemo(() => {

@@ -97,6 +97,12 @@ export default async function GuestsPage() {
               <Send className="h-4 w-4" /> Message guests
             </Button>
           </Link>
+          <Link href="/guests/import">
+            <Button variant="outline">
+              <Upload className="h-4 w-4" /> Import from Excel
+            </Button>
+          </Link>
+          <GuestCreateButton />
           {isAdmin && (
             <>
               <GuestComposeButton
@@ -112,12 +118,6 @@ export default async function GuestsPage() {
                   variant="outline"
                 />
               )}
-              <Link href="/guests/import">
-                <Button variant="outline">
-                  <Upload className="h-4 w-4" /> Import from Excel
-                </Button>
-              </Link>
-              <GuestCreateButton />
             </>
           )}
         </div>

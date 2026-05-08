@@ -105,7 +105,7 @@ export default async function AssistantPage({
           Ask anything about your wedding — Claude reads every venue, vendor, scenario, guest, and
           plan task in your workspace, and answers with your real data. Try
           {" "}<em>&ldquo;compare Option 1 and Scenario 3&rdquo;</em>, <em>&ldquo;what&rsquo;s due in 30 days?&rdquo;</em>, or{" "}
-          <em>&ldquo;what should we ask Astha next?&rdquo;</em>
+          <em>&ldquo;what should we tackle next?&rdquo;</em>
         </p>
       </header>
 

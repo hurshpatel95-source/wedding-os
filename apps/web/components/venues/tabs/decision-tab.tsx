@@ -178,7 +178,7 @@ export function DecisionTab({
             <Textarea
               id="body"
               rows={5}
-              placeholder="What's the call and why? Anything Astha needs to lock or follow up on."
+              placeholder="What's the call and why? Anything that needs to lock or follow up on."
               value={body}
               onChange={(e) => setBody(e.target.value)}
             />

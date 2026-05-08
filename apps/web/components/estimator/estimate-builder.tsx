@@ -311,7 +311,7 @@ function SectionBlock({
                     <th className="w-8 px-2 py-2"></th>
                     <th className="px-3 py-2 text-left">Line</th>
                     <th className="px-3 py-2 text-left">Unit</th>
-                    <th className="px-3 py-2 text-right">Astia</th>
+                    <th className="px-3 py-2 text-right">Baseline</th>
                     <th className="px-3 py-2 text-right">Yours</th>
                     <th className="px-3 py-2 text-right">Effective</th>
                     <th className="w-8 px-2 py-2"></th>
@@ -396,7 +396,7 @@ function LineRow({ line, onUpdate, onRemove }: LineRowProps) {
             {line.evidence?.quote && (
               <div
                 className="mt-0.5 max-w-md truncate text-[10px] italic text-stone-400"
-                title={`Astia quote: "${line.evidence.quote}"${
+                title={`Quote: "${line.evidence.quote}"${
                   line.evidence.page ? ` (PDF p.${line.evidence.page})` : ""
                 }`}
               >
@@ -405,7 +405,7 @@ function LineRow({ line, onUpdate, onRemove }: LineRowProps) {
             )}
             {line.tbc && (
               <Badge variant="muted" className="mt-1 text-[10px]">
-                TBC by Astha
+                TBC by planner
               </Badge>
             )}
           </div>
@@ -559,8 +559,8 @@ function PriceEditor({
         type="button"
         onClick={reset}
         className="text-stone-300 transition hover:text-stone-700"
-        aria-label="Reset to Astia's baseline"
-        title="Reset to Astia's baseline"
+        aria-label="Reset to baseline"
+        title="Reset to baseline"
       >
         <RotateCcw className="h-3 w-3" />
       </button>

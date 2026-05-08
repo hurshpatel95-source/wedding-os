@@ -127,7 +127,7 @@ export function VisitsTab({
             <Label htmlFor="att">Attendees (comma-separated)</Label>
             <Input
               id="att"
-              placeholder="Hursh, Nisha, Astha"
+              placeholder="who attended"
               value={attendees}
               onChange={(e) => setAttendees(e.target.value)}
             />

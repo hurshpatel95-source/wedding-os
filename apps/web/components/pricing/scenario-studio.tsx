@@ -586,7 +586,7 @@ function ActiveScenarioEditor({
           <Card className="border-amber-200 bg-amber-50/40">
             <CardContent className="space-y-2 py-4">
               <div className="text-[11px] uppercase tracking-[0.2em] text-amber-800">
-                Things to confirm with Astia
+                Things to confirm with your planner
               </div>
               <ul className="space-y-1 text-sm text-stone-700">
                 {inp.open_items.map((item, i) => (
@@ -1201,7 +1201,7 @@ function CustomLinesTable({
             <h3 className="font-serif text-xl">Vendor &amp; misc line items</h3>
             <p className="text-xs text-stone-500">
               Bus A→B, decor, photo+video, DJ, MUA, mehndi, priest, sound, lounge furniture,
-              stationery — anything Astha quotes that isn't venue hire or catering.
+              stationery — anything your planner quotes that isn't venue hire or catering.
             </p>
           </div>
           <Button type="button" variant="outline" onClick={addLine}>

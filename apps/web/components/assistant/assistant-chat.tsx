@@ -21,7 +21,7 @@ interface ChatMessage {
 const QUICK_ACTIONS = [
   "Compare Option 1 vs Scenario 3 (Sept 11/12)",
   "What's due in the next 30 days?",
-  "What 3 questions should we ask Astha next?",
+  "What 3 questions should we tackle next?",
   "Which venue is the best fit if we end up at 200 guests?",
   "What's our biggest open risk right now?",
   "Summarize where we are in 4 bullets",

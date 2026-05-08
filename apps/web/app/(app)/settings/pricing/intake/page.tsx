@@ -33,7 +33,7 @@ export default async function PricingIntakePage() {
           AI Pricing intake
         </h1>
         <p className="max-w-2xl text-sm text-muted-foreground">
-          Drop a screenshot of Astha's WhatsApp, a PDF of her latest deck, or paste an email
+          Drop a screenshot of your planner's WhatsApp screenshot, a PDF of the latest deck, or paste an email
           thread. Claude reads it, matches to your existing line items, and shows proposed
           changes for review. Nothing applies until you confirm.
         </p>

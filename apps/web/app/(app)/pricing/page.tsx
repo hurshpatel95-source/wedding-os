@@ -51,7 +51,7 @@ export default async function PricingPage() {
         </h1>
         <p className="max-w-2xl text-sm text-muted-foreground">
           Three scenarios, every line item. Pick a venue per event, set guest count, drop in
-          custom line items (bus transport, decor, photo, anything Astha quotes), and watch the
+          custom line items (bus transport, decor, photo, anything your planner quotes), and watch the
           total update live.
         </p>
       </header>

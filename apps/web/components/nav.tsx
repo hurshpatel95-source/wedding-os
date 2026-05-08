@@ -11,6 +11,7 @@ import {
   Clock,
   Coins,
   Compass,
+  ListChecks,
   Globe,
   Heart,
   LogOut,
@@ -32,6 +33,7 @@ import { AlertsBell } from "@/components/alerts/alerts-bell";
 
 const links: { href: string; label: string; icon: LucideIcon }[] = [
   { href: "/", label: "Dashboard", icon: Sparkles },
+  { href: "/onboarding", label: "Setup chat", icon: ListChecks },
   { href: "/autopilot", label: "Autopilot", icon: Plane },
   { href: "/assistant", label: "Co-pilot", icon: Bot },
   { href: "/plan", label: "Plan", icon: CheckSquare },
@@ -48,7 +50,6 @@ const links: { href: string; label: string; icon: LucideIcon }[] = [
   { href: "/compare", label: "Compare", icon: Users },
   { href: "/timeline", label: "Timeline", icon: Clock },
   { href: "/settings/public-site", label: "Public site", icon: Globe },
-  { href: "/settings/pricing", label: "Pricing template", icon: Settings },
   { href: "/feature-status", label: "Tour", icon: Compass },
 ];
 

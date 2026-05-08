@@ -115,7 +115,7 @@ export function NotesTab({
         <CardContent className="space-y-3 py-4">
           <h3 className="font-serif text-lg">Add a note</h3>
           <Textarea
-            placeholder="Visit impressions, vendor follow-ups, questions for Astha…"
+            placeholder="Visit impressions, vendor follow-ups, questions for your planner…"
             rows={5}
             value={body}
             onChange={(e) => setBody(e.target.value)}

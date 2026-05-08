@@ -32,7 +32,7 @@ export default async function VenuesPage() {
             {(venues ?? []).length} venue{(venues ?? []).length === 1 ? "" : "s"} on the shortlist.
           </p>
         </div>
-        {role === "admin" && <VenueCreateButton />}
+        <VenueCreateButton />
       </header>
 
       <VenueGrid venues={venues ?? []} />

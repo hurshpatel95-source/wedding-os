@@ -53,9 +53,9 @@ export default async function EstimatorPage() {
             Estimator
           </h1>
           <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-            Astia&apos;s estimated initial budgets for both scenario options.
-            Toggle anything off, override any number — your edits stay here, they
-            don&apos;t touch the master pricing template.
+            Estimated initial budgets for your scenarios. Toggle anything off,
+            override any number — your edits stay here, they don&apos;t touch
+            the master pricing template.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -81,11 +81,24 @@ export default async function EstimatorPage() {
       {list.length === 0 ? (
         <Card>
           <CardContent className="py-10 text-center text-sm text-muted-foreground">
-            No estimates yet. Run{" "}
-            <code className="rounded bg-stone-100 px-1.5 py-0.5">
-              pnpm db:seed-estimates
-            </code>{" "}
-            to seed Astia&apos;s two PDFs.
+            <p>No estimates yet.</p>
+            <p className="mt-2 text-xs">
+              Try{" "}
+              <Link
+                href="/budget"
+                className="font-medium text-stone-700 underline"
+              >
+                /budget
+              </Link>{" "}
+              for a personalized AI-generated budget tree, or hit{" "}
+              <Link
+                href="/estimator/new"
+                className="font-medium text-stone-700 underline"
+              >
+                + New estimate
+              </Link>{" "}
+              above to start a scenario.
+            </p>
           </CardContent>
         </Card>
       ) : (
@@ -183,12 +196,12 @@ export default async function EstimatorPage() {
             </div>
             <ul className="mt-1 space-y-1 text-sm text-stone-700">
               <li>
-                <span className="font-medium">Baseline</span>: Astia&apos;s
+                <span className="font-medium">Baseline</span>: the original
                 quoted price stays locked + visible as a reference.
               </li>
               <li>
                 <span className="font-medium">Override</span>: click any number
-                to edit. Your edit stacks on top of Astia&apos;s baseline.
+                to edit. Your edit stacks on top of the baseline.
               </li>
               <li>
                 <span className="font-medium">Toggle</span>: uncheck a line to

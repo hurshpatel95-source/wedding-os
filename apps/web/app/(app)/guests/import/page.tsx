@@ -28,7 +28,7 @@ export default async function GuestImportPage() {
           Drop the guest list
         </h1>
         <p className="max-w-2xl text-sm text-muted-foreground">
-          Drag in the Excel or CSV that Astha sent. Claude reads the columns, normalizes phone
+          Drag in the Excel or CSV. Claude reads the columns, normalizes phone
           numbers and addresses, and shows you a preview before anything saves to the database.
         </p>
       </header>

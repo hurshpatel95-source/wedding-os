@@ -174,7 +174,7 @@ export function PricingIntakeWizard({ venues }: { venues: VenueLite[] }) {
                 <Label htmlFor="lbl">Source label (optional)</Label>
                 <Input
                   id="lbl"
-                  placeholder="Astha WhatsApp 5/6, Email re: vendor pricing, etc."
+                  placeholder="Planner WhatsApp 5/6, Email re: vendor pricing, etc."
                   value={sourceLabel}
                   onChange={(e) => setSourceLabel(e.target.value)}
                 />

@@ -28,6 +28,14 @@ export interface IntakeExtractedData {
   top_concerns?: string[];
   // What they want help with first — used to seed first vendor search
   first_priority_category?: string;
+  // Venues mentioned in chat — auto-create rows + Places-enrich on completion
+  venue_candidates?: Array<{
+    name: string;
+    status?: "shortlisted" | "visited" | "decided";
+    notes?: string;
+  }>;
+  // Free-form "anything else important" capture — appended after structured intake
+  free_form_notes?: string;
 }
 
 export interface IntakeSessionRow {

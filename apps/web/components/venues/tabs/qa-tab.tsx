@@ -150,7 +150,7 @@ export function QATab({
           <div>
             <h3 className="font-serif text-lg">Ask a question</h3>
             <p className="text-xs text-muted-foreground">
-              Anyone can ask; planner answers. Tracked here so nothing slips through Astha's
+              Anyone can ask; planner answers. Tracked here so nothing slips through your planner's
               WhatsApp threads.
             </p>
           </div>

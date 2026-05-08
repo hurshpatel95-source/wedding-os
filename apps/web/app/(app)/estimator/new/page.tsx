@@ -55,7 +55,7 @@ export default async function NewEstimatePage() {
         </h1>
         <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
           Pick dates, venues, and a baseline template. We&rsquo;ll auto-fill
-          the line items from Astia&rsquo;s pricing PDFs (with the venue&rsquo;s
+          the line items from your imported pricing PDFs (with the venue&rsquo;s
           actual day-of-week hire fee where we have it). You can edit any line
           afterward.
         </p>
