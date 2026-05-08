@@ -14,6 +14,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@wedding-os/db";
 import type { ContractRow } from "@/lib/tier1-types";
+import { sendAndLogEmail } from "@/lib/email-send";
 
 export const runtime = "nodejs";
 
@@ -135,5 +136,188 @@ export async function POST(
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
+  // Fire-and-forget confirmation emails. Failures here must NOT block the
+  // signed=true response — we already committed the signature.
+  try {
+    await sendSignConfirmations(sb, contract, fullName);
+  } catch (e) {
+    console.warn(
+      "[sign] confirmation send failed (non-fatal):",
+      (e as Error).message,
+    );
+  }
+
   return NextResponse.json({ ok: true });
+}
+
+interface OrgContactLite {
+  contact_email: string | null;
+  name: string | null;
+}
+
+async function sendSignConfirmations(
+  sb: ReturnType<typeof adminClient>,
+  contract: ContractRow,
+  signedFullName: string,
+): Promise<void> {
+  const siteUrl =
+    process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ??
+    "http://localhost:3200";
+  const signLink = `${siteUrl}/sign/${contract.public_token}`;
+  const adminLink = `${siteUrl}/admin/contracts/${contract.id}`;
+
+  const orgLookup = sb as unknown as {
+    from: (t: string) => {
+      select: (cols: string) => {
+        eq: (col: string, val: string) => {
+          maybeSingle: () => Promise<{ data: OrgContactLite | null }>;
+        };
+      };
+    };
+  };
+  const { data: org } = await orgLookup
+    .from("organizations")
+    .select("contact_email, name")
+    .eq("id", contract.org_id)
+    .maybeSingle();
+
+  const threadKey = `contract:${contract.id}`;
+  const signedAtIso = new Date().toISOString();
+
+  // 1. Confirmation to the signer.
+  const signerEmail = contract.signer_email?.trim();
+  if (signerEmail) {
+    const signerName = contract.signer_name ?? "there";
+    const greeting = `Hi ${signerName.split(" ")[0] ?? "there"},`;
+    const bodyText = [
+      greeting,
+      "",
+      `Thanks — your signature has been recorded for "${contract.title}".`,
+      "",
+      `Signed by:  ${signedFullName}`,
+      `Signed at:  ${signedAtIso}`,
+      "",
+      "You can re-open the signed contract any time at:",
+      signLink,
+      "",
+      "If anything looks off, reply to this email and we'll sort it.",
+      "",
+      `— ${org?.name ?? "The team"}`,
+    ].join("\n");
+
+    const bodyHtml = `
+<div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;padding:32px 24px;color:#292524;">
+  <p style="font-size:16px;margin-bottom:16px;">${escapeHtml(greeting)}</p>
+  <p style="font-size:15px;line-height:1.6;">
+    Thanks — your signature has been recorded for <strong>${escapeHtml(contract.title)}</strong>.
+  </p>
+  <table style="margin:20px 0;font-size:14px;color:#44403c;">
+    <tr><td style="padding:4px 12px 4px 0;color:#78716c;">Signed by</td><td style="padding:4px 0;">${escapeHtml(signedFullName)}</td></tr>
+    <tr><td style="padding:4px 12px 4px 0;color:#78716c;">Signed at</td><td style="padding:4px 0;">${escapeHtml(signedAtIso)}</td></tr>
+  </table>
+  <p style="margin:24px 0;">
+    <a href="${signLink}" style="display:inline-block;padding:10px 18px;background:#1c1917;color:#fff;text-decoration:none;border-radius:9999px;font-size:13px;">
+      View signed contract
+    </a>
+  </p>
+  <p style="font-size:13px;color:#78716c;">— ${escapeHtml(org?.name ?? "The team")}</p>
+</div>`.trim();
+
+    await sendAndLogEmail(
+      sb,
+      {
+        to: signerEmail,
+        toName: contract.signer_name ?? undefined,
+        subject: `Signed: ${contract.title}`,
+        bodyText,
+        bodyHtml,
+      },
+      {
+        org_id: contract.org_id,
+        workspace_id: contract.workspace_id,
+        kind: "contract_signed_couple",
+        thread_key: threadKey,
+        related_contract_id: contract.id,
+        related_lead_id: contract.lead_id,
+      },
+    );
+  }
+
+  // 2. Internal notification to the planner.
+  const plannerEmail = org?.contact_email?.trim() ?? null;
+  if (plannerEmail) {
+    const couple = contract.signer_name ?? "Your client";
+    const totalLine =
+      contract.total_eur != null
+        ? `Total:    €${Number(contract.total_eur).toFixed(2)}`
+        : null;
+    const retainerLine =
+      contract.retainer_eur != null
+        ? `Retainer: €${Number(contract.retainer_eur).toFixed(2)}`
+        : null;
+    const retainerDueLine = contract.retainer_due_date
+      ? `Retainer due: ${contract.retainer_due_date}`
+      : null;
+
+    const summaryLines = [totalLine, retainerLine, retainerDueLine].filter(
+      (x): x is string => x !== null,
+    );
+
+    const bodyText = [
+      `${couple} just signed "${contract.title}".`,
+      "",
+      `Signed by:  ${signedFullName}`,
+      `Signed at:  ${signedAtIso}`,
+      ...(summaryLines.length ? ["", ...summaryLines] : []),
+      "",
+      "Open the contract:",
+      adminLink,
+    ].join("\n");
+
+    const bodyHtml = `
+<div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;padding:32px 24px;color:#292524;">
+  <p style="font-size:15px;line-height:1.6;">
+    <strong>${escapeHtml(couple)}</strong> just signed <strong>${escapeHtml(contract.title)}</strong>.
+  </p>
+  <table style="margin:20px 0;font-size:14px;color:#44403c;">
+    <tr><td style="padding:4px 12px 4px 0;color:#78716c;">Signed by</td><td style="padding:4px 0;">${escapeHtml(signedFullName)}</td></tr>
+    <tr><td style="padding:4px 12px 4px 0;color:#78716c;">Signed at</td><td style="padding:4px 0;">${escapeHtml(signedAtIso)}</td></tr>
+    ${totalLine ? `<tr><td style="padding:4px 12px 4px 0;color:#78716c;">Total</td><td style="padding:4px 0;">${escapeHtml(totalLine.replace("Total:    ", ""))}</td></tr>` : ""}
+    ${retainerLine ? `<tr><td style="padding:4px 12px 4px 0;color:#78716c;">Retainer</td><td style="padding:4px 0;">${escapeHtml(retainerLine.replace("Retainer: ", ""))}</td></tr>` : ""}
+    ${retainerDueLine ? `<tr><td style="padding:4px 12px 4px 0;color:#78716c;">Retainer due</td><td style="padding:4px 0;">${escapeHtml(retainerDueLine.replace("Retainer due: ", ""))}</td></tr>` : ""}
+  </table>
+  <p style="margin:24px 0;">
+    <a href="${adminLink}" style="display:inline-block;padding:10px 18px;background:#1c1917;color:#fff;text-decoration:none;border-radius:9999px;font-size:13px;">
+      Open contract
+    </a>
+  </p>
+</div>`.trim();
+
+    await sendAndLogEmail(
+      sb,
+      {
+        to: plannerEmail,
+        subject: `${couple} signed ${contract.title}`,
+        bodyText,
+        bodyHtml,
+      },
+      {
+        org_id: contract.org_id,
+        workspace_id: contract.workspace_id,
+        kind: "contract_signed_planner",
+        thread_key: threadKey,
+        related_contract_id: contract.id,
+        related_lead_id: contract.lead_id,
+      },
+    );
+  }
+}
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }

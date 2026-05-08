@@ -2,48 +2,15 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { format, parseISO } from "date-fns";
-import { ArrowDownLeft, ArrowUpRight, Mail } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { ArrowUpRight, Mail, MessageSquareReply } from "lucide-react";
 import type { EmailMessageRow } from "@/lib/tier1-types";
 import { cn } from "@/lib/utils";
+import { EmailStatusPill } from "./email-status-pill";
 
 export interface EmailThreadListProps {
   contextKind: "lead" | "vendor" | "guest";
   contextId: string;
 }
-
-type StatusVariant =
-  | "default"
-  | "secondary"
-  | "outline"
-  | "muted"
-  | "success"
-  | "warning"
-  | "destructive";
-
-const STATUS_VARIANT: Record<string, StatusVariant> = {
-  queued: "muted",
-  sent: "success",
-  delivered: "success",
-  opened: "success",
-  clicked: "success",
-  bounced: "destructive",
-  complained: "destructive",
-  failed: "destructive",
-  received: "default",
-};
-
-const STATUS_LABEL: Record<string, string> = {
-  queued: "Draft",
-  sent: "Sent",
-  delivered: "Delivered",
-  opened: "Opened",
-  clicked: "Clicked",
-  bounced: "Bounced",
-  complained: "Complained",
-  failed: "Failed",
-  received: "Received",
-};
 
 export function EmailThreadList({ contextKind, contextId }: EmailThreadListProps) {
   const [messages, setMessages] = useState<EmailMessageRow[] | null>(null);
@@ -108,70 +75,72 @@ export function EmailThreadList({ contextKind, contextId }: EmailThreadListProps
 
   return (
     <ol className="space-y-3">
-      {messages.map((m) => (
-        <li
-          key={m.id}
-          className="rounded-2xl border border-stone-200 bg-white p-4 shadow-sm"
-        >
-          <div className="flex flex-wrap items-center gap-2 text-[11px] uppercase tracking-[0.18em] text-stone-500">
-            <span
-              className={cn(
-                "inline-flex items-center gap-1 rounded-full px-2 py-0.5",
-                m.direction === "outbound"
-                  ? "bg-rose-50 text-rose-800"
-                  : "bg-emerald-50 text-emerald-800",
-              )}
-            >
-              {m.direction === "outbound" ? (
-                <ArrowUpRight className="h-3 w-3" />
-              ) : (
-                <ArrowDownLeft className="h-3 w-3" />
-              )}
-              {m.direction === "outbound" ? "Sent" : "Received"}
-            </span>
-            <Badge variant={STATUS_VARIANT[m.status] ?? "muted"}>
-              {STATUS_LABEL[m.status] ?? m.status}
-            </Badge>
-            <span className="ml-auto text-stone-400 normal-case tracking-normal">
-              {formatTimestamp(m.sent_at ?? m.created_at)}
-            </span>
-          </div>
-
-          <div className="mt-2 text-xs text-stone-500">
-            {m.direction === "outbound" ? (
-              <>
-                To{" "}
-                <span className="font-medium text-stone-700">
-                  {m.to_name ? `${m.to_name} <${m.to_email}>` : m.to_email}
-                </span>
-              </>
-            ) : (
-              <>
-                From{" "}
-                <span className="font-medium text-stone-700">
-                  {m.from_name
-                    ? `${m.from_name} <${m.from_email ?? ""}>`
-                    : m.from_email ?? "—"}
-                </span>
-              </>
+      {messages.map((m) => {
+        const isInbound = m.direction === "inbound";
+        return (
+          <li
+            key={m.id}
+            className={cn(
+              "rounded-2xl border p-4 shadow-sm",
+              isInbound
+                ? "ml-6 border-emerald-200 bg-emerald-50/50"
+                : "border-stone-200 bg-white",
             )}
-          </div>
+          >
+            <div className="flex flex-wrap items-center gap-2 text-[11px] uppercase tracking-[0.18em] text-stone-500">
+              {isInbound ? (
+                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-600 px-2 py-0.5 text-white normal-case tracking-normal">
+                  <MessageSquareReply className="h-3 w-3" />
+                  Reply received
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2 py-0.5 text-rose-800">
+                  <ArrowUpRight className="h-3 w-3" />
+                  Sent
+                </span>
+              )}
+              <EmailStatusPill status={m.status} />
+              <span className="ml-auto text-stone-400 normal-case tracking-normal">
+                {formatTimestamp(m.sent_at ?? m.created_at)}
+              </span>
+            </div>
 
-          <div className="mt-2 font-serif text-base text-stone-900">
-            {m.subject || "(no subject)"}
-          </div>
+            <div className="mt-2 text-xs text-stone-500">
+              {isInbound ? (
+                <>
+                  From{" "}
+                  <span className="font-medium text-stone-700">
+                    {m.from_name
+                      ? `${m.from_name} <${m.from_email ?? ""}>`
+                      : m.from_email ?? "—"}
+                  </span>
+                </>
+              ) : (
+                <>
+                  To{" "}
+                  <span className="font-medium text-stone-700">
+                    {m.to_name ? `${m.to_name} <${m.to_email}>` : m.to_email}
+                  </span>
+                </>
+              )}
+            </div>
 
-          {m.body_text && (
-            <p className="mt-2 line-clamp-3 whitespace-pre-wrap text-sm text-stone-600">
-              {m.body_text}
-            </p>
-          )}
+            <div className="mt-2 font-serif text-base text-stone-900">
+              {m.subject || "(no subject)"}
+            </div>
 
-          {m.status_detail && m.status === "failed" && (
-            <p className="mt-2 text-xs text-destructive">{m.status_detail}</p>
-          )}
-        </li>
-      ))}
+            {m.body_text && (
+              <p className="mt-2 line-clamp-3 whitespace-pre-wrap text-sm text-stone-600">
+                {m.body_text}
+              </p>
+            )}
+
+            {m.status_detail && m.status === "failed" && (
+              <p className="mt-2 text-xs text-destructive">{m.status_detail}</p>
+            )}
+          </li>
+        );
+      })}
     </ol>
   );
 }
