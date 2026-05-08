@@ -1,4 +1,4 @@
-# wedding-os — state of the build (May 2026)
+# wedding-os — state of the build (May 8 2026)
 
 > Comprehensive map of what's built, what works, what's broken, and what's
 > next. Two product surfaces: **B2B** (Astia-style planner serving couples)
@@ -277,17 +277,20 @@ All non-chat calls write to `autopilot_runs` (or `ai_messages` for chat) with co
 
 | Bug | Status | Fixed in commit |
 |---|---|---|
-| Estimator says "Astia's two PDFs" | ✅ FIXED | `0263ca6` + redirect in `8530032` |
+| Estimator says "Astia's two PDFs" | ✅ FIXED | `0263ca6` → fully rebuilt `f34ba69` |
+| Estimator removed entirely (mistake) | ✅ RESTORED | `f34ba69` rebuilt to pull from budget_lines |
 | Plan is empty for B2C couples | ✅ FIXED | Manual seed + auto-seed in `66254c8` |
+| Plan tasks not editable (Monday-style) | ✅ FIXED | `f34ba69` — pencil icon → drawer w/ phase/due/owner/category/notes |
 | Onboarding skipped budget/style/priority | ✅ FIXED | `5356ad9` |
+| Onboarding doesn't ask "anything else?" | ✅ FIXED | `66254c8` |
+| AI chat doesn't capture venues mentioned | ✅ FIXED | `66254c8` |
 | Couples can't add venues / guests | ✅ FIXED | `0263ca6` |
 | `/availability` "Read-only" message | ✅ FIXED | `0263ca6` |
 | Astia/Astha references everywhere | ✅ FIXED | `0263ca6` (25 files scrubbed) |
 | dual-role couple login → /admin | ✅ WORKAROUND (demoted 3 test accts to org_role=member) | TBD: middleware fix to check role too |
-| Currency primary EUR not USD | ❌ OPEN | TBD |
-| `/estimator/new` form is Sangeet+Wedding format (Indian) | ✅ AVOIDED via redirect | TBD: rebuild as generic OR delete |
-| AI chat doesn't capture venues mentioned | ✅ FIXED | `66254c8` |
-| Magic link link burned by email preview | Use email+password instead | n/a |
+| Currency primary EUR not USD | ❌ OPEN | Next priority |
+| Magic link burned by email preview | Use email+password (`Wedding2027!`) | n/a |
+| Hobby Railway plan queued builds | ✅ Queue cleared | n/a |
 
 ---
 
