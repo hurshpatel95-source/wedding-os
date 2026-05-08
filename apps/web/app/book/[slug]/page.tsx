@@ -2,9 +2,11 @@ import { notFound } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { Star } from "lucide-react";
 import type { Database } from "@wedding-os/db";
 import { BookingForm } from "@/components/public-book/booking-form";
 import type { BookingWindowRow, OrgPublicRow } from "@/lib/lead-types";
+import type { TestimonialRow } from "@/lib/wave2-types";
 
 export const dynamic = "force-dynamic";
 
@@ -91,6 +93,55 @@ export default async function PublicBookingPage({
     .order("day_of_week", { ascending: true });
 
   const windows = (windowsRaw ?? []) as BookingWindowRow[];
+
+  // Published testimonials for the "What couples say" section. RLS policy
+  // `testimonials_published_public_read` opens these to anon for orgs with
+  // a public_slug.
+  const { data: testimonialsRaw } = await (
+    sb as unknown as {
+      from: (t: string) => {
+        select: (cols: string) => {
+          eq: (col: string, val: string) => {
+            eq: (
+              col: string,
+              val: string,
+            ) => {
+              order: (
+                col: string,
+                opts: { ascending: boolean },
+              ) => {
+                limit: (
+                  n: number,
+                ) => Promise<{ data: TestimonialRow[] | null }>;
+              };
+            };
+          };
+        };
+      };
+    }
+  )
+    .from("testimonials")
+    .select(
+      "id, org_id, workspace_id, couple_names, contact_email, quote, rating, photo_storage_path, status, public_token, requested_at, submitted_at, published_at, created_by, created_at, updated_at",
+    )
+    .eq("org_id", org.id)
+    .eq("status", "published")
+    .order("published_at", { ascending: false })
+    .limit(6);
+
+  const testimonials = (testimonialsRaw ?? []) as TestimonialRow[];
+
+  // Resolve photo public URLs for the testimonial avatars.
+  const testimonialsWithPhotos = testimonials.map((t) => {
+    let photoUrl: string | null = null;
+    if (t.photo_storage_path) {
+      const { data: pub } = sb.storage
+        .from("library-media")
+        .getPublicUrl(t.photo_storage_path);
+      photoUrl = pub?.publicUrl ?? null;
+    }
+    return { ...t, photoUrl };
+  });
 
   let heroUrl: string | null = null;
   if (org.public_hero_storage_path) {
@@ -180,6 +231,62 @@ export default async function PublicBookingPage({
           />
         </div>
       </div>
+
+      {testimonialsWithPhotos.length > 0 && (
+        <section className="border-t border-stone-200 bg-white/60 py-16">
+          <div className="mx-auto max-w-5xl px-6">
+            <div className="text-center">
+              <div className="text-[10px] uppercase tracking-[0.3em] text-stone-500">
+                What couples say
+              </div>
+              <h2 className="mt-2 font-serif text-3xl font-light tracking-tight md:text-4xl">
+                In their own words
+              </h2>
+            </div>
+            <div className="mt-10 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+              {testimonialsWithPhotos.map((t) => (
+                <article
+                  key={t.id}
+                  className="rounded-2xl border border-stone-200 bg-white p-6 shadow-sm"
+                >
+                  {t.rating != null && (
+                    <div className="flex items-center gap-0.5">
+                      {[1, 2, 3, 4, 5].map((i) => (
+                        <Star
+                          key={i}
+                          className={`h-4 w-4 ${
+                            i <= (t.rating ?? 0)
+                              ? "fill-amber-400 text-amber-400"
+                              : "fill-stone-200 text-stone-200"
+                          }`}
+                        />
+                      ))}
+                    </div>
+                  )}
+                  {t.quote && (
+                    <blockquote className="mt-3 font-serif text-base italic leading-relaxed text-stone-800">
+                      &ldquo;{t.quote}&rdquo;
+                    </blockquote>
+                  )}
+                  <div className="mt-4 flex items-center gap-3">
+                    {t.photoUrl && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={t.photoUrl}
+                        alt=""
+                        className="h-10 w-10 rounded-full object-cover"
+                      />
+                    )}
+                    <div className="text-[11px] uppercase tracking-[0.2em] text-stone-500">
+                      {t.couple_names ?? "A happy couple"}
+                    </div>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
 
       <footer className="border-t border-stone-200 bg-white/50 py-10 text-center">
         <div className="text-xs uppercase tracking-[0.3em] text-stone-500">
