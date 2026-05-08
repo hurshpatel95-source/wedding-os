@@ -15,9 +15,22 @@
 //   - base_currency          → workspaces.base_currency ("USD" | "EUR")
 
 import { NextRequest, NextResponse } from "next/server";
+import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
+
+// RLS on `workspaces` only allows admin role to UPDATE — couples have role
+// 'couple' so direct `supabase.from("workspaces").update()` silently affects
+// 0 rows and the API returns 200 with no actual change. The API allowlist
+// above is the security boundary; we use service-role to actually write.
+function buildServiceClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+  return createServiceClient(url, key, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+}
 
 const ALLOWED_CURRENCIES = ["USD", "EUR"] as const;
 type Currency = (typeof ALLOWED_CURRENCIES)[number];
@@ -213,25 +226,64 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: "no fields to update" }, { status: 400 });
   }
 
+  // Bypass RLS via service-role. We've already verified ownership via
+  // profile.workspace_id matching the authenticated user. The allowlist
+  // above ensures no planner-only fields can be flipped through this path.
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return NextResponse.json(
+      { error: "Server not configured (missing service role)" },
+      { status: 503 },
+    );
+  }
+  const service = buildServiceClient();
+
+  // Verify the workspace_id from the user's profile actually belongs to
+  // them — defense-in-depth in case the profile fetch above ever drifted.
+  const { data: ownerCheck } = await service
+    .from("users")
+    .select("workspace_id")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (
+    !ownerCheck?.workspace_id ||
+    ownerCheck.workspace_id !== profile.workspace_id
+  ) {
+    return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  }
+
   // Cast — wedding_region / guest_count_estimate / budget_target_eur aren't
   // in the generated types yet (added in 20260507000002_wave3_autopilot).
-  const sbWs = supabase as unknown as {
+  const sbWs = service as unknown as {
     from: (t: string) => {
       update: (payload: Record<string, unknown>) => {
         eq: (
           col: string,
           val: string,
-        ) => Promise<{ error: { message: string } | null }>;
+        ) => {
+          select: (cols: string) => Promise<{
+            data: Array<Record<string, unknown>> | null;
+            error: { message: string } | null;
+          }>;
+        };
       };
     };
   };
-  const { error: updErr } = await sbWs
+  const { data: updated, error: updErr } = await sbWs
     .from("workspaces")
     .update(patch)
-    .eq("id", profile.workspace_id);
+    .eq("id", profile.workspace_id)
+    .select("id");
   if (updErr) {
     return NextResponse.json(
       { error: `Couldn't update: ${updErr.message}` },
+      { status: 500 },
+    );
+  }
+  if (!updated || updated.length === 0) {
+    // Belt-and-suspenders: even with service-role, surface 0-row updates
+    // as a real error rather than a silent success.
+    return NextResponse.json(
+      { error: "Update affected zero rows — workspace not found?" },
       { status: 500 },
     );
   }
