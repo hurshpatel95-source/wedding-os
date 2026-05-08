@@ -95,6 +95,17 @@ export function OnboardingChat({
     scrollRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages.length, sending, complete]);
 
+  // Onboarding turns can take 10-30s on cold start (Anthropic + DB writes).
+  // We retry once on a generic network blip ("Failed to fetch") before
+  // surfacing a toast — that hides the most common false-alarm UX.
+  const callTurn = async (msg: string): Promise<Response> => {
+    return fetch("/api/onboarding/turn", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ session_id: sessionId, user_message: msg }),
+    });
+  };
+
   const send = async (text: string) => {
     const trimmed = text.trim();
     if (!trimmed || sending || complete) return;
@@ -107,14 +118,20 @@ export function OnboardingChat({
     ]);
 
     try {
-      const res = await fetch("/api/onboarding/turn", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          session_id: sessionId,
-          user_message: trimmed,
-        }),
-      });
+      let res: Response;
+      try {
+        res = await callTurn(trimmed);
+      } catch (netErr) {
+        // Browser threw before getting a response — almost always a cold-
+        // start hiccup. One silent retry, then surface if it still fails.
+        const m = (netErr as Error).message;
+        if (/failed to fetch|networkerror|load failed/i.test(m)) {
+          await new Promise((r) => setTimeout(r, 800));
+          res = await callTurn(trimmed);
+        } else {
+          throw netErr;
+        }
+      }
       if (!res.ok) {
         const j = (await res.json().catch(() => ({}))) as { error?: string };
         throw new Error(j.error ?? `Onboarding failed (${res.status})`);
@@ -138,7 +155,13 @@ export function OnboardingChat({
       }));
       if (data.complete) setComplete(true);
     } catch (e) {
-      toast.error((e as Error).message);
+      const m = (e as Error).message ?? "";
+      // Hide the raw "Failed to fetch" string — replace with a friendlier
+      // message that doesn't read as a system crash.
+      const friendly = /failed to fetch|networkerror|load failed/i.test(m)
+        ? "Connection blip — try once more."
+        : m;
+      toast.error(friendly);
       // Roll back the optimistic user message so they can retry without dup
       setMessages((prev) => prev.slice(0, -1));
     } finally {

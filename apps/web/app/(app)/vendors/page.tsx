@@ -135,12 +135,13 @@ export default async function VendorsPage() {
           description="Track every vendor you're paying — planner, photographer, florist, DJ, transport. Quotes, deposits, and contact info live here."
           action={
             <>
-              <Button asChild>
-                <Link href="/vendors/find">
-                  <Search className="h-4 w-4" />
-                  Find vendors with AI
-                </Link>
-              </Button>
+              <Link
+                href="/vendors/find"
+                className="inline-flex items-center gap-2 rounded-md bg-stone-900 px-4 py-2 text-sm font-medium text-white shadow transition hover:bg-stone-700"
+              >
+                <Search className="h-4 w-4" />
+                Find vendors with AI
+              </Link>
               <VendorCreateButton />
             </>
           }

@@ -122,8 +122,8 @@ export default function LoginPage() {
     <main className="flex min-h-screen items-center justify-center bg-background p-6">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <CardTitle className="font-serif text-2xl">wedding-os</CardTitle>
-          <CardDescription>Barcelona · September 2027</CardDescription>
+          <CardTitle className="font-serif text-2xl">Acquired Planner</CardTitle>
+          <CardDescription>Sign in to your wedding workspace</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {banner && (
