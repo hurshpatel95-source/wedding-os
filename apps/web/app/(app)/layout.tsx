@@ -2,8 +2,11 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { Nav } from "@/components/nav";
 import { ImpersonationBanner } from "@/components/admin-impersonation-banner";
-
-const DEFAULT_ACCENT = "#9d174d";
+import {
+  ACQUIRED_PLANNER_ACCENT,
+  getSkinFor,
+  normalizeSkin,
+} from "@/lib/workspace-skin";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const supabase = createClient();
@@ -14,7 +17,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   if (!user) redirect("/login");
 
-  const [{ data: profile }, { data: workspace }] = await Promise.all([
+  const [{ data: profile }, { data: workspaceBase }] = await Promise.all([
     supabase
       .from("users")
       .select("role, workspace_id")
@@ -26,6 +29,36 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       .limit(1)
       .maybeSingle(),
   ]);
+
+  // The `skin` column was added in migration 20260508000003. Generated
+  // Supabase types lag behind, so read defensively via a separate query
+  // and a permissive cast — pre-migration environments still render with
+  // the default Acquired Planner skin.
+  let workspaceSkin = "acquired_planner";
+  if (workspaceBase?.id) {
+    try {
+      const sb = supabase as unknown as {
+        from: (t: string) => {
+          select: (cols: string) => {
+            eq: (col: string, val: string) => {
+              maybeSingle: () => Promise<{
+                data: { skin?: string | null } | null;
+              }>;
+            };
+          };
+        };
+      };
+      const { data: skinRow } = await sb
+        .from("workspaces")
+        .select("skin")
+        .eq("id", workspaceBase.id)
+        .maybeSingle();
+      if (skinRow?.skin) workspaceSkin = skinRow.skin;
+    } catch {
+      // pre-migration — stay on default
+    }
+  }
+  const workspace = workspaceBase;
 
   const role = (profile?.role ?? null) as "admin" | "couple" | null;
 
@@ -63,7 +96,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // name + logo). Couple workspace_branding is readable to workspace members
   // via RLS. Read defensively — pre-migration or no-row should fall back to
   // hardcoded defaults.
-  let brandingAccent: string = DEFAULT_ACCENT;
+  let brandingAccent: string = ACQUIRED_PLANNER_ACCENT;
   let plannerDisplayName: string | null = null;
   let plannerLogoUrl: string | null = null;
   if (workspace?.id) {
@@ -104,10 +137,35 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     }
   }
 
+  // Resolve the brand preset for this workspace's skin. For co_branded /
+  // white_label, fold in the planner's branding row (display name +
+  // accent) so the planner's identity is what the couple sees. For
+  // acquired_planner / acquired_style_collab, the static preset wins.
+  const skin = normalizeSkin(workspaceSkin);
+  const brand = getSkinFor(skin, {
+    displayName: plannerDisplayName,
+    accentHex: brandingAccent,
+  });
+
+  // Edge case: a co_branded workspace where workspace_branding never got
+  // populated falls back to "Your planner" + the workspace name as
+  // subtitle so the header doesn't render empty.
+  const navSubtitle =
+    (skin === "co_branded" || skin === "white_label") &&
+    !plannerDisplayName &&
+    workspace?.name
+      ? workspace.name
+      : null;
+
   return (
     <div
       className="flex min-h-screen flex-col"
-      style={{ "--accent": brandingAccent } as React.CSSProperties}
+      style={
+        {
+          "--accent": brand.accentHex,
+          "--brand-accent": brand.accentHex,
+        } as React.CSSProperties
+      }
     >
       {impersonatingWorkspaceName && (
         <ImpersonationBanner workspaceName={impersonatingWorkspaceName} />
@@ -119,7 +177,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         weddingDate={workspace?.wedding_date ?? null}
         plannerDisplayName={plannerDisplayName}
         plannerLogoUrl={plannerLogoUrl}
-        accentHex={brandingAccent}
+        accentHex={brand.accentHex}
+        brand={brand}
+        brandSubtitleFallback={navSubtitle}
       />
       <main className="container flex-1 py-10">{children}</main>
     </div>

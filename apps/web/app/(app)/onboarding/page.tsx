@@ -91,7 +91,7 @@ export default async function OnboardingPage() {
     const initialAssistant: IntakeChatMessage = {
       role: "assistant",
       content:
-        "Congrats on the engagement! I'm your wedding-os planning host. I'll ask a few quick questions so your dashboard isn't empty when you land on it. First — what are your two names?",
+        "Congrats on the engagement! Welcome to Acquired Planner — I'm your planning host. I'll ask a few quick questions so your dashboard isn't empty when you land on it. First — what are your two names?",
       ts: new Date().toISOString(),
     };
     const { data: created, error: createErr } = await sb

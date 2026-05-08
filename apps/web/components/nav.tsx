@@ -30,6 +30,7 @@ import type { LucideIcon } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { AlertsBell } from "@/components/alerts/alerts-bell";
+import type { BrandPreset } from "@/lib/workspace-skin";
 
 const links: { href: string; label: string; icon: LucideIcon }[] = [
   { href: "/", label: "Dashboard", icon: Sparkles },
@@ -60,6 +61,8 @@ export function Nav({
   plannerDisplayName,
   plannerLogoUrl,
   accentHex,
+  brand,
+  brandSubtitleFallback,
 }: {
   userEmail: string | null;
   role: "admin" | "couple" | null;
@@ -68,6 +71,11 @@ export function Nav({
   plannerDisplayName?: string | null;
   plannerLogoUrl?: string | null;
   accentHex?: string | null;
+  brand?: BrandPreset;
+  /** Fallback subtitle when skin is co_branded/white_label but the
+   *  planner's display name hasn't been set yet — usually the workspace
+   *  name so the eyebrow line doesn't look empty. */
+  brandSubtitleFallback?: string | null;
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -95,6 +103,35 @@ export function Nav({
     }
   }
 
+  // Title shown in the nav header. When a brand preset is supplied (post-
+  // skin migration), the brand's displayName wins over the legacy
+  // workspaceName fallback. workspaceName ("Kyle & Michelle — Newport") is
+  // still useful as a sub-line, but the brand identity should lead.
+  const headerTitle =
+    brand?.displayName ?? workspaceName ?? "Your wedding";
+
+  // Eyebrow line under the header title. Priority order:
+  //   1. brandSubtitleFallback (set when co_branded but no planner name yet)
+  //   2. brand.tagline (e.g. "Your wedding, acquired.")
+  //   3. legacy planner-name + wedding-date join
+  //   4. literal "Wedding portal"
+  let headerSubtitle: string;
+  if (brandSubtitleFallback) {
+    headerSubtitle = brandSubtitleFallback;
+  } else if (brand?.tagline) {
+    headerSubtitle = brand.tagline;
+  } else {
+    headerSubtitle =
+      [plannerDisplayName, ...subtitleParts].filter(Boolean).join(" · ") ||
+      "Wedding portal";
+  }
+
+  // Active-pill background. Prefer the CSS variable so the layout's
+  // wrapper can theme everything from one place; fall back to the
+  // accentHex prop for backward compat with code paths that haven't been
+  // updated yet.
+  const accentBg = "var(--brand-accent)";
+
   return (
     <header className="sticky top-0 z-40 border-b border-stone-300/40 bg-background/80 backdrop-blur">
       <div className="container flex h-16 items-center justify-between gap-6">
@@ -111,9 +148,12 @@ export function Nav({
             <div
               className="flex h-9 w-9 items-center justify-center rounded-full shadow-sm"
               style={{
-                background: accentHex
-                  ? `linear-gradient(135deg, ${accentHex}, #d97706)`
-                  : "linear-gradient(135deg, #fb7185, #d97706)",
+                // Use the resolved brand accent first; fall back to the
+                // legacy accentHex prop, then a hardcoded rose so we
+                // never render a transparent circle.
+                background: `linear-gradient(135deg, ${
+                  brand?.accentHex ?? accentHex ?? "#fb7185"
+                }, #d97706)`,
               }}
             >
               <Heart className="h-4 w-4 text-white" fill="white" />
@@ -121,11 +161,16 @@ export function Nav({
           )}
           <div className="leading-none">
             <div className="font-serif text-lg font-medium tracking-tight">
-              {workspaceName ?? "Your wedding"}
+              {headerTitle}
             </div>
             <div className="mt-1 text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
-              {[plannerDisplayName, ...subtitleParts].filter(Boolean).join(" · ") || "Wedding portal"}
+              {headerSubtitle}
             </div>
+            {brand?.showPoweredBy && (
+              <div className="mt-1 text-[9px] uppercase tracking-[0.18em] text-stone-500">
+                Powered by Acquired Planner
+              </div>
+            )}
           </div>
         </Link>
 
@@ -147,7 +192,7 @@ export function Nav({
                 )}
                 style={
                   active
-                    ? { background: accentHex ?? "#1c1917" }
+                    ? { background: accentBg }
                     : undefined
                 }
               >
@@ -201,7 +246,7 @@ export function Nav({
               )}
               style={
                 active
-                  ? { background: accentHex ?? "#1c1917" }
+                  ? { background: accentBg }
                   : undefined
               }
             >

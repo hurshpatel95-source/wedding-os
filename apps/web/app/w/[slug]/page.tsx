@@ -7,6 +7,7 @@ import type { Database } from "@wedding-os/db";
 import { InquiryForm } from "@/components/public-site/inquiry-form";
 import { RsvpForm } from "@/components/public-site/rsvp-form";
 import { SITE_THEMES, type SiteThemeSlug } from "@/lib/tier1-types";
+import { normalizeSkin } from "@/lib/workspace-skin";
 
 export const dynamic = "force-dynamic";
 
@@ -225,10 +226,14 @@ export default async function PublicWeddingSite({
 
   if (!workspaceRaw) notFound();
 
-  // public_theme_slug is post-0025; types lag, so cast to read.
+  // public_theme_slug is post-0025 and `skin` is post-20260508000003;
+  // types lag both, so cast to read.
   const workspace = workspaceRaw as typeof workspaceRaw & {
     public_theme_slug?: string | null;
+    skin?: string | null;
   };
+
+  const skin = normalizeSkin(workspace.skin);
 
   // Don't render unpublished sites publicly. Owners can preview from
   // /settings/public-site → "View live" instead.
@@ -648,6 +653,30 @@ export default async function PublicWeddingSite({
         <div className={`text-xs uppercase tracking-[0.3em] ${theme.footerEyebrow}`}>
           {coupleHeading} &middot; {dateLabel}
         </div>
+        {(() => {
+          // Skin-aware brand attribution at the foot of the public site.
+          //   acquired_planner       → "Built with Acquired Planner"
+          //   co_branded             → "Built with Acquired Planner · Wedding planning by <planner>"
+          //   white_label            → no attribution at all
+          //   acquired_style_collab  → "Built with Acquired Planner × Acquired Style"
+          let attribution: string | null;
+          if (skin === "white_label") {
+            attribution = null;
+          } else if (skin === "co_branded") {
+            const plannerName = planner?.name ?? "your planner";
+            attribution = `Built with Acquired Planner · Wedding planning by ${plannerName}`;
+          } else if (skin === "acquired_style_collab") {
+            attribution = "Built with Acquired Planner × Acquired Style";
+          } else {
+            attribution = "Built with Acquired Planner";
+          }
+          if (!attribution) return null;
+          return (
+            <div className={`mt-3 text-[10px] uppercase tracking-[0.25em] ${theme.footerEyebrow} opacity-70`}>
+              {attribution}
+            </div>
+          );
+        })()}
       </footer>
     </div>
   );
