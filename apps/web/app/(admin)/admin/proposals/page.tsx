@@ -4,6 +4,7 @@ import { FileText, PlusCircle } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@/components/ui/empty-state";
 import {
   PROPOSAL_STATUS_LABEL,
   type ProposalRow,
@@ -121,9 +122,19 @@ export default async function PlannerProposalsPage({
         </Link>
       </header>
 
-      <FilterBar current={filterStatus} counts={counts} />
+      {proposals.length > 0 && <FilterBar current={filterStatus} counts={counts} />}
 
-      {filtered.length === 0 ? (
+      {proposals.length === 0 ? (
+        <EmptyState
+          icon={FileText}
+          title="No proposals yet"
+          description="Build a branded proposal couples can review, accept, or decline online."
+          primary={{
+            label: "Build your first proposal",
+            href: "/admin/proposals/new",
+          }}
+        />
+      ) : filtered.length === 0 ? (
         <Card>
           <CardContent className="py-16 text-center">
             <FileText className="mx-auto mb-3 h-8 w-8 text-stone-300" />
@@ -131,8 +142,7 @@ export default async function PlannerProposalsPage({
               No proposals in this view
             </h3>
             <p className="mx-auto mt-2 max-w-sm text-sm text-stone-500">
-              Draft a quote and share it as a private link with your couple —
-              they can accept or decline in one click.
+              Switch to another tab, or draft a new proposal for a couple.
             </p>
             <div className="mt-5 flex justify-center gap-3">
               <Link

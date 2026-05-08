@@ -96,15 +96,16 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // 1b. Default sandbox workspace. The DB schema requires every user to have
-  // a workspace_id; org_admins typically work cross-workspace via the /admin
-  // shell, but we still need a row to satisfy the FK. They can rename or
-  // delete this once they create a real client.
+  // 1b. Default placeholder workspace. The DB schema requires every user to
+  // have a workspace_id; org_admins typically work cross-workspace via the
+  // /admin shell, but we still need a row to satisfy the FK. We name it after
+  // the studio so a fresh planner sees their own brand instead of "Sandbox".
+  const placeholderWorkspaceName = `${studioName}'s studio`;
   const { data: defaultWs, error: defaultWsErr } = await service
     .from("workspaces")
     .insert({
       org_id: org.id,
-      name: "Sandbox",
+      name: placeholderWorkspaceName,
     })
     .select("id")
     .single();

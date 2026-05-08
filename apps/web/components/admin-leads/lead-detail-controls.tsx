@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { WhatsAppLink } from "@/components/whatsapp-link";
 import {
   LEAD_STATUS_LABEL,
   type LeadStatus,
@@ -24,6 +25,7 @@ export function LeadDetailControls({
   email,
   phone,
   coupleNames,
+  whatsappText,
 }: {
   leadId: string;
   currentStatus: LeadStatus;
@@ -31,6 +33,7 @@ export function LeadDetailControls({
   email: string | null;
   phone: string | null;
   coupleNames: string;
+  whatsappText?: string;
 }) {
   const router = useRouter();
   const [status, setStatus] = useState<LeadStatus>(currentStatus);
@@ -142,6 +145,14 @@ export function LeadDetailControls({
             >
               Call {phone}
             </a>
+          )}
+          {phone && (
+            <WhatsAppLink
+              phone={phone}
+              text={whatsappText}
+              variant="row"
+              className="rounded-md bg-emerald-50 px-3 py-2 hover:bg-emerald-100"
+            />
           )}
         </div>
       </div>

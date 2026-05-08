@@ -8,7 +8,7 @@ export default function AdminSettingsPage() {
           <CardTitle className="font-serif text-2xl">Settings</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-stone-500">Coming in Wave 2</p>
+          <p className="text-sm text-stone-500">More settings coming soon.</p>
         </CardContent>
       </Card>
     </div>

@@ -4,6 +4,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { Database } from "@wedding-os/db";
 import { BookingForm } from "@/components/public-book/booking-form";
+import { WhatsAppLink } from "@/components/whatsapp-link";
 import type { BookingWindowRow, OrgPublicRow } from "@/lib/lead-types";
 
 export const dynamic = "force-dynamic";
@@ -167,6 +168,13 @@ export default async function PublicBookingPage({
               >
                 Email us
               </a>
+            )}
+            {org.contact_phone && (
+              <WhatsAppLink
+                phone={org.contact_phone}
+                variant="pill"
+                className="!px-4 !py-2 !text-sm"
+              />
             )}
           </div>
         </div>

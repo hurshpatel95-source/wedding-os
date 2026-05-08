@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { Mail, Phone, Trash2, Pencil } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { WhatsAppLink } from "@/components/whatsapp-link";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -189,13 +190,20 @@ export function GuestList({
                           </a>
                         )}
                         {g.phone && (
-                          <a
-                            href={`tel:${g.phone}`}
-                            className="flex items-center gap-1 text-muted-foreground hover:underline"
-                          >
-                            <Phone className="h-3 w-3" />
-                            {g.phone}
-                          </a>
+                          <div className="flex items-center gap-1.5">
+                            <a
+                              href={`tel:${g.phone}`}
+                              className="flex items-center gap-1 text-muted-foreground hover:underline"
+                            >
+                              <Phone className="h-3 w-3" />
+                              {g.phone}
+                            </a>
+                            <WhatsAppLink
+                              phone={g.phone}
+                              text={`Hi ${(g.full_name ?? "").split(" ")[0] || "there"}!`}
+                              variant="icon"
+                            />
+                          </div>
                         )}
                       </div>
                     </td>

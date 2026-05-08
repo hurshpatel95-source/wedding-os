@@ -77,8 +77,9 @@ export default async function GuestsPage() {
             Guest list
           </h1>
           <p className="max-w-2xl text-sm text-muted-foreground">
-            Track invites, addresses, dietary needs, and RSVPs across every event. Import directly
-            from Astha's Excel — Claude maps the columns automatically.
+            Track invites, addresses, dietary needs, and RSVPs across every
+            event. Import directly from your spreadsheet — we map the columns
+            for you.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">

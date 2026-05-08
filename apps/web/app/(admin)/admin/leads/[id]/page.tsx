@@ -14,6 +14,7 @@ import { LeadDetailControls } from "@/components/admin-leads/lead-detail-control
 import { LeadStatusBadge } from "@/components/admin-leads/lead-status-badge";
 import { InlineEmailComposer } from "@/components/email/inline-email-composer";
 import { EmailThreadList } from "@/components/email/email-thread-list";
+import { WhatsAppLink } from "@/components/whatsapp-link";
 import {
   LEAD_SOURCE_LABEL,
   type LeadRow,
@@ -48,6 +49,14 @@ export default async function LeadDetailPage({
 
   if (!lead) notFound();
 
+  // Org name powers the pre-filled WhatsApp message: "Hi <names>, this is <studio>…"
+  const { data: orgRow } = await supabase
+    .from("organizations")
+    .select("name")
+    .eq("id", lead.org_id)
+    .maybeSingle();
+  const studioName: string | null = (orgRow as { name?: string | null } | null)?.name ?? null;
+
   const referringName: string | null = lead.referring_workspace_id
     ? await (async () => {
         const { data } = await supabase
@@ -75,6 +84,10 @@ export default async function LeadDetailPage({
     [lead.partner_a_name, lead.partner_b_name].filter(Boolean).join(" & ") ||
     "Unnamed lead";
 
+  const whatsappText = studioName
+    ? `Hi ${name}, this is ${studioName}. Got your inquiry — would love to chat about your wedding plans.`
+    : `Hi ${name} — got your inquiry, would love to chat about your wedding plans.`;
+
   return (
     <div className="space-y-6">
       <Link
@@ -96,6 +109,9 @@ export default async function LeadDetailPage({
           <div className="mt-2 flex flex-wrap gap-x-6 gap-y-2 text-sm text-stone-600">
             <Tag icon={Mail} text={lead.email ?? "no email"} />
             <Tag icon={Phone} text={lead.phone ?? "no phone"} />
+            {lead.phone && (
+              <WhatsAppLink phone={lead.phone} text={whatsappText} variant="pill" />
+            )}
             {lead.city_or_region && (
               <Tag icon={MapPin} text={lead.city_or_region} />
             )}
@@ -188,6 +204,7 @@ export default async function LeadDetailPage({
             email={lead.email}
             phone={lead.phone}
             coupleNames={name}
+            whatsappText={whatsappText}
           />
         </aside>
       </div>

@@ -4,6 +4,7 @@ import { FileSignature, PlusCircle } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@/components/ui/empty-state";
 import { ContractStatusBadge } from "@/components/admin-contracts/contract-status-badge";
 import {
   CONTRACT_STATUS_LABEL,
@@ -151,9 +152,19 @@ export default async function PlannerContractsPage({
         />
       </section>
 
-      <FilterBar current={filterStatus} counts={counts} />
+      {contracts.length > 0 && <FilterBar current={filterStatus} counts={counts} />}
 
-      {filtered.length === 0 ? (
+      {contracts.length === 0 ? (
+        <EmptyState
+          icon={FileSignature}
+          title="No contracts yet"
+          description="Send your first contract — couples sign in their browser, you get notified the moment they do."
+          primary={{
+            label: "Draft your first contract",
+            href: "/admin/contracts/new",
+          }}
+        />
+      ) : filtered.length === 0 ? (
         <Card>
           <CardContent className="py-16 text-center">
             <FileSignature className="mx-auto mb-3 h-8 w-8 text-stone-300" />
@@ -161,8 +172,7 @@ export default async function PlannerContractsPage({
               No contracts in this view
             </h3>
             <p className="mx-auto mt-2 max-w-sm text-sm text-stone-500">
-              Draft your first contract to send a couple a click-to-sign
-              agreement.
+              Switch to another tab, or draft a new contract for a couple.
             </p>
             <div className="mt-5 flex justify-center gap-3">
               <Link

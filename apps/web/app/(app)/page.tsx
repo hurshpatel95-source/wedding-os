@@ -395,9 +395,13 @@ export default async function DashboardPage() {
           value={String(venuesScouted)}
           sub={`of ${venueList.length} on the list`}
         />
-        <StatCard label="Open questions" value="—" sub="Q&A coming soon" />
         <StatCard
-          label="Estimated total"
+          label="Questions for venues"
+          value="—"
+          sub="Track them on each venue"
+        />
+        <StatCard
+          label="Working budget"
           value={
             estimatedTotalEur != null
               ? `€${Math.round(estimatedTotalEur).toLocaleString()}`
@@ -405,14 +409,14 @@ export default async function DashboardPage() {
           }
           sub={
             estimatedTotalEur != null
-              ? "Lowest estimate · open Estimator"
-              : "Open pricing to set"
+              ? "Your honest-budget estimate"
+              : "Set yours in the Estimator"
           }
         />
         <StatCard
-          label="Decisions logged"
+          label="Notes captured"
           value={String(decisionsLogged)}
-          sub="across all venues"
+          sub="Across every venue"
         />
       </section>
 
@@ -499,8 +503,11 @@ export default async function DashboardPage() {
             <Sparkles className="mx-auto mb-3 h-8 w-8 text-stone-300" />
             <p className="font-serif text-xl text-stone-700">No venues yet</p>
             <p className="mt-2 text-sm text-stone-500">
-              Run <code className="rounded bg-stone-100 px-1.5 py-0.5">pnpm db:seed</code>{" "}
-              to load the demo workspace, or add one from the Venues page.
+              Add your first venue from the{" "}
+              <Link href="/venues" className="underline hover:text-stone-900">
+                Venues page
+              </Link>
+              {" "}— jot down notes, photos, and pricing as you scout.
             </p>
           </div>
         ) : (
