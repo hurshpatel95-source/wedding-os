@@ -45,6 +45,7 @@ const links: { href: string; label: string; icon: LucideIcon }[] = [
   { href: "/guests", label: "Guests", icon: UserCheck },
   { href: "/budget", label: "Budget", icon: Coins },
   { href: "/estimator", label: "Estimator", icon: Receipt },
+  { href: "/pricing", label: "Full pricing", icon: Calculator },
   { href: "/payments", label: "Payments", icon: Wallet },
   { href: "/compare", label: "Compare venues", icon: Users },
   { href: "/timeline", label: "Timeline", icon: Clock },
