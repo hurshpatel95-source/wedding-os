@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@wedding-os/db";
+import { sendAndLogEmail } from "@/lib/email-send";
 
 export const runtime = "nodejs";
 
@@ -14,6 +15,30 @@ function adminClient() {
 
 function isUuid(s: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
+}
+
+interface ProposalLite {
+  id: string;
+  org_id: string;
+  workspace_id: string | null;
+  lead_id: string | null;
+  title: string;
+  status: string;
+  public_token: string;
+  total_eur: number | null;
+  valid_until: string | null;
+}
+
+interface LeadLite {
+  email: string | null;
+  couple_names: string | null;
+  partner_a_name: string | null;
+  partner_b_name: string | null;
+}
+
+interface OrgLite {
+  contact_email: string | null;
+  name: string | null;
 }
 
 export async function POST(
@@ -31,16 +56,16 @@ export async function POST(
       from: (t: string) => {
         select: (cols: string) => {
           eq: (col: string, val: string) => {
-            maybeSingle: () => Promise<{
-              data: { id: string; status: string } | null;
-            }>;
+            maybeSingle: () => Promise<{ data: ProposalLite | null }>;
           };
         };
       };
     }
   )
     .from("proposals")
-    .select("id, status")
+    .select(
+      "id, org_id, workspace_id, lead_id, title, status, public_token, total_eur, valid_until",
+    )
     .eq("public_token", params.token)
     .maybeSingle();
 
@@ -80,5 +105,186 @@ export async function POST(
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
+  // Fire-and-forget confirmation emails. Failures must NOT block accept.
+  try {
+    await sendAcceptConfirmations(sb, prop);
+  } catch (e) {
+    console.warn(
+      "[proposal-accept] confirmation send failed (non-fatal):",
+      (e as Error).message,
+    );
+  }
+
   return NextResponse.json({ ok: true });
+}
+
+async function sendAcceptConfirmations(
+  sb: ReturnType<typeof adminClient>,
+  prop: ProposalLite,
+): Promise<void> {
+  const siteUrl =
+    process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ??
+    "http://localhost:3200";
+  const adminLink = `${siteUrl}/admin/proposals/${prop.id}`;
+  const proposalLink = `${siteUrl}/proposal/${prop.public_token}`;
+
+  // Resolve couple recipient via lead.
+  let coupleEmail: string | null = null;
+  let coupleName: string | null = null;
+  if (prop.lead_id) {
+    const { data: lead } = await (
+      sb as unknown as {
+        from: (t: string) => {
+          select: (cols: string) => {
+            eq: (col: string, val: string) => {
+              maybeSingle: () => Promise<{ data: LeadLite | null }>;
+            };
+          };
+        };
+      }
+    )
+      .from("leads")
+      .select("email, couple_names, partner_a_name, partner_b_name")
+      .eq("id", prop.lead_id)
+      .maybeSingle();
+    if (lead?.email) {
+      coupleEmail = lead.email;
+      coupleName =
+        lead.couple_names ||
+        [lead.partner_a_name, lead.partner_b_name]
+          .filter((s): s is string => Boolean(s))
+          .join(" & ") ||
+        null;
+    }
+  }
+
+  const { data: org } = await (
+    sb as unknown as {
+      from: (t: string) => {
+        select: (cols: string) => {
+          eq: (col: string, val: string) => {
+            maybeSingle: () => Promise<{ data: OrgLite | null }>;
+          };
+        };
+      };
+    }
+  )
+    .from("organizations")
+    .select("contact_email, name")
+    .eq("id", prop.org_id)
+    .maybeSingle();
+
+  const orgName = org?.name ?? "your planner";
+  const threadKey = `proposal:${prop.id}`;
+  const totalLine =
+    prop.total_eur != null
+      ? `€${Number(prop.total_eur).toFixed(2)}`
+      : null;
+
+  // 1. Couple confirmation.
+  if (coupleEmail) {
+    const greeting = coupleName
+      ? `Hi ${coupleName.split("&")[0]?.trim() ?? "there"},`
+      : "Hi,";
+    const bodyText = [
+      greeting,
+      "",
+      `Thanks — your proposal "${prop.title}" is locked in.`,
+      "",
+      ...(totalLine ? [`Total: ${totalLine}`, ""] : []),
+      "We'll be in touch shortly with next steps. In the meantime you can",
+      "re-open the proposal at any time:",
+      proposalLink,
+      "",
+      `— ${orgName}`,
+    ].join("\n");
+
+    const bodyHtml = `
+<div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;padding:32px 24px;color:#292524;">
+  <p style="font-size:16px;margin-bottom:16px;">${escapeHtml(greeting)}</p>
+  <p style="font-size:15px;line-height:1.6;">
+    Thanks — your proposal <strong>${escapeHtml(prop.title)}</strong> is locked in.
+  </p>
+  ${totalLine ? `<p style="font-size:15px;color:#44403c;">Total: <strong>${escapeHtml(totalLine)}</strong></p>` : ""}
+  <p style="font-size:15px;line-height:1.6;">
+    We'll be in touch shortly with next steps.
+  </p>
+  <p style="margin:24px 0;">
+    <a href="${proposalLink}" style="display:inline-block;padding:10px 18px;background:#1c1917;color:#fff;text-decoration:none;border-radius:9999px;font-size:13px;">
+      Re-open proposal
+    </a>
+  </p>
+  <p style="font-size:13px;color:#78716c;">— ${escapeHtml(orgName)}</p>
+</div>`.trim();
+
+    await sendAndLogEmail(
+      sb,
+      {
+        to: coupleEmail,
+        toName: coupleName,
+        subject: `Thanks — your proposal "${prop.title}" is locked in`,
+        bodyText,
+        bodyHtml,
+      },
+      {
+        org_id: prop.org_id,
+        workspace_id: prop.workspace_id,
+        kind: "proposal_accepted_couple",
+        thread_key: threadKey,
+        related_lead_id: prop.lead_id,
+      },
+    );
+  }
+
+  // 2. Planner notification.
+  const plannerEmail = org?.contact_email?.trim() ?? null;
+  if (plannerEmail) {
+    const couple = coupleName ?? "A client";
+    const bodyText = [
+      `${couple} just accepted "${prop.title}".`,
+      "",
+      ...(totalLine ? [`Total: ${totalLine}`, ""] : []),
+      "Open the proposal:",
+      adminLink,
+    ].join("\n");
+
+    const bodyHtml = `
+<div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;padding:32px 24px;color:#292524;">
+  <p style="font-size:15px;line-height:1.6;">
+    <strong>${escapeHtml(couple)}</strong> just accepted <strong>${escapeHtml(prop.title)}</strong>.
+  </p>
+  ${totalLine ? `<p style="font-size:14px;color:#44403c;">Total: <strong>${escapeHtml(totalLine)}</strong></p>` : ""}
+  <p style="margin:24px 0;">
+    <a href="${adminLink}" style="display:inline-block;padding:10px 18px;background:#1c1917;color:#fff;text-decoration:none;border-radius:9999px;font-size:13px;">
+      Open proposal
+    </a>
+  </p>
+</div>`.trim();
+
+    await sendAndLogEmail(
+      sb,
+      {
+        to: plannerEmail,
+        subject: `${couple} accepted your ${prop.title}`,
+        bodyText,
+        bodyHtml,
+      },
+      {
+        org_id: prop.org_id,
+        workspace_id: prop.workspace_id,
+        kind: "proposal_accepted_planner",
+        thread_key: threadKey,
+        related_lead_id: prop.lead_id,
+      },
+    );
+  }
+}
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
