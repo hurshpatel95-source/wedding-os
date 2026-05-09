@@ -1,67 +1,130 @@
-# Compact handoff — May 8 2026
+# READ THIS FIRST — Compact Handoff
 
-> Read this FIRST when resuming a fresh session. Then `docs/STATE-OF-THE-BUILD.md` for the full architecture map.
-
----
-
-## Where we are
-
-**14 commits this session** on top of the Wave 3 autopilot foundation. The B2C consumer surface (Kyle / John / `rodnj.ops`) was rough — most of this session was hardening it:
-
-```
-f34ba69 feat: rebuild /estimator on budget_lines + Monday-style task editor on /plan
-e5ba392 docs: STATE-OF-THE-BUILD.md
-66254c8 feat(onboarding): venue auto-insert + checklist auto-seed + 'anything else?'
-8530032 fix: trim couple nav of legacy Astia surfaces
-0263ca6 fix: scrub Astia/Astha leaks + couple-shell admin gates + nav cleanup
-5356ad9 fix(onboarding): require all 9 fields before completion
-b90d8a4 feat: RFP-DRAFTER — AI personalized outreach drafts
-cf8b47a feat: VENDOR-FOLDERS — per-vendor files + /vendors/compare/[category]
-9350104 feat: feature-status tour + KC's account provisioned
-ffa1755 feat: post-merge wiring (AnalyzeButton + AlertsBell + AutopilotTodayWidget)
-0f068e7 docs: snapshot Wave 3 autopilot push
-[Wave 3 main feature merges: ONBOARDING-AI, BUDGET-TREE, GMAIL-CONNECTOR, VENDOR-SEARCH, THREAD-ANALYZER, AUTOPILOT-DASHBOARD, ALERTS-DIGEST, VENDOR-FOLDERS]
-17595a8 Wave 3 foundation
-```
-
-All deployed. Production is live at `wedding-os-production.up.railway.app`.
+**Last updated:** May 8, 2026 (late night — post-architectural-debt reckoning)
+**Project:** Acquired Planner (formerly wedding-os)
+**Owner:** Hursh
+**Production:** https://wedding-os-production.up.railway.app
 
 ---
 
-## What works RIGHT NOW for Kyle / John / rodnj.ops
+## 🛑 THE ONE NON-NEGOTIABLE RULE
 
-Sign in at `/login` (email + password `Wedding2027!`):
-- `kcdevine96@gmail.com` (Kyle Devine)
-- `j.salicandro@gmail.com` (John)
-- `rodnj.ops@gmail.com` (Hursh's test couple)
+**Do NOT build new features until the Stabilization Sprint is complete.**
 
-What they see:
-1. `/onboarding` AI chat — 9 structured fields + venue capture + "anything else?"
-2. `/` dashboard with AutopilotTodayWidget + WelcomeBanner
-3. `/plan` — 84-task starter checklist (auto-seeded), pencil icon → Monday-style edit drawer
-4. `/budget` — AI-generated tree, sliders per line, vendor link
-5. `/estimator` — real summary view (estimated / committed / paid / vs target / by category)
-6. `/venues` — manual add works, auto-populated from chat with Places enrichment
-7. `/vendors/find` — Google Places search returns 10 real vendors → batch add → AI drafts personalized RFPs
-8. `/guests` — manual add + Excel import
-9. `/availability` — editable, with empty state pointing to /venues
-10. `/feature-status` — tour of every feature with live/pending markers
-11. `/assistant` — workspace-aware Co-pilot
-12. `/autopilot` — vendor pipeline + alerts feed
-13. `/w/<slug>` public site, 5 themes
-14. Onboarding nav link "Setup chat" lets them revisit the AI intake anytime
+See `docs/STABILIZATION_SPRINT.md`. Tier 1 items 1-5 must ship before any image-gen engine, planner self-serve onboarding, Stripe pricing, agents, or any new feature work.
+
+We hit 12+ regressions in a single session on May 8 because of architectural debt. Adding more features on this foundation compounds the problem. **Foundation first. Always.**
+
+If a future Hursh-prompt asks for a new feature mid-stabilization — point at this doc, name it as the opportunistic-founder pattern (`acquired_planner_spec.md` §10), and finish the sprint first.
+
+---
+
+## What this product is
+
+**Acquired Planner** — AI-first wedding planning platform. Two distinct businesses sharing one platform:
+
+1. **B2C** (couples plan their own weddings) — replaces Zola long-term. Marketing engine via wedding-website footers + RSVP emails.
+2. **B2B white-label planner portal** — wedding planners onboard their clients into a branded version. **This is where the real money lives.** Each planner brings 10-30 weddings of B2C distribution.
+
+Full product spec: `docs/acquired_planner_spec.md` (master doc — vision, HoldCo, partnership, launch plan, 5-vertical roadmap).
+
+---
+
+## Where the build is right now (as of May 8, 2026)
+
+### ✅ Working in production
+
+- Multi-tenant Supabase (couples, planners, organizations, workspaces)
+- Couple shell (B2C): /, /onboarding, /plan, /budget, /estimator, /vendors, /vendors/find, /guests, /payments, /spend, /timeline, /availability, /map, /settings/preferences, /settings/public-site, /pricing, /w/<slug>
+- Planner admin shell (B2B): /admin/* with multi-client management (Astia uses this for 4 active client weddings)
+- AI vendor sourcing via Google Places + AI-drafted personalized RFP emails
+- AI budget baseline generation (Sonnet 4.6, ~70 line items per workspace)
+- Multi-event onboarding chat (mehndi/sangeet/welcome/rehearsal/after_party/brunch/stay)
+- Public wedding sites with 5 themes + RSVP form (per-event invitations)
+- Plan ↔ Budget ↔ Estimator linkage (planning_tasks.budget_line_id + estimated_cost)
+- Workspace skin system (acquired_planner / co_branded / white_label / acquired_style_collab)
+- Estimator B2B/B2C fork (reads budget_estimates for planner-served, budget_lines for B2C)
+- Full Pricing Planner with editable line items + localStorage persistence (B2B)
+- Currency-aware throughout (USD primary, EUR for European weddings)
+- 8 test accounts provisioned (see roster below)
+
+### ⚠️ Known issues (NOT to fix mid-stabilization — these inform the sprint)
+
+See `docs/STATE-OF-THE-BUILD.md` "Known regressions" for full list. Highlights:
+- /onboarding "Failed to fetch" toast on first message (cold start) — has retry now but still surfaces
+- Workspace branding rows missing for Astia clients → co_branded fallback looks generic
+- Schema-code drift: migrations like `planning_tasks.budget_line_id` must be pasted into Supabase manually
+- Multiple cast-the-types places where DB drift is invisible
+- Worker agents have written outside their stated scope (Worker D, Wave 3 agents)
+
+---
+
+## The strategic pivot we made May 8
+
+**Acquired / Brigette Pheloung partnership is DEFERRED.** Brigette's wedding is June 2026 (next month) — too late in her planning cycle to use a planning product. Approaching her for a wedding-tool launch 4 weeks before her wedding is wrong-tool-wrong-time.
+
+**What we do instead (per `docs/PRODUCT_ROADMAP.md`):**
+
+1. **Rachel-led B2C launch** (Rachel McGrath, Sept 12 2026 wedding at Switch House Philly) — already provisioned, awaiting send
+2. **B2B planner portal first** — Astia is the design partner + first paying customer. Sell to other planners via founder-led outbound. Higher willingness-to-pay ($300-500/mo per planner) and each planner brings 10-30 weddings of B2C distribution for free.
+3. **Brigette pitch deferred to Q3 2026** — for **Vertical 2 (Acquired Honeymoon)**, not for Acquired Planner. She'll be in honeymoon-planning mode then. Right tool, right time, real product behind the pitch instead of vapor.
+
+NO equity is given to anyone until the stabilization sprint is complete and a real working product is in production with paying customers.
+
+---
+
+## The two-track plan AFTER stabilization
+
+### Track 1 — B2B white-label planner portal (priority)
+- Self-serve `/planner/signup`
+- Client invitation flow (planner → couple)
+- Per-planner branding control panel (workspace_skin already supports this)
+- Stripe subscription billing for planners
+- Multi-couple cross-dashboard for planner
+- Document vault + invoice OCR (planner drops PDF, AI parses, surfaces per-vendor + per-couple)
+- WhatsApp integration (longer tail)
+
+### Track 2 — B2C consumer differentiator (secondary)
+- Aesthetic Profile system (the unlock)
+- Image generation engine (Higgsfield TOS dependent — see spec §4-5)
+- Vendor Brief PDF generator
+- Mood board flow
+- Save-the-date / invitation suite
+- Stripe + tiered pricing + credit economy (Starter $29, Plan $79, Visualize $149)
+- Negotiation / contract review / day-of timeline agents (v1.1)
+
+Full spec details: `docs/acquired_planner_spec.md`
+
+---
+
+## Test account roster
+
+All passwords: `Wedding2027!`. Sign-in URL: https://wedding-os-production.up.railway.app/login
+
+| Email | Workspace | Skin | Role |
+|---|---|---|---|
+| `hurshpatel@greenskynj.com` | Astia | n/a (admin) | Planner — Hursh as Astia admin |
+| `astha@astiaevents.com` | Astia | n/a (admin) | Planner — Astha primary |
+| `hurshpatel95@gmail.com` | Nisha & Hursh — Barcelona 2027 | acquired_planner * | Couple — Hursh's actual wedding |
+| `nishadesai98@gmail.com` | Nisha & Hursh — Barcelona 2027 | acquired_planner * | Couple — Nisha (multi-user) |
+| `rodnj.ops@gmail.com` | Hursh's test wedding | acquired_planner | B2C cold-start test |
+| `kcdevine96@gmail.com` | Kyle & Michelle — Newport | acquired_planner | Real friend Kyle |
+| `j.salicandro@gmail.com` | John's wedding | acquired_planner | Real friend John |
+| `raachmc@aol.com` | Rachel & Jay — Philadelphia 9.12.26 | acquired_planner | Real friend Rachel — pre-launch test |
+
+\* Hursh & Nisha is a planner-served (B2B) workspace within Astia Events org. Currently set to `acquired_planner` skin because workspace_branding row is missing — restoring `co_branded` requires backfilling Astia's brand assets (logo, accent_hex, planner_display_name).
 
 ---
 
 ## Production env vars status
 
-| Env var | Status | Effect if unset |
+| Var | Status | Effect if unset |
 |---|---|---|
-| `ANTHROPIC_API_KEY` | ✅ Set | (everything AI works) |
-| `SUPABASE_*` | ✅ Set | (DB works) |
-| `GOOGLE_PLACES_API_KEY` | ✅ Set | (vendor search + venue auto-enrich work) |
-| `GMAIL_OAUTH_*` | ⚠️ User configuring in Google Cloud | Couple Gmail connect → autopilot loop |
-| `STRIPE_SECRET_KEY` | ❌ Not set | Payment links / online pay |
+| `ANTHROPIC_API_KEY` | ✅ Set | All AI features work |
+| `SUPABASE_*` | ✅ Set | DB works |
+| `GOOGLE_PLACES_API_KEY` | ✅ Set | Vendor + venue auto-enrich |
+| `GMAIL_OAUTH_*` | ⚠️ Test mode | Couple Gmail autopilot — only works for Gmail accts, not AOL |
+| `STRIPE_SECRET_KEY` | ❌ Not set | Payment links / online pay (blocking B2B billing) |
 | `RESEND_API_KEY` | ❌ Not set | Real outbound email |
 | `GOOGLE_OAUTH_*` (calendar) | ❌ Not set | Booking-page conflict dimming |
 | `BRAVE_SEARCH_API_KEY` | ❌ Not set | Search fallback |
@@ -69,73 +132,39 @@ What they see:
 
 ---
 
-## The one blocking gotcha for Gmail OAuth
-
-**Stay in Testing mode** in Google Cloud Console (don't publish — sensitive scope verification is weeks).
-
-In OAuth consent screen → Test users, add the emails that will connect:
-- `kcdevine96@gmail.com`
-- `j.salicandro@gmail.com`
-- `rodnj.ops@gmail.com`
-- `hurshpatel95@gmail.com`
-- Any wedding-only Gmail Kyle/John create
-
-Test-mode refresh tokens expire every 7 days → user clicks Connect again. Acceptable for V1.
-
----
-
-## Active known bugs (next session priorities)
-
-1. **Currency: USD primary, EUR toggle** — most pages hardcode €/$. Need a `lib/format-currency.ts` reading workspace.base_currency.
-2. **Login redirect for dual-role couples** — middleware sends any org_admin to /admin. Workaround: 3 test couples demoted to org_role=member. Real fix: middleware checks role too.
-3. **Vendor quote PDF auto-attach from Gmail** — Gmail sync pulls thread body but not attachments. Need to extend `lib/gmail-thread-importer.ts` to download attachments to `documents` bucket per vendor.
-4. **Quote history** — only stores latest `quote_eur`. If vendor sends multiple options, we lose the others.
-5. **Onboarding revisit UX** — re-entering /onboarding after completion creates a new session but AI doesn't acknowledge "this is a follow-up". Should greet differently.
-6. **Email preview / delivery** — when Hursh+Nisha workspace data leaks via Astia's "View as workspace" picker into a B2C couple's session, what happens? Verify isolation.
-
----
-
 ## How to pick up next session
 
 1. `cd ~/Documents/wedding-os`
-2. Read `docs/STATE-OF-THE-BUILD.md` for the full architecture map
-3. Read this file (`docs/COMPACT-HANDOFF.md`) for fresh context
-4. Sign in at https://wedding-os-production.up.railway.app/login as `hurshpatel@greenskynj.com` / `Wedding2027!` for planner-side
-5. Try `rodnj.ops@gmail.com` / `Wedding2027!` for couple-side cold-start
-6. Ask Hursh what's broken / what he wants next — bugs almost always come from real use, not from code review
+2. **Read this doc** (`docs/COMPACT-HANDOFF.md`) — confirms the non-negotiable rule
+3. **Read `docs/STABILIZATION_SPRINT.md`** — the actual sprint plan
+4. **Read `docs/STATE-OF-THE-BUILD.md`** — full architecture + known issues
+5. **Read `docs/PRODUCT_ROADMAP.md`** — the B2B-first 60-day plan post-stabilization
+6. **Read `docs/acquired_planner_spec.md`** — the master product spec (vision, HoldCo, image gen engine, partnership)
+7. Sign in to production as `hurshpatel95@gmail.com` to verify your portal looks right
+8. Sign in as `rodnj.ops@gmail.com` to verify B2C cold-start is clean
+9. Ask Hursh which Stabilization Sprint Tier 1 item to pick up — DO NOT improvise new features
 
 ---
 
-## Test couple roster
+## Recent commit history (May 8 2026)
 
-| Email | Workspace | What it tests |
-|---|---|---|
-| `hurshpatel@greenskynj.com` | Astia | Planner shell |
-| `astha@astiaevents.com` | Astia | Planner (Astha) |
-| `hurshpatel95@gmail.com` | Hursh & Nisha — Barcelona 2027 | B2B-couple POV w/ rich seeded data |
-| `nishadesai98@gmail.com` | (same) | Multi-user couple |
-| `rodnj.ops@gmail.com` | Hursh's test wedding | **B2C cold-start** (real Gmail, can do Gmail OAuth) |
-| `kcdevine96@gmail.com` | Kyle & Michelle — Newport | Real friend Kyle |
-| `j.salicandro@gmail.com` | John's wedding | Real friend John |
-
-All passwords: `Wedding2027!`. Sign-in URL: https://wedding-os-production.up.railway.app/login (toggle to "Password" mode).
-
----
-
-## Briefs already sent / ready to send
-
-**Kyle (`kcdevine96@gmail.com`)** — full brief drafted in last session, has been sent or is ready to send. Includes login + magic link + what to test first + ask-back questions.
-
-**John (`j.salicandro@gmail.com`)** — drafted, ready to send.
-
-Re-run magic links anytime via `pnpm db:seed-kc` (re-fires for KC; same pattern works for any test account by editing the email at the top of the script).
+```
+3e4dc73  feat: restore Full Pricing Planner with editable line items per event
+b9323f0  fix: root metadata wedding-os→Acquired Planner + force Railway redeploy
+c08d5f7  fix: cosmetic polish (login title, claude leak, vendors empty CTA, onboarding toast)
+cd0d73f  fix: restore Astia-PDF /estimator view + settings RLS bypass
+108012a  seed: provision Rachel McGrath + Jay Farnsworth (Sept 12 2026, Switchhouse Philly)
+3ab122c  feat: white-label workspace skin system (Acquired Planner default)
+bf0681d  fix(b2c): unlock vendor detail for couples + drop EUR/VAT leaks
+90af70c  feat(rsvp): public RSVP form + per-event guest badges + recent-RSVPs widget
+d2a4c94  feat(polish): meaningful empty states + cross-page UX cleanup (15 files)
+6f548b2  feat(settings): full preferences page — names + date + region + guests + budget + currency
+cf7af28  fix: 5 cold-start audit P0/P1s couples saw immediately
+ac84463  feat: tie /plan tasks to /budget lines + show on /estimator
+c1265bc  feat: estimator drill-down/scenario + onboarding multi-event venues
+062638e  feat: USD currency primary + EUR toggle, budget number-entry + add-category
+```
 
 ---
 
-## What Hursh has been building toward
-
-Phase 1 (now): dogfood for his own wedding + close friends Kyle / John testing as the proof points.
-Phase 2: Astha (planner) reviews + becomes design partner / first paying customer.
-Phase 3: Sell to other planners as Aisle Planner / Honeybook / Plannit competitor + B2C couples direct.
-
-The B2B planner side is sales-pitch ready. The B2C consumer side is now usable but rough. Real-user feedback (Kyle / John) will surface 2x the bugs internal testing has.
+## End of file

@@ -1,4 +1,4 @@
-# wedding-os — state of the build (May 8 2026)
+# Acquired Planner — state of the build (May 8 2026, late night)
 
 > Comprehensive map of what's built, what works, what's broken, and what's
 > next. Two product surfaces: **B2B** (Astia-style planner serving couples)
@@ -6,6 +6,13 @@
 > codebase + database; the consumer-side polish lags the planner-side.
 >
 > Read this when picking up cold or onboarding new collaborators.
+>
+> **CRITICAL CONTEXT (May 8 night):** We hit 12+ regressions in a single
+> session. Architectural debt is real. **No new features ship until the
+> Stabilization Sprint completes** — see `docs/STABILIZATION_SPRINT.md`.
+> The product spec / vision lives in `docs/acquired_planner_spec.md`. The
+> post-stabilization roadmap lives in `docs/PRODUCT_ROADMAP.md`. The
+> "read first" handoff lives in `docs/COMPACT-HANDOFF.md`.
 
 ---
 
@@ -329,3 +336,136 @@ But the consumer surface still has real friction:
 - **Compare venues / Map** — useful but undertested for B2C
 
 The right next step: get Kyle / John actually using it for real wedding planning, fix what they hit. The bugs in #9 are what I've found internally; users will surface 2x more.
+
+---
+
+## 11. May 8 2026 — architectural debt reckoning
+
+In a single 12-hour session we hit **12+ regressions**, all sharing systemic
+patterns rather than one-off bugs. The session ended with Hursh saying:
+
+> "I'm 100% not confident in the code for this... we cant have it break
+>  when it scales... prevention of bugs.... safe guards and checks rather
+>  than finding bugs and fixing.... thats the key and foundationally"
+
+This section captures the regressions + the patterns + the response so
+this lesson doesn't get lost in the next compaction.
+
+### The 12 regressions
+
+1. **/estimator silently broken** — commit `f34ba69` rewired it to read
+   `budget_lines` instead of `budget_estimates`. Typecheck passed. Real
+   user (Hursh) discovered it 3 days later when his Astha-PDF data
+   "disappeared" (still intact in DB, just unrendered).
+
+2. **/settings/preferences silent-failure** — RLS `workspaces_admin_write`
+   only permits `role='admin'`. Couples have `role='couple'`. Direct
+   `supabase.from("workspaces").update()` affected 0 rows. API returned
+   200. Toast said "Saved." Page reload showed unchanged data.
+   **Fixed in `cd0d73f` via service-role bypass + 0-row guard.**
+
+3. **/plan task cost-link 500s** — API endpoint referenced
+   `planning_tasks.budget_line_id` column. Migration committed but never
+   pasted into Supabase dashboard. Code shipped, real user clicked the
+   feature → 500. **Migration applied manually post-hoc.**
+
+4. **/onboarding "Failed to fetch" toast on every cold-start turn** —
+   browser-level fetch error during Anthropic+DB warm-up. Fixed in
+   `c08d5f7` with silent retry + friendlier error copy.
+
+5. **Worker D wrote outside scope** — agent was meant to fix vendor admin
+   gates + currency leaks. It also touched files visible in main checkout
+   via shared worktree state. No allowlist enforcement.
+
+6. **Skin migration broke planner-served portals** — set every Astia client
+   workspace to `acquired_planner` instead of `co_branded` because filter
+   matched workspace name (couple name) not org name. Fixed via service-
+   role UPDATE then **rolled back to `acquired_planner`** because Astia
+   has no `workspace_branding` row to back the co_branded display.
+
+7. **seed_rachel.ts notes-column bug** — script tried to insert a `notes`
+   column on `venues` that doesn't exist. Error caught, script continued,
+   Rachel's Switch House venue silently missing. Fixed via web-search +
+   manual UPDATE.
+
+8. **Email composer admin-template fetch 403'd for couples** — composer
+   called `/api/admin/email-templates` even when role was `couple`. Fixed
+   in `bf0681d` via try/catch + graceful empty-template list.
+
+9. **Vendor admin gates blocked core couple features** — couples couldn't
+   email their own vendors, advance status, upload quote PDFs, or even
+   see the vendor's Contact card (email/phone/website). 4 `isAdmin`
+   gates in `vendor-overview-tab.tsx` + `vendor-detail-tabs.tsx`. Fixed
+   in `bf0681d`.
+
+10. **Currency leaks across 17 files** — B2C US couples saw € instead
+    of $ in `/payments`, `/estimator/compare`, `/spend`, vendor pricing
+    tab, vendor form, venue form, onboarding chat, compare-view,
+    estimate-builder, autopilot quote pill. Hardcoded `formatEUR(`
+    calls. Fixed in `bf0681d` via thread-through `workspace.base_currency`.
+
+11. **/spend Spanish VAT multiplier (`* 1.21`)** — inflated every B2C
+    couple's forecast by 21% because the calculation hardcoded Spain's
+    VAT rate. Fixed in `bf0681d` (multiplier removed).
+
+12. **Login page hardcoded Hursh's wedding details** — `<CardTitle>` =
+    "wedding-os", `<CardDescription>` = "Barcelona · September 2027".
+    Every user saw Hursh's wedding name. Fixed in `c08d5f7`.
+
+### The 7 systemic root causes
+
+1. **Silent failures masquerading as success** — APIs return 200 when
+   nothing happens. RLS blocks writes silently. Errors are caught and
+   swallowed.
+
+2. **Schema-code drift with no detection layer** — code references
+   columns that don't exist in prod. Cast pattern (`supabase as unknown
+   as { from: ... }`) hides drift from typecheck.
+
+3. **No integration tests on critical paths** — typecheck passing was
+   the green light. Typecheck doesn't know runtime behavior.
+
+4. **Worker agents write outside their stated scope** — no allowlist
+   enforcement.
+
+5. **B2B and B2C share one shell with no architectural separation** —
+   `(app)/` is shared between planner-served couples and self-serve
+   couples. Wave 3 worker agents wrote a B2C dashboard that nuked the
+   B2B planner-served portal.
+
+6. **No deploy-time guardrails** — migrations get committed but only
+   land on the DB when manually pasted. No automation.
+
+7. **No observability after deploy** — bugs surface when users
+   complain, not when code deploys.
+
+### The response
+
+Tonight's response is a **2-week Stabilization Sprint** documented in
+`docs/STABILIZATION_SPRINT.md`. Five Tier 1 items must ship before any
+new feature work:
+
+- T1.1: migration application automation
+- T1.2: replace cast-the-types pattern with proper Database types
+- T1.3: write-guard pattern for every API endpoint
+- T1.4: smoke test suite (25 tests covering user's first hour)
+- T1.5: B2B/B2C fork at the layout level
+
+When all five pass, unblock the post-stabilization roadmap (see
+`docs/PRODUCT_ROADMAP.md` — B2B planner portal first, B2C
+image-gen engine second).
+
+**Until those five ship, no new features. This is non-negotiable per
+the May 8 founder commitment.**
+
+### Strategic decision: Brigette deferred
+
+Original launch plan (per `docs/acquired_planner_spec.md`) was a 14-day
+sprint to pitch Brigette Pheloung @ 1M followers as launch partner.
+**Confirmed May 8: her wedding is June 2026 (next month).** Pitching a
+wedding-planning tool to someone 4 weeks before her wedding is wrong-
+tool-wrong-time. Pitch deferred to Q3 2026 for Vertical 2 (Acquired
+Honeymoon) when she'll be in honeymoon-planning mode.
+
+In the meantime: Rachel-led B2C launch + B2B planner-portal first.
+No equity given to anyone before paying customers exist.
