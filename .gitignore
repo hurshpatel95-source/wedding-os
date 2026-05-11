@@ -27,3 +27,4 @@ supabase/.env
 test-results/
 playwright-report/
 playwright/.cache/
+railway.json.staged
