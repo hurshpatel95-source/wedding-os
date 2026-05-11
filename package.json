@@ -14,6 +14,8 @@
     "typecheck": "pnpm -r typecheck",
     "migrate": "tsx supabase/seed/_migrate.ts",
     "migrate:status": "tsx supabase/seed/_migrate.ts status",
+    "gen:types": "supabase gen types typescript --project-id dfyryyzizxcxtysduono --schema public --schema storage > packages/db/src/types.gen.ts",
+    "gen:types:check": "supabase --version || echo 'Install: brew install supabase/tap/supabase && supabase login && supabase link --project-ref dfyryyzizxcxtysduono'",
     "db:apply-migrations": "tsx supabase/seed/apply_migrations.ts",
     "db:seed": "tsx supabase/seed/seed.ts",
     "db:ingest-photos": "tsx supabase/seed/ingest_photos.ts",

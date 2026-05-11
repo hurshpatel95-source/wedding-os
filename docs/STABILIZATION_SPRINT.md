@@ -78,7 +78,9 @@ When commit f34ba69 broke /estimator, the bug surfaced when Hursh complained —
 
 ---
 
-### T1.2 — Replace the cast-the-types pattern with proper Database types
+### T1.2 — Replace the cast-the-types pattern with proper Database types ⏳ PHASE 1 SHIPPED (audit + workflow)
+
+**Status May 11:** Foundation shipped — audit doc, `pnpm gen:types` script, Supabase CLI install instructions. Phase 2 (eliminating the 473 casts) deferred to a focused 1-2 day block after Supabase CLI is authed locally.
 
 **Problem:** `apps/web/` has ~50+ places that do `supabase as unknown as { from: (t: string) => { ... } }` — every one of these is a place where the actual DB shape and the code's expectation can drift invisibly. Each cast is a bug surface.
 
