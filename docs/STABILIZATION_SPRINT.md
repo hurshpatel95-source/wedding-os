@@ -59,7 +59,9 @@ When commit f34ba69 broke /estimator, the bug surfaced when Hursh complained —
 
 ## TIER 1 — Non-negotiable (must ship before any new feature)
 
-### T1.1 — Migration application automation
+### T1.1 — Migration application automation ⏳ CODE SHIPPED, AWAITING ENV VAR (commit pending)
+
+**Status May 11:** Migrator script + Railway preDeploy hook shipped. Needs `SUPABASE_DB_URL` added to Railway env vars to activate. One-time backfill script (`_migrate_backfill.ts`) seeds tracking table so the 34 already-applied migrations aren't re-run.
 
 **Problem:** Migrations get committed to `supabase/migrations/*.sql` but only land in prod when Hursh manually pastes SQL into the Supabase dashboard. Multiple times tonight, code referenced columns that didn't exist because the migration was forgotten.
 

@@ -12,6 +12,8 @@
     "start": "pnpm --filter @wedding-os/web start",
     "lint": "pnpm -r lint",
     "typecheck": "pnpm -r typecheck",
+    "migrate": "tsx supabase/seed/_migrate.ts",
+    "migrate:status": "tsx supabase/seed/_migrate.ts status",
     "db:apply-migrations": "tsx supabase/seed/apply_migrations.ts",
     "db:seed": "tsx supabase/seed/seed.ts",
     "db:ingest-photos": "tsx supabase/seed/ingest_photos.ts",
