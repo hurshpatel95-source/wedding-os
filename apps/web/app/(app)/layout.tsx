@@ -7,6 +7,8 @@ import {
   getSkinFor,
   normalizeSkin,
 } from "@/lib/workspace-skin";
+import { resolveWorkspaceMode } from "@/lib/workspace-mode";
+import { WorkspaceModeProvider } from "@/components/workspace/workspace-mode-provider";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const supabase = createClient();
@@ -147,6 +149,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     accentHex: brandingAccent,
   });
 
+  // T1.5 — derive the architectural mode from skin. Provides the fork
+  // point for B2C self-serve vs B2B planner-served couple experiences.
+  // Server components can re-derive mode from their own workspace fetch;
+  // client components consume it via useWorkspaceMode().
+  const mode = resolveWorkspaceMode(skin);
+
   // Edge case: a co_branded workspace where workspace_branding never got
   // populated falls back to "Your planner" + the workspace name as
   // subtitle so the header doesn't render empty.
@@ -170,18 +178,20 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       {impersonatingWorkspaceName && (
         <ImpersonationBanner workspaceName={impersonatingWorkspaceName} />
       )}
-      <Nav
-        userEmail={user.email ?? null}
-        role={role}
-        workspaceName={workspace?.name ?? null}
-        weddingDate={workspace?.wedding_date ?? null}
-        plannerDisplayName={plannerDisplayName}
-        plannerLogoUrl={plannerLogoUrl}
-        accentHex={brand.accentHex}
-        brand={brand}
-        brandSubtitleFallback={navSubtitle}
-      />
-      <main className="container flex-1 py-10">{children}</main>
+      <WorkspaceModeProvider mode={mode}>
+        <Nav
+          userEmail={user.email ?? null}
+          role={role}
+          workspaceName={workspace?.name ?? null}
+          weddingDate={workspace?.wedding_date ?? null}
+          plannerDisplayName={plannerDisplayName}
+          plannerLogoUrl={plannerLogoUrl}
+          accentHex={brand.accentHex}
+          brand={brand}
+          brandSubtitleFallback={navSubtitle}
+        />
+        <main className="container flex-1 py-10">{children}</main>
+      </WorkspaceModeProvider>
     </div>
   );
 }

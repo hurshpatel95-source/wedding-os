@@ -1,6 +1,8 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { AutopilotDashboard } from "@/components/autopilot/autopilot-dashboard";
+import { Card, CardContent } from "@/components/ui/card";
 import type {
   AlertRow,
   AutopilotRunRow,
@@ -8,6 +10,8 @@ import type {
   VendorAutopilotStatus,
 } from "@/lib/autopilot-types";
 import type { VendorCategory, VendorStatus } from "@/lib/vendor-types";
+import { normalizeSkin } from "@/lib/workspace-skin";
+import { isB2B, resolveWorkspaceMode } from "@/lib/workspace-mode";
 
 export const dynamic = "force-dynamic";
 
@@ -34,6 +38,72 @@ export default async function AutopilotPage() {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
+
+  // T1.5 — autopilot is a B2C feature. Planner-served couples have their
+  // planner handling vendor outreach off-platform (WhatsApp, email). For
+  // them the autopilot dashboard is irrelevant noise. Show a clear "your
+  // planner handles this" splash instead of the dashboard.
+  const sbWs = supabase as unknown as {
+    from: (t: string) => {
+      select: (c: string) => {
+        limit: (n: number) => {
+          maybeSingle: () => Promise<{
+            data: { skin?: string | null } | null;
+          }>;
+        };
+      };
+    };
+  };
+  let workspaceSkin: string | null = null;
+  try {
+    const { data: ws } = await sbWs
+      .from("workspaces")
+      .select("skin")
+      .limit(1)
+      .maybeSingle();
+    workspaceSkin = ws?.skin ?? null;
+  } catch {
+    // pre-migration tolerant
+  }
+  const mode = resolveWorkspaceMode(normalizeSkin(workspaceSkin));
+  if (isB2B(mode)) {
+    return (
+      <div className="space-y-6">
+        <header className="space-y-1">
+          <div className="text-[11px] uppercase tracking-[0.25em] text-stone-500">
+            Vendor outreach
+          </div>
+          <h1 className="font-serif text-4xl font-light tracking-tight md:text-5xl">
+            Autopilot
+          </h1>
+        </header>
+        <Card className="border-stone-200 bg-stone-50/60">
+          <CardContent className="space-y-3 py-8 text-center">
+            <p className="font-serif text-2xl text-stone-800">
+              Your planner runs this for you.
+            </p>
+            <p className="mx-auto max-w-md text-sm text-stone-600">
+              Autopilot drafts vendor outreach emails, chases responses, and
+              parses replies — but for planner-served weddings, your planner
+              already handles all of that. Vendor coordination lives in their
+              workflow.
+            </p>
+            <p className="mx-auto max-w-md text-sm text-stone-600">
+              You can still see vendors + quotes + payments under{" "}
+              <Link href="/vendors" className="font-medium underline">
+                /vendors
+              </Link>{" "}
+              and{" "}
+              <Link href="/payments" className="font-medium underline">
+                /payments
+              </Link>
+              .
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   // RLS-enforced cast: vendors / alerts / autopilot_runs / gmail_connections
   // all have new (Wave 3) columns or are net-new tables that aren't yet in

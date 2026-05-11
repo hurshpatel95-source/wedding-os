@@ -7,6 +7,8 @@ import { VendorCreateButton } from "@/components/vendors/vendor-create-button";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import type { VendorRow } from "@/lib/vendor-types";
+import { normalizeSkin } from "@/lib/workspace-skin";
+import { isB2B, resolveWorkspaceMode } from "@/lib/workspace-mode";
 
 export const dynamic = "force-dynamic";
 
@@ -63,13 +65,24 @@ export default async function VendorsPage() {
   const { data: workspaceRow } = wsid
     ? await supabase
         .from("workspaces")
-        .select("base_currency")
+        .select("base_currency, skin")
         .eq("id", wsid)
         .maybeSingle()
     : { data: null };
   const baseCurrency =
     (workspaceRow as { base_currency?: string | null } | null)?.base_currency ??
     "USD";
+  // T1.5 — fork the empty-state copy + CTAs on workspace mode. B2C
+  // couples drive their own vendor sourcing (Find AI button + manual
+  // add). Planner-served couples don't add vendors themselves; their
+  // planner does. Show a "your planner is curating this" empty state
+  // instead of the AI-find button.
+  const mode = resolveWorkspaceMode(
+    normalizeSkin(
+      (workspaceRow as { skin?: string | null } | null)?.skin ?? null,
+    ),
+  );
+  const isPlannerServed = isB2B(mode);
 
   // Org_admins manage vendors via the planner CRM in /admin/vendors.
   // Send them there instead of the couple-facing read-only list.
@@ -129,23 +142,31 @@ export default async function VendorsPage() {
       </header>
 
       {list.length === 0 ? (
-        <EmptyState
-          icon={Briefcase}
-          title="No vendors on your list yet"
-          description="Track every vendor you're paying — planner, photographer, florist, DJ, transport. Quotes, deposits, and contact info live here."
-          action={
-            <>
-              <Link
-                href="/vendors/find"
-                className="inline-flex items-center gap-2 rounded-md bg-stone-900 px-4 py-2 text-sm font-medium text-white shadow transition hover:bg-stone-700"
-              >
-                <Search className="h-4 w-4" />
-                Find vendors with AI
-              </Link>
-              <VendorCreateButton />
-            </>
-          }
-        />
+        isPlannerServed ? (
+          <EmptyState
+            icon={Briefcase}
+            title="Your planner is curating vendors"
+            description="Vendors will appear here as your planner adds them — photographer, florist, caterer, DJ. You'll see quotes, deposits, and contact info per vendor once they're locked in. Reach out to your planner if you have a specific vendor in mind."
+          />
+        ) : (
+          <EmptyState
+            icon={Briefcase}
+            title="No vendors on your list yet"
+            description="Track every vendor you're paying — planner, photographer, florist, DJ, transport. Quotes, deposits, and contact info live here."
+            action={
+              <>
+                <Link
+                  href="/vendors/find"
+                  className="inline-flex items-center gap-2 rounded-md bg-stone-900 px-4 py-2 text-sm font-medium text-white shadow transition hover:bg-stone-700"
+                >
+                  <Search className="h-4 w-4" />
+                  Find vendors with AI
+                </Link>
+                <VendorCreateButton />
+              </>
+            }
+          />
+        )
       ) : (
         <VendorGrid vendors={list} role="couple" baseCurrency={baseCurrency} />
       )}

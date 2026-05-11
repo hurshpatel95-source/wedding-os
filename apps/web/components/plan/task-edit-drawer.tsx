@@ -11,6 +11,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { currencySymbol } from "@/lib/utils";
+import { useIsB2B } from "@/components/workspace/workspace-mode-provider";
 
 // Monday.com-style per-task drawer. Edit any field on the task — phase,
 // due date, status, owner, category, title, notes — and save. Also tie
@@ -111,6 +112,11 @@ export function TaskEditDrawer({
   budgetLineOptions?: BudgetLineOption[];
   baseCurrency?: string;
 }) {
+  // T1.5 — Cost link is a B2C feature. For planner-served couples the
+  // planner builds the budget; couples shouldn't be wiring per-task cost
+  // overrides on top of that. Hide for B2B; show for B2C.
+  const isPlannerServed = useIsB2B();
+
   const [title, setTitle] = useState(task.title);
   const [phase, setPhase] = useState(task.phase);
   const [status, setStatus] = useState(task.status);
@@ -268,10 +274,10 @@ export function TaskEditDrawer({
             />
           </Field>
 
-          {/* Cost link — ties this task to a budget line. Type a number
-              and we either auto-create a leaf budget line under the
-              matching category, OR push the value onto whichever line
-              you pick from the dropdown. /budget + /estimator stay in sync. */}
+          {/* Cost link — ties this task to a budget line. B2C only —
+              planner-served couples have their planner managing budget,
+              so per-task cost overrides aren't the right UX for them. */}
+          {!isPlannerServed && (
           <div className="rounded-lg border border-amber-200 bg-amber-50/40 p-4">
             <div className="mb-2 flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] text-amber-900">
               <Coins className="h-3 w-3" />
@@ -328,6 +334,7 @@ export function TaskEditDrawer({
               task to an existing one instead.
             </p>
           </div>
+          )}
 
           <Field
             label="Notes / updates"

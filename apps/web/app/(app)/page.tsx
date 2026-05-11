@@ -8,6 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { WelcomeBanner } from "@/components/couples-welcome/welcome-banner";
 import { AutopilotTodayWidget } from "@/components/autopilot/today-widget";
 import { currencySymbol } from "@/lib/utils";
+import { normalizeSkin } from "@/lib/workspace-skin";
+import { isB2B, resolveWorkspaceMode } from "@/lib/workspace-mode";
 
 export const dynamic = "force-dynamic";
 
@@ -245,6 +247,35 @@ export default async function DashboardPage({
   // dashboard. Defaults to USD if the column is missing or unrecognized.
   const currencySym = currencySymbol(workspace?.base_currency);
 
+  // T1.5 — resolve workspace mode for B2B vs B2C fork. AutopilotTodayWidget,
+  // WelcomeBanner, and other consumer-flavored widgets gate on isB2B(mode).
+  // The skin column isn't in generated types yet (T1.2 will fix); read
+  // defensively via cast, same pattern the layout uses.
+  let workspaceSkin: string | null = null;
+  try {
+    const sbSkin = supabase as unknown as {
+      from: (t: string) => {
+        select: (c: string) => {
+          limit: (n: number) => {
+            maybeSingle: () => Promise<{
+              data: { skin?: string | null } | null;
+            }>;
+          };
+        };
+      };
+    };
+    const { data: skinRow } = await sbSkin
+      .from("workspaces")
+      .select("skin")
+      .limit(1)
+      .maybeSingle();
+    workspaceSkin = skinRow?.skin ?? null;
+  } catch {
+    // pre-migration tolerant — stay on default
+  }
+  const mode = resolveWorkspaceMode(normalizeSkin(workspaceSkin));
+  const isPlannerServed = isB2B(mode);
+
   type DueItem = {
     id: string;
     label: string;
@@ -408,10 +439,16 @@ export default async function DashboardPage({
 
   return (
     <div className="space-y-12">
-      {workspace?.created_at && (
+      {/* WelcomeBanner is a B2C cold-start nudge ("set up your workspace,
+          tell us about your wedding"). Planner-served couples don't need
+          this — their planner already configured everything. */}
+      {!isPlannerServed && workspace?.created_at && (
         <WelcomeBanner workspaceCreatedAt={workspace.created_at} />
       )}
-      <AutopilotTodayWidget />
+      {/* Autopilot is a B2C feature — Gmail integration, AI vendor
+          outreach drafts. For planner-served couples, the planner owns
+          this workflow off-platform (WhatsApp, email). Hide on B2B. */}
+      {!isPlannerServed && <AutopilotTodayWidget />}
       {/* Hero */}
       <section className="grid grid-cols-1 gap-8 lg:grid-cols-12 lg:items-end">
         <div className="lg:col-span-8">
