@@ -3,7 +3,17 @@
 **Locked-in:** May 8, 2026
 **Duration:** ~2 weeks of focused work
 **Owner:** Hursh + Claude
-**Status:** **In progress** — T1.5 complete (commit `7ac77cf`, May 11)
+**Status:** **🟢 TIER 1 FOUNDATION COMPLETE (May 11)** — all 5 items shipped. Phase 2 cleanup items deferred. Activation tasks for Hursh in §4 of `SESSION_HANDOFF_2026-05-11.md`.
+
+**Sprint commits (May 11):**
+
+| Item | Commit | Status |
+|---|---|---|
+| T1.5 — B2B/B2C fork | `7ac77cf` | ✅ Live |
+| T1.4 — Smoke tests | `5197661` | ✅ 11 tests, 10/10 passing on prod |
+| T1.1 part 1 — Migrator scripts | `3b0dbc7` | ✅ Scripts shipped, awaiting env var |
+| T1.2 phase 1 — Types audit + gen:types | `e1cc189` | ✅ Workflow shipped |
+| T1.3 phase 1 — Write-guard | `6076f66` | ✅ Helper + 3 exemplar endpoints |
 
 ---
 

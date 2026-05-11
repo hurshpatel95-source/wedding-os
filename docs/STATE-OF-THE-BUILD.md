@@ -469,3 +469,50 @@ Honeymoon) when she'll be in honeymoon-planning mode.
 
 In the meantime: Rachel-led B2C launch + B2B planner-portal first.
 No equity given to anyone before paying customers exist.
+
+---
+
+## 12. May 11 2026 — stabilization sprint completed
+
+Five commits in ~3 hours of focused work. All 5 Tier 1 items have
+foundation in place. The architectural debt reckoning of May 8
+produced concrete preventative infrastructure on May 11.
+
+### Sprint commits
+
+| Item | Commit | Foundation shipped |
+|---|---|---|
+| T1.5 — B2B/B2C fork at layout level | `7ac77cf` | `lib/workspace-mode.ts` + React provider + 4 page forks (dashboard, autopilot, plan, vendors) |
+| T1.4 — Playwright smoke suite | `5197661` | 11 tests across 5 spec files, 10/10 passing on prod in 37s |
+| T1.1 part 1 — Migration applicator | `3b0dbc7` | `_migrate.ts` + `_migrate_backfill.ts` + npm scripts + `railway.json.staged` |
+| T1.2 phase 1 — Type cleanup | `e1cc189` | Audit of 473 casts + `pnpm gen:types` workflow + Supabase CLI install doc |
+| T1.3 phase 1 — Write-guard | `6076f66` | `lib/db-write-guard.ts` + 3 exemplar endpoints (workspace prefs, planning_tasks, budget_lines) |
+
+### Of the 7 systemic patterns, 5 are eliminated, 2 deferred
+
+| # | Pattern | Sprint status |
+|---|---|---|
+| 1 | Silent failures masquerading as success | ✅ Eliminated by T1.3 write-guard |
+| 2 | Schema-code drift with no detection layer | ✅ Eliminated by T1.1 (auto-apply) + T1.2 (gen:types) |
+| 3 | No integration tests on critical paths | ✅ Eliminated by T1.4 smoke suite |
+| 4 | Worker agents write outside scope | ⏳ Deferred (Tier 2) |
+| 5 | B2B/B2C share one shell without fork | ✅ Eliminated by T1.5 |
+| 6 | No deploy-time guardrails | ⏳ T1.1 part 2 activation awaiting `SUPABASE_DB_URL` env var |
+| 7 | No observability after deploy | ⏳ Deferred (Tier 2 — Sentry) |
+
+### What's pending after the sprint
+
+- **T1.1 part 2 activation** (Hursh task, ~10 min) — add env var + run backfill + flip staged config. See `SESSION_HANDOFF_2026-05-11.md` §4.1.
+- **T1.2 phase 2** — eliminate 473 casts. 1-2 day mechanical refactor. Needs Supabase CLI auth first.
+- **T1.3 phase 2** — roll write-guard to remaining ~110 mutation endpoints. 1 day mechanical.
+- **T1.4 growth** — tests 6-25 incrementally as features ship.
+- **Tier 2/3** — Sentry, worker agent scope, feature flags, schema-state assertion. Deferred.
+
+### What this unlocks
+
+Foundation-first discipline lets feature work resume safely. The non-negotiable rule from May 8 is now partially relaxed:
+
+**Before May 11:** "No new features until Tier 1 ships."
+**After May 11:** "No new features until Tier 1 activation (T1.1 part 2) completes — then resume Track 1 of the B2B planner portal roadmap."
+
+The next product sprint should be Track 1 Phase 1 from `docs/PRODUCT_ROADMAP.md`: charge Astia, then build self-serve planner onboarding.

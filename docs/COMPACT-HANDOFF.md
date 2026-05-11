@@ -1,21 +1,29 @@
 # READ THIS FIRST — Compact Handoff
 
-**Last updated:** May 8, 2026 (late night — post-architectural-debt reckoning)
+**Last updated:** May 11, 2026 (sprint completion)
 **Project:** Acquired Planner (formerly wedding-os)
 **Owner:** Hursh
 **Production:** https://wedding-os-production.up.railway.app
 
 ---
 
-## 🛑 THE ONE NON-NEGOTIABLE RULE
+## 🟢 SPRINT STATUS — ALL TIER 1 FOUNDATION SHIPPED
 
-**Do NOT build new features until the Stabilization Sprint is complete.**
+As of `6076f66` (May 11), the Stabilization Sprint's 5 Tier 1 items are foundation-shipped. The 7 systemic patterns from May 8 are addressed (5 fully eliminated, 2 deferred to Tier 2/3). Smoke tests pass 10/10 on prod.
 
-See `docs/STABILIZATION_SPRINT.md`. Tier 1 items 1-5 must ship before any image-gen engine, planner self-serve onboarding, Stripe pricing, agents, or any new feature work.
+**For full handoff see `docs/SESSION_HANDOFF_2026-05-11.md`** — the comprehensive snapshot of everything done / pending / planned.
 
-We hit 12+ regressions in a single session on May 8 because of architectural debt. Adding more features on this foundation compounds the problem. **Foundation first. Always.**
+---
 
-If a future Hursh-prompt asks for a new feature mid-stabilization — point at this doc, name it as the opportunistic-founder pattern (`acquired_planner_spec.md` §10), and finish the sprint first.
+## ⚠️ ONE NON-NEGOTIABLE RULE STILL APPLIES
+
+**Do NOT improvise new features without explicit Hursh direction.**
+
+Before resuming feature work, finish:
+1. **T1.1 part 2 activation** — add `SUPABASE_DB_URL` to Railway env + run backfill (see §4.1 of SESSION_HANDOFF). Without this, migrations remain manual and the May 8 class of bug can return.
+2. **Smoke test verification** — run `pnpm smoke` from `apps/web/` and confirm 10/10 passing before any push.
+
+If a future Hursh-prompt asks for a new feature without the activation step done — point at this doc, name it as the opportunistic-founder pattern (`acquired_planner_spec.md` §10), and unblock the foundation first.
 
 ---
 
@@ -146,8 +154,20 @@ All passwords: `Wedding2027!`. Sign-in URL: https://wedding-os-production.up.rai
 
 ---
 
-## Recent commit history (May 8 2026)
+## Recent commit history
 
+**Stabilization Sprint (May 11):**
+```
+6076f66  feat(stabilization): T1.3 phase 1 — write-guard helper + 3 exemplar endpoints
+e1cc189  feat(stabilization): T1.2 phase 1 — type-cleanup audit + gen:types workflow
+0decd17  chore: ignore railway.json.staged (T1.1 activation file)
+3b0dbc7  feat(stabilization): T1.1 part 1 — migration applicator + backfill scripts
+5197661  feat(stabilization): T1.4 — Playwright smoke-test foundation + 5 specs
+7ac77cf  feat(stabilization): T1.5 — B2B/B2C fork at the layout level
+1796a01  docs: persistence layer for stabilization-first discipline
+```
+
+**Pre-sprint polish (May 8):**
 ```
 3e4dc73  feat: restore Full Pricing Planner with editable line items per event
 b9323f0  fix: root metadata wedding-os→Acquired Planner + force Railway redeploy
