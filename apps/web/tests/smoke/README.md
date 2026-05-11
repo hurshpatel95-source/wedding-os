@@ -19,7 +19,7 @@ pnpm smoke:local       # in another
 pnpm smoke:ui
 ```
 
-## What's covered (May 11 starter set — 5 tests)
+## What's covered (May 11 — 10 spec files, 20 tests, 17 active + 3 skipped)
 
 | # | Test file | What it guards |
 |---|---|---|
@@ -28,22 +28,25 @@ pnpm smoke:ui
 | 03 | `03-autopilot-fork.spec.ts` | /autopilot renders dashboard for B2C; splash for B2B (skipped until skin flip) |
 | 04 | `04-settings-saves.spec.ts` | /settings/preferences wedding-date change persists through reload (the silent-fail bug guard) |
 | 05 | `05-no-legacy-leaks.spec.ts` | No "Barcelona Sept 2027", no "Sitges", no "wedding-os" title, no "Claude column-mapping" leak |
+| 06 | `06-budget-baseline-gen.spec.ts` | /budget renders in either empty (Generate form) or loaded (tree) state without crashes |
+| 07 | `07-plan-cost-link.spec.ts` | Task drawer Cost link section visible for B2C; hidden for B2B (T1.5 fork) |
+| 08 | `08-vendors-empty-state-fork.spec.ts` | /vendors shows self-serve copy for B2C; planner-curated copy for B2B |
+| 09 | `09-estimator-fork.spec.ts` | /estimator picks PlannerSeededView vs DrillDown vs Empty by data shape |
+| 10 | `10-rsvp-public-site.spec.ts` | /w/<slug> public wedding site renders anonymously with RSVP affordance + no dashboard chrome leak |
+
+Latest prod run: **17 passed, 3 skipped, 0 failed (~1.1 min).**
 
 ## Growing the suite (toward 25 tests)
 
-The design doc (`docs/STABILIZATION_SPRINT.md` T1.4) lists 25 target
-flows. The 5 here cover the highest-stakes regressions from May 8.
-Future test files should follow the same pattern: one file per
-concern, descriptive `describe` block, `signInAs(page, key)` at the
-top of each test, generous timeouts (15s default — Railway hobby
-plan is cold-start prone).
+The design doc (`docs/stabilization/T1.4_design.md`) lists tests 11-25.
+Add as features ship — one test should be added in the same commit as
+the feature it guards. Highest-value next-to-add:
 
-Suggested next-to-add (highest value):
-- `06-budget-baseline-gen.spec.ts` — /budget generates an AI baseline
-- `07-plan-cost-link.spec.ts` — /plan task cost-link saves + auto-creates budget line (B2C only)
-- `08-vendors-empty-state-fork.spec.ts` — empty state copy differs between B2C and B2B
-- `09-estimator-fork.spec.ts` — B2B sees budget_estimates view; B2C sees drill-down view
-- `10-rsvp-form-public-site.spec.ts` — /w/<slug> public RSVP form writes to guest_event_invitations
+- `11-onboarding-chat.spec.ts` — first turn of /onboarding chat works
+- `12-vendors-find.spec.ts` — /vendors/find Google Places search returns results
+- `13-vendor-detail-tabs.spec.ts` — Contact / Pricing / Tasks / Files tabs (T1.5 admin-gate fix)
+- `14-guests-import.spec.ts` — drop Excel → AI column mapping → guests appear
+- `15-public-site-render.spec.ts` — themed render variants
 
 ## Test account roster
 
