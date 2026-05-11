@@ -96,7 +96,9 @@ When commit f34ba69 broke /estimator, the bug surfaced when Hursh complained —
 
 ---
 
-### T1.3 — Write-guard pattern for every API endpoint
+### T1.3 — Write-guard pattern for every API endpoint ⏳ PHASE 1 SHIPPED (helper + 3 exemplar endpoints)
+
+**Status May 11:** `lib/db-write-guard.ts` shipped with `dbUpdate / dbInsert / dbDelete / DbWriteError / dbWriteErrorResponse`. Applied to 3 exemplar endpoints: `/api/workspace/preferences`, `/api/planning-tasks/[id]`, `/api/budget-lines/[id]`. Phase 2 (rolling out to remaining ~112 mutation routes) deferred to follow-up.
 
 **Problem:** Every PATCH/POST endpoint can silently affect 0 rows and return 200. Tonight's `/api/workspace/preferences` bug was the exemplar.
 

@@ -20,6 +20,7 @@ import {
   BUDGET_CATEGORY_LABEL,
   type BudgetCategory,
 } from "@/lib/autopilot-types";
+import { dbUpdate, dbWriteErrorResponse } from "@/lib/db-write-guard";
 
 export const runtime = "nodejs";
 
@@ -120,9 +121,12 @@ export async function PATCH(
         };
       };
       update: (p: unknown) => {
-        eq: (col: string, val: string) => Promise<{
-          error: { message: string } | null;
-        }>;
+        eq: (col: string, val: string) => {
+          select: (cols: string) => Promise<{
+            data: Array<{ id: string }> | null;
+            error: { message: string } | null;
+          }>;
+        };
       };
     };
   };
@@ -283,15 +287,20 @@ export async function PATCH(
     return NextResponse.json({ ok: true });
   }
 
-  const { error: updErr } = await sbTask
-    .from("planning_tasks")
-    .update(patch)
-    .eq("id", taskId);
-  if (updErr) {
-    return NextResponse.json(
-      { error: `Couldn't save task: ${updErr.message}` },
-      { status: 500 },
+  // T1.3 — write-guard. Eliminates silent-fail if RLS blocks the
+  // update or the WHERE clause matches no rows.
+  try {
+    await dbUpdate(
+      "patch planning_tasks row",
+      sbTask
+        .from("planning_tasks")
+        .update(patch)
+        .eq("id", taskId)
+        .select("id"),
     );
+  } catch (err) {
+    const { status, body } = dbWriteErrorResponse(err);
+    return NextResponse.json(body, { status });
   }
 
   return NextResponse.json({

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { dbUpdate, dbDelete, dbWriteErrorResponse } from "@/lib/db-write-guard";
 
 export const runtime = "nodejs";
 
@@ -103,43 +104,34 @@ export async function PATCH(
     return NextResponse.json({ error: "no patchable fields" }, { status: 400 });
   }
 
-  // RLS scopes by workspace_id; we still constrain by id.
+  // T1.3 — write-guard. RLS scopes by workspace_id; we constrain by id.
   const sb = supabase as unknown as {
     from: (t: string) => {
       update: (p: Record<string, unknown>) => {
-        eq: (
-          col: string,
-          val: string,
-        ) => {
-          select: (cols: string) => {
-            single: () => Promise<{
-              data: { id: string } | null;
-              error: { message: string } | null;
-            }>;
-          };
+        eq: (col: string, val: string) => {
+          select: (cols: string) => Promise<{
+            data: Array<Record<string, unknown>> | null;
+            error: { message: string } | null;
+          }>;
         };
       };
     };
   };
 
-  const { data, error: updErr } = await sb
-    .from("budget_lines")
-    .update(patch)
-    .eq("id", params.id)
-    .select("*")
-    .single();
-
-  if (updErr) {
-    return NextResponse.json(
-      { error: `Couldn't update: ${updErr.message}` },
-      { status: 500 },
+  try {
+    const rows = await dbUpdate(
+      "update budget_line",
+      sb
+        .from("budget_lines")
+        .update(patch)
+        .eq("id", params.id)
+        .select("*"),
     );
+    return NextResponse.json({ ok: true, line: rows[0] });
+  } catch (err) {
+    const { status, body } = dbWriteErrorResponse(err);
+    return NextResponse.json(body, { status });
   }
-  if (!data) {
-    return NextResponse.json({ error: "not found" }, { status: 404 });
-  }
-
-  return NextResponse.json({ ok: true, line: data });
 }
 
 export async function DELETE(
@@ -163,28 +155,28 @@ export async function DELETE(
     return NextResponse.json({ error: "no workspace" }, { status: 403 });
   }
 
+  // T1.3 — write-guard on delete too.
   const sb = supabase as unknown as {
     from: (t: string) => {
       delete: () => {
-        eq: (
-          col: string,
-          val: string,
-        ) => Promise<{ error: { message: string } | null }>;
+        eq: (col: string, val: string) => {
+          select: (cols: string) => Promise<{
+            data: Array<{ id: string }> | null;
+            error: { message: string } | null;
+          }>;
+        };
       };
     };
   };
 
-  const { error: delErr } = await sb
-    .from("budget_lines")
-    .delete()
-    .eq("id", params.id);
-
-  if (delErr) {
-    return NextResponse.json(
-      { error: `Couldn't delete: ${delErr.message}` },
-      { status: 500 },
+  try {
+    await dbDelete(
+      "delete budget_line",
+      sb.from("budget_lines").delete().eq("id", params.id).select("id"),
     );
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    const { status, body } = dbWriteErrorResponse(err);
+    return NextResponse.json(body, { status });
   }
-
-  return NextResponse.json({ ok: true });
 }

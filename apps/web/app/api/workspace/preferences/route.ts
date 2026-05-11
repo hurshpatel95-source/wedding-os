@@ -17,6 +17,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
+import { dbUpdate, dbWriteErrorResponse } from "@/lib/db-write-guard";
 
 export const runtime = "nodejs";
 
@@ -251,8 +252,10 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
 
-  // Cast — wedding_region / guest_count_estimate / budget_target_eur aren't
-  // in the generated types yet (added in 20260507000002_wave3_autopilot).
+  // T1.3 — use dbUpdate write-guard. Eliminates the May 8 silent-fail
+  // class entirely: if RLS blocks or WHERE matches no rows, throws.
+  // Cast — wedding_region / guest_count_estimate / budget_target_eur
+  // aren't in the generated types yet (T1.2 phase 2 will fix).
   const sbWs = service as unknown as {
     from: (t: string) => {
       update: (payload: Record<string, unknown>) => {
@@ -261,32 +264,26 @@ export async function PATCH(request: NextRequest) {
           val: string,
         ) => {
           select: (cols: string) => Promise<{
-            data: Array<Record<string, unknown>> | null;
+            data: Array<{ id: string }> | null;
             error: { message: string } | null;
           }>;
         };
       };
     };
   };
-  const { data: updated, error: updErr } = await sbWs
-    .from("workspaces")
-    .update(patch)
-    .eq("id", profile.workspace_id)
-    .select("id");
-  if (updErr) {
-    return NextResponse.json(
-      { error: `Couldn't update: ${updErr.message}` },
-      { status: 500 },
-    );
-  }
-  if (!updated || updated.length === 0) {
-    // Belt-and-suspenders: even with service-role, surface 0-row updates
-    // as a real error rather than a silent success.
-    return NextResponse.json(
-      { error: "Update affected zero rows — workspace not found?" },
-      { status: 500 },
-    );
-  }
 
-  return NextResponse.json({ ok: true, ...patch });
+  try {
+    await dbUpdate(
+      "update workspace preferences",
+      sbWs
+        .from("workspaces")
+        .update(patch)
+        .eq("id", profile.workspace_id)
+        .select("id"),
+    );
+    return NextResponse.json({ ok: true, ...patch });
+  } catch (err) {
+    const { status, body } = dbWriteErrorResponse(err);
+    return NextResponse.json(body, { status });
+  }
 }
