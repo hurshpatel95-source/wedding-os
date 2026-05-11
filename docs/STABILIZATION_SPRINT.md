@@ -3,7 +3,7 @@
 **Locked-in:** May 8, 2026
 **Duration:** ~2 weeks of focused work
 **Owner:** Hursh + Claude
-**Status:** **Not started** — no Tier 1 items shipped yet
+**Status:** **In progress** — T1.5 complete (commit `7ac77cf`, May 11)
 
 ---
 
@@ -109,7 +109,9 @@ When commit f34ba69 broke /estimator, the bug surfaced when Hursh complained —
 
 ---
 
-### T1.4 — Smoke test suite — 25 tests covering the user's first hour
+### T1.4 — Smoke test suite — 25 tests covering the user's first hour ⏳ FOUNDATION COMPLETE (commit pending)
+
+**Status May 11:** Playwright installed + configured + 11 tests across 5 spec files passing against production. Foundation in place. Tests will grow toward 25 over time (see `apps/web/tests/smoke/README.md` for the next-to-add list).
 
 **Problem:** "Typecheck passes" was the green light to ship. Typecheck does not catch runtime regressions.
 
@@ -163,7 +165,7 @@ Cross-page:
 
 ---
 
-### T1.5 — B2B/B2C fork at the layout level
+### T1.5 — B2B/B2C fork at the layout level ✅ COMPLETE (commit `7ac77cf`, May 11)
 
 **Problem:** `apps/web/app/(app)/` is shared between B2C couples and B2B planner-served couples. Wave 3 worker agents shipped B2C dashboard features that overwrote the B2B planner-served portal. Tonight's `/estimator` regression was the same class of bug. There's no architectural fork point.
 

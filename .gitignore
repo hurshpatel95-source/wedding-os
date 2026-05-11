@@ -22,3 +22,8 @@ supabase/.env
 
 # Agent worktrees (background subagents)
 .claude/worktrees/
+
+# Playwright smoke-test artifacts (T1.4)
+test-results/
+playwright-report/
+playwright/.cache/
