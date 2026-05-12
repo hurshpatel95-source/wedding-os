@@ -18,6 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { EVENT_ROLES, EVENT_ROLE_LABEL } from "@/lib/event-roles";
+import { useIsPlannerServed } from "@/components/workspace/workspace-mode-provider";
 import type { Database } from "@wedding-os/db";
 
 type TimelineItem = Database["public"]["Tables"]["timeline_items"]["Row"];
@@ -63,6 +64,15 @@ export function TimelineEditor({
 }) {
   const router = useRouter();
   const isAdmin = role === "admin";
+  // T1.5 — Timeline edit is a B2C feature. Self-serve couples build their
+  // own day-of run-of-show. Planner-served couples have their planner
+  // building the day-of for them, so the editor is read-only with a calm
+  // banner pointing them at their planner. Admins (planners viewing a
+  // client workspace) always retain full edit regardless of workspace
+  // mode.
+  const isPlannerServed = useIsPlannerServed();
+  const canEdit = isAdmin || !isPlannerServed;
+  const showPlannerServedBanner = !isAdmin && isPlannerServed;
 
   // Composer state
   const [eventRole, setEventRole] = useState<EventRole>("ceremony");
@@ -138,9 +148,23 @@ export function TimelineEditor({
   };
 
   return (
-    <div className="grid gap-6 lg:grid-cols-3">
-      <div className="space-y-8 lg:col-span-2">
-        {grouped.length === 0 ? (
+    <div className="space-y-6">
+      {showPlannerServedBanner && (
+        <Card className="border-rose-200 bg-gradient-to-br from-rose-50/70 to-amber-50/40">
+          <CardContent className="space-y-1 py-5">
+            <p className="font-serif text-xl text-stone-800">
+              Your planner is building your day-of timeline.
+            </p>
+            <p className="max-w-2xl text-sm text-stone-600">
+              The run-of-show is shown here as a read-only preview. Reach out
+              to your planner with changes — they'll keep this in sync.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+      <div className="grid gap-6 lg:grid-cols-3">
+        <div className="space-y-8 lg:col-span-2">
+          {grouped.length === 0 ? (
           <Card className="border-dashed border-stone-300 bg-stone-50/40">
             <CardContent className="space-y-2 py-12 text-center">
               <h3 className="font-serif text-2xl font-light text-stone-900">
@@ -193,7 +217,7 @@ export function TimelineEditor({
                             </div>
                           )}
                         </div>
-                        {isAdmin && (
+                        {canEdit && (
                           <div className="flex shrink-0 items-center gap-1">
                             <Button
                               type="button"
@@ -225,7 +249,7 @@ export function TimelineEditor({
         )}
       </div>
 
-      {isAdmin && (
+      {canEdit && (
         <Card className="h-fit lg:sticky lg:top-6">
           <CardHeader>
             <CardTitle className="font-serif">Add timeline item</CardTitle>
@@ -308,6 +332,7 @@ export function TimelineEditor({
           </CardContent>
         </Card>
       )}
+      </div>
     </div>
   );
 }
