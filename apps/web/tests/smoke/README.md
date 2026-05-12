@@ -19,7 +19,7 @@ pnpm smoke:local       # in another
 pnpm smoke:ui
 ```
 
-## What's covered (May 11 — 10 spec files, 20 tests, 17 active + 3 skipped)
+## What's covered (May 11 — 15 spec files)
 
 | # | Test file | What it guards |
 |---|---|---|
@@ -33,20 +33,18 @@ pnpm smoke:ui
 | 08 | `08-vendors-empty-state-fork.spec.ts` | /vendors shows self-serve copy for B2C; planner-curated copy for B2B |
 | 09 | `09-estimator-fork.spec.ts` | /estimator picks PlannerSeededView vs DrillDown vs Empty by data shape |
 | 10 | `10-rsvp-public-site.spec.ts` | /w/<slug> public wedding site renders anonymously with RSVP affordance + no dashboard chrome leak |
-
-Latest prod run: **17 passed, 3 skipped, 0 failed (~1.1 min).**
+| 11 | `11-onboarding-chat.spec.ts` | /onboarding renders chat header; composer textarea is reachable + enabled (no destructive send) |
+| 12 | `12-vendors-find.spec.ts` | /vendors/find renders search form OR FeaturePreviewCard; region input + Search button reachable |
+| 13 | `13-vendor-detail-tabs.spec.ts` | /vendors/<id> renders Overview/Pricing/Tasks/Files tabs; Pricing + Files reachable for B2C (T1.5 admin-gate fix) |
+| 14 | `14-guests-import.spec.ts` | /guests/import renders dropzone for B2C; "AI" in copy, no "Claude"/"Anthropic" leak on drop stage |
+| 15 | `15-public-site-render.spec.ts` | /settings/public-site renders Site editor; slug input + theme picker reachable for B2C |
 
 ## Growing the suite (toward 25 tests)
 
 The design doc (`docs/stabilization/T1.4_design.md`) lists tests 11-25.
 Add as features ship — one test should be added in the same commit as
-the feature it guards. Highest-value next-to-add:
-
-- `11-onboarding-chat.spec.ts` — first turn of /onboarding chat works
-- `12-vendors-find.spec.ts` — /vendors/find Google Places search returns results
-- `13-vendor-detail-tabs.spec.ts` — Contact / Pricing / Tasks / Files tabs (T1.5 admin-gate fix)
-- `14-guests-import.spec.ts` — drop Excel → AI column mapping → guests appear
-- `15-public-site-render.spec.ts` — themed render variants
+the feature it guards. Tests 11-15 shipped on the T1.4 follow-up
+branch; 16-25 remain.
 
 ## Test account roster
 
