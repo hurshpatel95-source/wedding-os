@@ -19,12 +19,12 @@ interface ChatMessage {
 }
 
 const QUICK_ACTIONS = [
-  "Compare Option 1 vs Scenario 3 (Sept 11/12)",
-  "What's due in the next 30 days?",
-  "What 3 questions should we tackle next?",
-  "Which venue is the best fit if we end up at 200 guests?",
-  "What's our biggest open risk right now?",
-  "Summarize where we are in 4 bullets",
+  "What's our biggest open task right now?",
+  "What should we tackle this month?",
+  "How are we tracking vs our budget?",
+  "Which vendors do we still need to book?",
+  "Who hasn't RSVP'd yet?",
+  "What's the next deposit due?",
 ];
 
 const DAILY_CAP = 30;
@@ -253,8 +253,8 @@ export function AssistantChat({
               </div>
             )}
             <div className="rounded-md border border-stone-200 bg-stone-50 p-2 text-[10px] text-stone-600">
-              <strong>Cost guardrails:</strong> Haiku 4.5 + prompt caching. Workspace context is
-              cached so most messages are pennies. Daily cap protects against runaway use.
+              <strong>Cost guardrails:</strong> workspace context is cached so most messages are
+              pennies. Daily cap protects against runaway use.
             </div>
           </CardContent>
         </Card>
@@ -335,7 +335,7 @@ export function AssistantChat({
               <li>· Every vendor + quote + deposit status</li>
               <li>· All saved scenarios + grand totals</li>
               <li>· Guest list + RSVP counts</li>
-              <li>· Plan progress (% done across 73 tasks)</li>
+              <li>· Plan progress (% done across your tasks)</li>
               <li>· Wedding date countdown</li>
             </ul>
             <Badge variant="muted" className="mt-3 text-[10px]">

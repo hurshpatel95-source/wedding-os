@@ -322,7 +322,7 @@ export default async function PublicWeddingSite({
 
   const dateLabel = workspace.wedding_date
     ? formatDate(workspace.wedding_date)
-    : "September 2027";
+    : "";
 
   // Pull couple names from workspace.name (e.g. "Nisha & Hursh — Barcelona 2027")
   const coupleHeading = parseCoupleName(workspace.name);
@@ -347,12 +347,16 @@ export default async function PublicWeddingSite({
           <h1 className={`mt-4 text-5xl md:text-7xl ${theme.heroFamily}`}>
             {coupleHeading}
           </h1>
-          <div className={`mt-6 text-base font-light tracking-wide md:text-xl ${theme.heroDateText}`}>
-            {dateLabel}
-            {workspace.wedding_region ? (
-              <>&nbsp;·&nbsp; {workspace.wedding_region}</>
-            ) : null}
-          </div>
+          {(dateLabel || workspace.wedding_region) && (
+            <div className={`mt-6 text-base font-light tracking-wide md:text-xl ${theme.heroDateText}`}>
+              {dateLabel}
+              {dateLabel && workspace.wedding_region ? (
+                <>&nbsp;·&nbsp; {workspace.wedding_region}</>
+              ) : workspace.wedding_region ? (
+                <>{workspace.wedding_region}</>
+              ) : null}
+            </div>
+          )}
           <a
             href="#rsvp"
             className={`mt-12 inline-flex items-center gap-2 rounded-full border px-6 py-3 text-sm font-medium tracking-wide backdrop-blur transition ${theme.heroCtaClass}`}
@@ -605,8 +609,11 @@ export default async function PublicWeddingSite({
         </div>
       </section>
 
-      {/* Plan with us — couple-referral CTA */}
-      {planner && (
+      {/* Plan with us — couple-referral CTA.
+          Gated on skin: only renders for co-branded / white-label / collab
+          workspaces. For plain B2C (`acquired_planner`) the couple is
+          self-serve and there is no planner to up-sell. */}
+      {planner && skin !== "acquired_planner" && (
         <section className={`border-t py-16 ${theme.footerBg}`}>
           <div className="mx-auto max-w-3xl px-6">
             <div className="grid gap-8 md:grid-cols-[1fr_1fr]">
@@ -666,7 +673,8 @@ export default async function PublicWeddingSite({
       {/* Footer */}
       <footer className={`border-t py-10 text-center ${theme.footerBg}`}>
         <div className={`text-xs uppercase tracking-[0.3em] ${theme.footerEyebrow}`}>
-          {coupleHeading} &middot; {dateLabel}
+          {coupleHeading}
+          {dateLabel ? <> &middot; {dateLabel}</> : null}
         </div>
         {(() => {
           // Skin-aware brand attribution at the foot of the public site.
@@ -707,8 +715,11 @@ function formatDate(d: string): string {
 
 function parseCoupleName(workspaceName: string): string {
   // "Nisha & Hursh — Barcelona 2027" → "Nisha & Hursh"
+  // "Rachel & Mike's wedding"        → "Rachel & Mike"
+  // Regex matches the canonical pattern from couple-identity-form.tsx.
   const segments = workspaceName.split("—").map((s) => s.trim());
-  return segments[0] || workspaceName;
+  const head = segments[0] || workspaceName;
+  return head.replace(/['’]s\s+wedding\s*$/i, "").trim() || workspaceName;
 }
 
 /** Strip any raw HTML tags so the seeded `<p>...</p>` story converts cleanly

@@ -14,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { cn, formatMoney } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import {
   GUEST_SIDES,
   IMPORT_FIELD_LABEL,
@@ -233,9 +233,6 @@ export function ImportWizard() {
               <p className="text-xs text-muted-foreground">
                 {preview.rows_total} row{preview.rows_total === 1 ? "" : "s"} read ·{" "}
                 {validRows.length} ready · {skippedCount} skipped
-                {preview.cost_usd !== undefined && (
-                  <> · Claude cost {formatMoney(preview.cost_usd, "USD")}</>
-                )}
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -248,7 +245,7 @@ export function ImportWizard() {
                     )}
                   </>
                 ) : (
-                  "Heuristic mapping (no API key)"
+                  "Basic column mapping"
                 )}
               </Badge>
             </div>

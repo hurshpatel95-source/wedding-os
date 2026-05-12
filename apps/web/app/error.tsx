@@ -17,7 +17,7 @@ export default function RootError({
 }) {
   useEffect(() => {
     // eslint-disable-next-line no-console
-    console.error("[wedding-os root error boundary]", error);
+    console.error("[acquired-planner root error]", error);
   }, [error]);
 
   return (

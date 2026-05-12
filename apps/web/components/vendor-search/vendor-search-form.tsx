@@ -114,7 +114,7 @@ export function VendorSearchForm({
     setAddError(null);
     setMeta(null);
     if (!region.trim()) {
-      setError("Region is required — try 'Newport, RI' or 'Lake Como, Italy'");
+      setError("Region is required — your wedding city + state works (e.g. 'Philadelphia, PA').");
       return;
     }
     setSearching(true);

@@ -117,7 +117,7 @@ export function EmptyBudgetTree({ workspace }: { workspace: WorkspaceLite }) {
               id="region"
               value={region}
               onChange={(e) => setRegion(e.target.value)}
-              placeholder="Newport, RI"
+              placeholder="City or area"
               disabled={generating}
             />
           </div>

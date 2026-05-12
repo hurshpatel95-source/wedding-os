@@ -18,7 +18,7 @@ const OPTIONS: Array<{
     value: "USD",
     label: "US Dollars",
     symbol: "$",
-    blurb: "Default for US weddings (Newport, NJ, Texas, anywhere stateside).",
+    blurb: "Default for US weddings (Philadelphia, Charleston, Austin, anywhere stateside).",
   },
   {
     value: "EUR",

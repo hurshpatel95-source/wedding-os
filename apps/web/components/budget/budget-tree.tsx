@@ -222,7 +222,7 @@ export function BudgetTree({
                     delta > 0 ? "text-red-700" : "text-emerald-700",
                   )}
                 >
-                  {delta >= 0 ? "+" : "−"}
+                  {delta >= 0 ? "+" : "-"}
                   {symbol}
                   {Math.abs(Math.round(delta)).toLocaleString()}
                 </span>
