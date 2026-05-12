@@ -54,27 +54,35 @@ test.describe("16 — /payments currency symbol matches workspace base_currency"
       page.getByRole("heading", { name: /^Payments$/i }),
     ).toBeVisible({ timeout: 10_000 });
 
-    // The four stat cards always render (they show $0 when there are
-    // no milestones). Each value goes through fmt() → formatCurrency()
-    // → Intl.NumberFormat with USD → "$" prefix. Re-fetch the body
-    // text AFTER the page has fully settled (don't reuse the early
-    // snapshot — same race as test 06).
+    // Re-fetch body text after the page has fully settled (don't reuse
+    // the early snapshot — same race as test 06).
     const settledBody = await page.locator("body").innerText();
 
-    // Positive: at least one "$" appears somewhere in the rendered
-    // page. With four stat cards each rendering a $-prefixed value,
-    // this is a strong signal that the USD code path was taken.
-    expect(settledBody).toContain("$");
+    // Post-deep-audit (commit 03c7917), /payments shows an EmptyState
+    // when there are no vendors/milestones/invoices — so no currency
+    // values render in that branch. Branch the positive assertion:
+    // - If the EmptyState is up → no currency to check; just ensure
+    //   the negative assertions still hold.
+    // - If the StatCards are rendered → assert $ appears.
+    const isEmptyState =
+      settledBody.includes("No payments tracked yet") ||
+      settledBody.includes("Add vendors with deposit amounts");
 
-    // Negative: the literal string "EUR" should not appear. The
-    // symbol "€" would be the bug surface, but the column code "EUR"
-    // is the canonical regression marker (e.g. a debug print of
+    if (!isEmptyState) {
+      // Positive: at least one "$" appears somewhere in the rendered
+      // page. With four stat cards each rendering a $-prefixed value,
+      // this is a strong signal that the USD code path was taken.
+      expect(settledBody).toContain("$");
+    }
+
+    // Negative assertions hold in BOTH states. The literal string
+    // "EUR" should not appear (would indicate a debug print of
     // base_currency or a hardcoded label).
     expect(settledBody).not.toContain("EUR");
 
-    // Also negative: the € symbol itself should not appear on a USD
-    // account. If a future code path renders amounts with hardcoded
-    // formatEUR() this would catch it.
+    // The € symbol itself should not appear on a USD account. If a
+    // future code path renders amounts with hardcoded formatEUR()
+    // this would catch it.
     expect(settledBody).not.toContain("€");
   });
 });
