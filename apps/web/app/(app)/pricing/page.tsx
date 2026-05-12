@@ -1,19 +1,25 @@
 // /pricing — Full Pricing Planner (B2B planner-served couple) OR
 //            ScenarioStudio (admin) OR redirect to /budget (B2C couple).
 //
-// Three-branch fork:
+// Three-branch fork (Phase 1.1 — extended B2C redirect to use skin):
 //   1. Workspace has venues with event_roles set → planner-served couple
 //      (Hursh & Nisha, Astia clients) → render <FullPricingPlanner>.
-//   2. Workspace has no event_roles AND user role === 'couple' → B2C
-//      self-serve couple → redirect to /budget where the AI baseline
-//      generator lives.
-//   3. Workspace has no event_roles AND user role === 'admin' → planner
-//      reviewing scenarios → render <ScenarioStudio> (the legacy view).
+//      This is intentionally checked BEFORE the skin redirect so any
+//      workspace with planner-seeded venue data preserves the legacy
+//      FullPricingPlanner surface — the planner relies on it.
+//   2. No event_roles AND (skin === 'acquired_planner' OR role === 'couple')
+//      → B2C self-serve couple → redirect to /budget. Skin is the
+//      preferred signal post-Phase 1.1; role is the historic fallback so
+//      older workspaces missing a skin still redirect.
+//   3. No event_roles AND user role === 'admin' (and not skin
+//      acquired_planner) → planner reviewing scenarios →
+//      <ScenarioStudio>.
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { ScenarioStudio } from "@/components/pricing/scenario-studio";
 import { FullPricingPlanner } from "@/components/pricing/full-pricing-planner";
+import { normalizeSkin } from "@/lib/workspace-skin";
 import type { ScenarioInputs } from "@/lib/scenario-types";
 
 export const dynamic = "force-dynamic";
@@ -34,6 +40,33 @@ export default async function PricingPage() {
       .maybeSingle();
     role = (profile?.role ?? null) as typeof role;
   }
+
+  // Skin probe for the B2C redirect. Same canonical cast pattern used in
+  // /(app)/payments/page.tsx. Pre-migration tolerant — null means we fall
+  // back to the legacy role-based detection below.
+  let workspaceSkin: string | null = null;
+  try {
+    const sbSkin = supabase as unknown as {
+      from: (t: string) => {
+        select: (c: string) => {
+          limit: (n: number) => {
+            maybeSingle: () => Promise<{
+              data: { skin?: string | null } | null;
+            }>;
+          };
+        };
+      };
+    };
+    const { data: skinRow } = await sbSkin
+      .from("workspaces")
+      .select("skin")
+      .limit(1)
+      .maybeSingle();
+    workspaceSkin = skinRow?.skin ?? null;
+  } catch {
+    // pre-migration tolerant
+  }
+  const normalizedSkin = normalizeSkin(workspaceSkin);
 
   // Pull venues + scenarios + vendors in parallel — both branches need at
   // least the venues list.
@@ -92,7 +125,13 @@ export default async function PricingPage() {
   }
 
   // ─── Branch 2: B2C couple with no planner-tagged venues → /budget ──
-  if (role === "couple") {
+  // Trigger on EITHER skin == acquired_planner (preferred, Phase 1.1) OR
+  // role === 'couple' (legacy fallback for workspaces predating skin).
+  // Admins are spared so the ScenarioStudio surface remains reachable.
+  if (
+    role !== "admin" &&
+    (normalizedSkin === "acquired_planner" || role === "couple")
+  ) {
     redirect("/budget");
   }
 

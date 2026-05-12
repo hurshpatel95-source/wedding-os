@@ -32,6 +32,7 @@ import {
 } from "@/lib/estimator-types";
 import { type BudgetLineRow } from "@/lib/autopilot-types";
 import { EstimatorDrillDown } from "@/components/estimator/estimator-drill-down";
+import { MoneyTabs } from "@/components/money/money-tabs";
 
 export const dynamic = "force-dynamic";
 
@@ -212,6 +213,7 @@ export default async function EstimatorPage() {
             vendor quotes + paid amounts.
           </p>
         </header>
+        <MoneyTabs />
         <Card>
           <CardContent className="py-12 text-center">
             <Coins className="mx-auto mb-3 h-8 w-8 text-stone-300" />
@@ -250,11 +252,11 @@ export default async function EstimatorPage() {
         <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
           <span className="font-medium text-stone-700">Live forecast</span> —
           what the wedding might actually cost, recalc'd as vendor quotes
-          land. Click a category to drill in and swap vendors. For your
-          fixed plan, see <a className="underline" href="/budget">/budget</a>;
-          for actuals, see <a className="underline" href="/spend">/spend</a>.
+          land. Click a category to drill in and swap vendors.
         </p>
       </header>
+
+      <MoneyTabs />
 
       <EstimatorDrillDown
         initialLines={lines}
@@ -307,6 +309,8 @@ function PlannerSeededView({ list }: { list: EstimateRow[] }) {
           </Link>
         </div>
       </header>
+
+      <MoneyTabs />
 
       <div className="grid gap-4 md:grid-cols-2">
         {list.map((est) => {

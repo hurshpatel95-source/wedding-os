@@ -64,6 +64,8 @@ The "this looks scaffolded" tells. Both items from audit-2 that I deferred.
 **Risk:** medium. Touches IA. Could break smoke 18 (pricing fork). Need to update smoke specs in same commit.
 **Decision needed from Hursh:** yes — confirm the "money tabs inside `/budget`" model before I build.
 
+**Status: shipped 2026-05-12** (commit hash to be filled at commit time). Built the safer variant: each page keeps its route + data fetch, but mounts a shared `<MoneyTabs>` strip (`apps/web/components/money/money-tabs.tsx`) at the top of `/budget`, `/estimator`, `/spend`. /payments stays standalone (calendar, not a lens). /pricing redirects to /budget for B2C (skin = `acquired_planner`). The inline cross-page links on each money page were dropped — the tab strip now handles navigation.
+
 ### 1.2 Trim the 19-pill nav (audit-2 #5)
 
 **Current:** 19 nav items horizontally. Mobile = `overflow-x-auto` strip with no overflow indicator. Rachel won't scroll horizontally on her phone.

@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { BudgetTree } from "@/components/budget/budget-tree";
 import { EmptyBudgetTree } from "@/components/budget/empty-budget-tree";
+import { MoneyTabs } from "@/components/money/money-tabs";
 import type { BudgetLineRow } from "@/lib/autopilot-types";
 
 export const dynamic = "force-dynamic";
@@ -152,6 +153,7 @@ export default async function BudgetPage() {
             Couldn&apos;t find your workspace. Try refreshing.
           </p>
         </header>
+        <MoneyTabs />
       </div>
     );
   }
@@ -172,6 +174,7 @@ export default async function BudgetPage() {
             roll in automatically as they land.
           </p>
         </header>
+        <MoneyTabs />
         <EmptyBudgetTree workspace={workspace} />
       </div>
     );
@@ -190,9 +193,9 @@ export default async function BudgetPage() {
           <span className="font-medium text-stone-700">Your plan</span> —
           the numbers you decide. Drag any line to re-balance. As vendors
           send quotes, the &quot;committed&quot; bar fills automatically.
-          For live forecasting as quotes land, see <a className="underline" href="/estimator">/estimator</a>.
         </p>
       </header>
+      <MoneyTabs />
       <BudgetTree
         lines={lines}
         workspace={workspace}

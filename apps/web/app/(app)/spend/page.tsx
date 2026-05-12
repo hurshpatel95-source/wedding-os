@@ -2,6 +2,7 @@ import { Receipt } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { SpendTracker } from "@/components/spend/spend-tracker";
 import { EmptyState } from "@/components/ui/empty-state";
+import { MoneyTabs } from "@/components/money/money-tabs";
 import type { VendorRow } from "@/lib/vendor-types";
 import type { ScenarioInputs } from "@/lib/scenario-types";
 
@@ -89,11 +90,11 @@ export default async function SpendPage() {
         <p className="max-w-2xl text-sm text-muted-foreground">
           <span className="font-medium text-stone-700">Actuals</span> —
           what's been spent vs what's still committed. Pulls from every
-          vendor's quoted + deposit + final balance fields. For your plan
-          see <a className="underline" href="/budget">/budget</a>; for the
-          payment calendar see <a className="underline" href="/payments">/payments</a>.
+          vendor's quoted + deposit + final balance fields.
         </p>
       </header>
+
+      <MoneyTabs />
 
       {vendorList.length === 0 ? (
         <EmptyState
