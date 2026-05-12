@@ -47,11 +47,16 @@ export function WelcomeBanner({
   hasWeddingDate = false,
   hasBudget = false,
   hasPublicSlug = false,
+  justOnboarded = false,
 }: {
   workspaceCreatedAt: string;
   hasWeddingDate?: boolean;
   hasBudget?: boolean;
   hasPublicSlug?: boolean;
+  /** Set when the user just completed the /onboarding chat. Used to clarify
+   * why step 1 is asking for something we should already know — onboarding
+   * sometimes can't extract a wedding date from natural-language chat. */
+  justOnboarded?: boolean;
 }) {
   const [dismissed, setDismissed] = useState<boolean | null>(null);
 
@@ -86,7 +91,9 @@ export function WelcomeBanner({
       key: "date",
       icon: Calendar,
       title: "Add your wedding date",
-      subhead: "So timelines and countdowns line up.",
+      subhead: justOnboarded
+        ? "We didn't catch this in our chat — please add it."
+        : "So timelines and countdowns line up.",
       href: "/settings/preferences",
     });
   } else if (!hasBudget) {

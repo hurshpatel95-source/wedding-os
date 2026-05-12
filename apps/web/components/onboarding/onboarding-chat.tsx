@@ -9,9 +9,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { cn, currencySymbol } from "@/lib/utils";
-import type {
-  IntakeChatMessage,
-  IntakeExtractedData,
+import {
+  BUDGET_CATEGORY_LABEL,
+  type BudgetCategory,
+  type IntakeChatMessage,
+  type IntakeExtractedData,
 } from "@/lib/autopilot-types";
 
 // First-message copy. Centralised so we can swap it in one place + use a
@@ -65,6 +67,12 @@ function chipDisplayValue(
     return `${budgetSymbol}${v.toLocaleString()}`;
   if (key === "guest_count_estimate" && typeof v === "number")
     return String(v);
+  if (key === "first_priority_category" && typeof v === "string") {
+    // Show the human-readable label instead of the snake_case key. Falls
+    // back to the raw value if the category isn't in our label map yet.
+    const label = BUDGET_CATEGORY_LABEL[v as BudgetCategory];
+    return label ?? String(v);
+  }
   return String(v);
 }
 

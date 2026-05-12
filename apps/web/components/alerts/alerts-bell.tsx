@@ -5,7 +5,7 @@
 // (admin-nav / couple nav); this file only EXPORTS it.
 
 import * as React from "react";
-import { Bell } from "lucide-react";
+import { Bell, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { AlertRow, AlertSeverity } from "@/lib/autopilot-types";
 
@@ -107,8 +107,8 @@ export function AlertsBell({ className, pollMs = 60_000 }: AlertsBellProps) {
           </div>
           <div className="max-h-96 overflow-y-auto">
             {loading && alerts.length === 0 ? (
-              <div className="p-4 text-center text-sm text-muted-foreground">
-                Loading…
+              <div className="flex items-center justify-center p-4">
+                <Loader2 className="h-4 w-4 animate-spin text-stone-400" />
               </div>
             ) : errored ? (
               <div className="p-4 text-center text-sm text-muted-foreground">

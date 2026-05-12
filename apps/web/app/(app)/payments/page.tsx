@@ -1,7 +1,12 @@
 import { createClient } from "@/lib/supabase/server";
 import { PaymentsCalendar } from "@/components/payments/payments-calendar";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Card, CardContent } from "@/components/ui/card";
+import { Wallet } from "lucide-react";
 import type { VendorRow } from "@/lib/vendor-types";
 import { formatCurrency, currencySymbol } from "@/lib/utils";
+import { normalizeSkin } from "@/lib/workspace-skin";
+import { isB2B, resolveWorkspaceMode } from "@/lib/workspace-mode";
 
 export const dynamic = "force-dynamic";
 
@@ -164,6 +169,33 @@ export default async function PaymentsPage({
     role = (profile?.role ?? null) as typeof role;
   }
 
+  // Skin → workspace mode → planner-served gate. The skin column isn't in
+  // generated types yet, so cast (same pattern used in /(app)/page.tsx).
+  let workspaceSkin: string | null = null;
+  try {
+    const sbSkin = supabase as unknown as {
+      from: (t: string) => {
+        select: (c: string) => {
+          limit: (n: number) => {
+            maybeSingle: () => Promise<{
+              data: { skin?: string | null } | null;
+            }>;
+          };
+        };
+      };
+    };
+    const { data: skinRow } = await sbSkin
+      .from("workspaces")
+      .select("skin")
+      .limit(1)
+      .maybeSingle();
+    workspaceSkin = skinRow?.skin ?? null;
+  } catch {
+    // pre-migration tolerant
+  }
+  const mode = resolveWorkspaceMode(normalizeSkin(workspaceSkin));
+  const isPlannerServed = isB2B(mode);
+
   const list = vendors ?? [];
   const todayIso = new Date().toISOString().slice(0, 10);
 
@@ -233,6 +265,13 @@ export default async function PaymentsPage({
     }
   }
 
+  // Cold-start empty state — no vendors, no milestones, no planner invoices.
+  // Replaces the wall of $0 StatCards + empty calendar with a clear CTA.
+  const isEmpty =
+    milestones.length === 0 &&
+    plannerInvoices.length === 0 &&
+    list.length === 0;
+
   return (
     <div className="space-y-6">
       {showPaidBanner && (
@@ -255,11 +294,20 @@ export default async function PaymentsPage({
         </p>
       </header>
 
+      {isEmpty ? (
+        <EmptyState
+          icon={Wallet}
+          title="No payments tracked yet."
+          description="Add vendors with deposit amounts to see your payment calendar build out."
+          primary={{ label: "Add vendors", href: "/vendors" }}
+        />
+      ) : (
+        <>
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <StatCard
           label="Total committed"
           value={fmt(totalCommitted)}
-          sub="Booked vendors only"
+          sub="From vendors marked as Booked"
         />
         <StatCard
           label="Paid to date"
@@ -286,6 +334,24 @@ export default async function PaymentsPage({
         role={role}
         baseCurrency={baseCurrency}
       />
+
+      {!isPlannerServed && (
+        <Card>
+          <CardContent className="py-5">
+            <div className="text-[10px] uppercase tracking-[0.25em] text-stone-500">
+              What&rsquo;s next?
+            </div>
+            <h2 className="mt-1 font-serif text-xl">Want more on this page?</h2>
+            <p className="mt-1 text-sm text-stone-600">
+              Add deposits to your vendors on{" "}
+              <a className="underline" href="/vendors">
+                /vendors
+              </a>{" "}
+              and they&rsquo;ll show up here.
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       {plannerInvoices.length > 0 && (
         <section className="rounded-2xl border border-stone-200 bg-white p-5">
@@ -385,6 +451,8 @@ export default async function PaymentsPage({
           </table>
           </div>
         </section>
+      )}
+        </>
       )}
     </div>
   );

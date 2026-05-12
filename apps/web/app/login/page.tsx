@@ -57,7 +57,12 @@ export default function LoginPage() {
       password,
     });
     if (signInError) {
-      setError(signInError.message);
+      // Map the most common Supabase auth message to friendlier copy that
+      // points users at the magic-link fallback. Other errors pass through.
+      const friendly = signInError.message.includes("Invalid login credentials")
+        ? "Wrong email or password. Try the magic-link option above if you didn't set a password."
+        : signInError.message;
+      setError(friendly);
       setStatus("idle");
       return;
     }
@@ -211,6 +216,12 @@ export default function LoginPage() {
                   ? "Forgot? Use the magic-link option above."
                   : "We'll email a single-use link. Stays signed in for ~7 days."}
               </p>
+              {mode === "magic" && (
+                <p className="text-center text-xs text-muted-foreground">
+                  Didn&rsquo;t get the link? Switch to password above, or check
+                  your spam.
+                </p>
+              )}
             </>
           )}
         </CardContent>

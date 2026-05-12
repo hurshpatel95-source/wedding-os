@@ -11,6 +11,7 @@
 // full-width below since it's the rare "actions live here" card.
 
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { CurrencyToggle } from "@/components/settings/currency-toggle";
@@ -35,14 +36,14 @@ export default async function PreferencesPage() {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return null;
+  if (!user) redirect("/login");
 
   const { data: profile } = await supabase
     .from("users")
     .select("workspace_id, created_at")
     .eq("id", user.id)
     .maybeSingle();
-  if (!profile?.workspace_id) return null;
+  if (!profile?.workspace_id) redirect("/login");
 
   // Cast — wedding_region / guest_count_estimate / budget_target_eur aren't
   // in the generated types yet (added in 20260507000002_wave3_autopilot).

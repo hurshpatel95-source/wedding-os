@@ -709,7 +709,9 @@ function formatDate(d: string): string {
   try {
     return format(parseISO(d), "MMMM d, yyyy");
   } catch {
-    return d;
+    // Return empty string on parse failure — the caller omits the date chip
+    // when this is empty (avoids leaking raw ISO strings to public pages).
+    return "";
   }
 }
 

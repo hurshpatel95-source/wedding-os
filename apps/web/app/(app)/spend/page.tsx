@@ -1,5 +1,7 @@
+import { Receipt } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { SpendTracker } from "@/components/spend/spend-tracker";
+import { EmptyState } from "@/components/ui/empty-state";
 import type { VendorRow } from "@/lib/vendor-types";
 import type { ScenarioInputs } from "@/lib/scenario-types";
 
@@ -93,11 +95,20 @@ export default async function SpendPage() {
         </p>
       </header>
 
-      <SpendTracker
-        vendors={vendorList}
-        scenarios={scenarioList}
-        baseCurrency={baseCurrency}
-      />
+      {vendorList.length === 0 ? (
+        <EmptyState
+          icon={Receipt}
+          title="Nothing to track yet."
+          description="Once vendors are added and deposits logged, you'll see actuals here vs your plan."
+          primary={{ label: "Open vendors", href: "/vendors" }}
+        />
+      ) : (
+        <SpendTracker
+          vendors={vendorList}
+          scenarios={scenarioList}
+          baseCurrency={baseCurrency}
+        />
+      )}
     </div>
   );
 }

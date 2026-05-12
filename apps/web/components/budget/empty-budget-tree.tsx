@@ -58,7 +58,7 @@ export function EmptyBudgetTree({ workspace }: { workspace: WorkspaceLite }) {
         return;
       }
       toast.success(
-        `Generated ${json.lines_inserted} budget lines. Drag any one to re-balance.`,
+        `Generated ${json.lines_inserted} budget lines. Tap any one to edit.`,
       );
       router.refresh();
     } catch (err) {

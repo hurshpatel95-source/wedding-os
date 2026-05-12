@@ -30,11 +30,12 @@ export default async function MapPage() {
         <h1 className="font-serif text-4xl font-light tracking-tight md:text-5xl">
           Venue map
         </h1>
-        <p className="max-w-2xl text-sm text-muted-foreground">
-          {points.length === 0
-            ? "We pin every venue with an address on a single map so you can see how they cluster — beach, city, countryside — at a glance."
-            : "Click a marker for quick facts. Lead-pick badges flag the venues at the top of your shortlist."}
-        </p>
+        {points.length > 0 && (
+          <p className="max-w-2xl text-sm text-muted-foreground">
+            Click a marker for quick facts. Lead-pick badges flag the venues at
+            the top of your shortlist.
+          </p>
+        )}
       </header>
 
       {allVenues.length === 0 ? (

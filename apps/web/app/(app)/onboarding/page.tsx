@@ -142,8 +142,20 @@ export default async function OnboardingPage() {
               <Button asChild size="lg" variant="outline">
                 <Link href="/budget">Open my budget</Link>
               </Button>
+              <Button asChild size="lg" variant="outline">
+                <Link href="/plan">Open my plan</Link>
+              </Button>
             </CardContent>
           </Card>
+          <p className="mt-3 text-center text-xs text-stone-500">
+            Need to fix something?{" "}
+            <Link
+              href="/settings/preferences"
+              className="text-stone-700 underline underline-offset-2 hover:text-stone-900"
+            >
+              Edit in settings →
+            </Link>
+          </p>
         </div>
       );
     }

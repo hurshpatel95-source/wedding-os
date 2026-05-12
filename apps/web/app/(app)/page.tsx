@@ -636,6 +636,7 @@ export default async function DashboardPage({
           hasWeddingDate={Boolean(workspace.wedding_date)}
           hasBudget={bannerHasBudget}
           hasPublicSlug={bannerHasPublicSlug}
+          justOnboarded={searchParams?.["just-onboarded"] === "1"}
         />
       )}
       {/* Autopilot is a B2C feature — Gmail integration, AI vendor
