@@ -137,7 +137,12 @@ export default async function VendorsPage() {
               Find vendors
             </Link>
           </Button>
-          <VendorCreateButton />
+          {/* Audit #10 (2026-05-06): only show Add Vendor for self-serve
+              couples. Planner-served couples have their planner manage the
+              vendor list; rather than letting them write into the planner's
+              CRM directly, the empty-state copy routes them to ping the
+              planner. */}
+          {!isPlannerServed && <VendorCreateButton />}
         </div>
       </header>
 

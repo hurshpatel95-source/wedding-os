@@ -248,6 +248,11 @@ export default async function PaymentsPage({
         <h1 className="font-serif text-4xl font-light tracking-tight md:text-5xl">
           Payments
         </h1>
+        <p className="max-w-2xl text-sm text-muted-foreground">
+          <span className="font-medium text-stone-700">Calendar</span> —
+          when each deposit and balance is due. Mark each paid as you wire
+          it. For running totals see <a className="underline" href="/spend">/spend</a>.
+        </p>
       </header>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">

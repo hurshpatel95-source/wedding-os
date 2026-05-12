@@ -302,9 +302,17 @@ export default async function PublicWeddingSite({
   const bookSlug = planner?.public_published_at && planner?.public_slug
     ? planner.public_slug
     : null;
+  // Audit #9 (2026-05-06): fall back to all venues when the couple
+  // hasn't marked anything as `is_lead_pick`. Previously the "Where it
+  // all happens" section went silent in that case, leaving the public
+  // site without a venues block. We don't fetch `status` on the public
+  // page (RLS-scoped read), so we fall back to the full venue list here
+  // — anything the couple wouldn't want public should be deleted, not
+  // hidden by status.
   const leadVenues = venues.filter((v) => v.is_lead_pick);
+  const venuesForPublic = leadVenues.length > 0 ? leadVenues : venues;
   const heroPhotoUrl =
-    leadVenues.find((v) => v.hero_photo_url)?.hero_photo_url ??
+    venuesForPublic.find((v) => v.hero_photo_url)?.hero_photo_url ??
     venues.find((v) => v.hero_photo_url)?.hero_photo_url ??
     null;
 
@@ -369,7 +377,7 @@ export default async function PublicWeddingSite({
       <Flourish theme={theme} />
 
       {/* Venues */}
-      {leadVenues.length > 0 && (
+      {venuesForPublic.length > 0 && (
         <section className="mx-auto max-w-5xl px-6 py-20">
           <div className={`text-[10px] uppercase tracking-[0.3em] ${theme.eyebrow}`}>
             The plan
@@ -378,7 +386,7 @@ export default async function PublicWeddingSite({
             Where it all happens
           </h2>
           <div className="mt-10 grid gap-8 md:grid-cols-2">
-            {leadVenues.map((v) => (
+            {venuesForPublic.map((v) => (
               <article
                 key={v.id}
                 className={`overflow-hidden ${theme.cardClass}`}

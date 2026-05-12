@@ -248,9 +248,11 @@ export default async function EstimatorPage() {
           Estimator
         </h1>
         <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-          Click a category to drill in, swap vendors, and edit estimates —
-          totals recalc live. Try different combinations to see how each
-          impacts your bottom line.
+          <span className="font-medium text-stone-700">Live forecast</span> —
+          what the wedding might actually cost, recalc'd as vendor quotes
+          land. Click a category to drill in and swap vendors. For your
+          fixed plan, see <a className="underline" href="/budget">/budget</a>;
+          for actuals, see <a className="underline" href="/spend">/spend</a>.
         </p>
       </header>
 

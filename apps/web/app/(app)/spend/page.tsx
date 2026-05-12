@@ -85,8 +85,11 @@ export default async function SpendPage() {
           Spend tracker
         </h1>
         <p className="max-w-2xl text-sm text-muted-foreground">
-          What's been spent vs what's still committed. Pulls from every vendor's quoted +
-          deposit + final balance fields, plus the saved scenarios for context.
+          <span className="font-medium text-stone-700">Actuals</span> —
+          what's been spent vs what's still committed. Pulls from every
+          vendor's quoted + deposit + final balance fields. For your plan
+          see <a className="underline" href="/budget">/budget</a>; for the
+          payment calendar see <a className="underline" href="/payments">/payments</a>.
         </p>
       </header>
 

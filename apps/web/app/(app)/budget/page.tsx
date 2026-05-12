@@ -187,8 +187,10 @@ export default async function BudgetPage() {
           Budget
         </h1>
         <p className="max-w-2xl text-sm text-muted-foreground">
-          Drag any line to re-balance. As vendors send quotes, the
-          &quot;committed&quot; bar fills automatically.
+          <span className="font-medium text-stone-700">Your plan</span> —
+          the numbers you decide. Drag any line to re-balance. As vendors
+          send quotes, the &quot;committed&quot; bar fills automatically.
+          For live forecasting as quotes land, see <a className="underline" href="/estimator">/estimator</a>.
         </p>
       </header>
       <BudgetTree
