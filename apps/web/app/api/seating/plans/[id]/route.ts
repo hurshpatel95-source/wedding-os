@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import {
+  dbUpdate,
+  dbDelete,
+  dbWriteErrorResponse,
+} from "@/lib/db-write-guard";
 
 export const runtime = "nodejs";
 
@@ -34,21 +39,29 @@ export async function PATCH(
     return NextResponse.json({ error: "nothing to update" }, { status: 400 });
   }
 
-  const { error } = await (supabase as unknown as {
+  const sbUpdate = supabase as unknown as {
     from: (t: string) => {
       update: (p: Record<string, unknown>) => {
-        eq: (col: string, val: string) => Promise<{ error: { message: string } | null }>;
+        eq: (col: string, val: string) => {
+          select: (cols: string) => PromiseLike<{
+            data: { id: string }[] | null;
+            error: { message: string } | null;
+          }>;
+        };
       };
     };
-  })
-    .from("floor_plans")
-    .update(patch)
-    .eq("id", params.id);
+  };
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  try {
+    await dbUpdate(
+      "update floor_plan",
+      sbUpdate.from("floor_plans").update(patch).eq("id", params.id).select("id"),
+    );
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    const { status, body: errBody } = dbWriteErrorResponse(err);
+    return NextResponse.json(errBody, { status });
   }
-  return NextResponse.json({ ok: true });
 }
 
 export async function DELETE(
@@ -61,19 +74,27 @@ export async function DELETE(
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
-  const { error } = await (supabase as unknown as {
+  const sbDelete = supabase as unknown as {
     from: (t: string) => {
       delete: () => {
-        eq: (col: string, val: string) => Promise<{ error: { message: string } | null }>;
+        eq: (col: string, val: string) => {
+          select: (cols: string) => PromiseLike<{
+            data: { id: string }[] | null;
+            error: { message: string } | null;
+          }>;
+        };
       };
     };
-  })
-    .from("floor_plans")
-    .delete()
-    .eq("id", params.id);
+  };
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  try {
+    await dbDelete(
+      "delete floor_plan",
+      sbDelete.from("floor_plans").delete().eq("id", params.id).select("id"),
+    );
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    const { status, body: errBody } = dbWriteErrorResponse(err);
+    return NextResponse.json(errBody, { status });
   }
-  return NextResponse.json({ ok: true });
 }

@@ -7,6 +7,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { dbUpdate, dbWriteErrorResponse } from "@/lib/db-write-guard";
 import type { VendorRow, VendorStatus } from "@/lib/vendor-types";
 import type { VendorAutopilotStatus } from "@/lib/autopilot-types";
 
@@ -82,12 +83,10 @@ export async function PATCH(
       };
       update: (p: Record<string, unknown>) => {
         eq: (col: string, val: string) => {
-          select: (cols: string) => {
-            maybeSingle: () => Promise<{
-              data: VendorRow | null;
-              error: { message: string } | null;
-            }>;
-          };
+          select: (cols: string) => PromiseLike<{
+            data: VendorRow[] | null;
+            error: { message: string } | null;
+          }>;
         };
       };
     };
@@ -138,17 +137,18 @@ export async function PATCH(
     );
   }
 
-  const { data: updated, error: updErr } = await sbAny
-    .from("vendors")
-    .update(patch)
-    .eq("id", params.vendorId)
-    .select("*")
-    .maybeSingle();
-  if (updErr) {
-    return NextResponse.json(
-      { error: `update failed: ${updErr.message}` },
-      { status: 500 },
+  try {
+    const rows = await dbUpdate(
+      "update vendor (status/autopilot/notes)",
+      sbAny
+        .from("vendors")
+        .update(patch)
+        .eq("id", params.vendorId)
+        .select("*"),
     );
+    return NextResponse.json({ vendor: rows[0] });
+  } catch (err) {
+    const { status, body } = dbWriteErrorResponse(err);
+    return NextResponse.json(body, { status });
   }
-  return NextResponse.json({ vendor: updated });
 }

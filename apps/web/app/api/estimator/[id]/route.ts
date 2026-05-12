@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { dbUpdate, dbWriteErrorResponse } from "@/lib/db-write-guard";
 import type { EstimateDocument } from "@/lib/estimator-types";
 
 export const runtime = "nodejs";
@@ -40,14 +41,18 @@ export async function PATCH(
   if (body.sections) patch.sections = body.sections;
   if (body.name) patch.name = body.name;
 
-  const { error } = await supabase
-    .from("budget_estimates")
-    .update(patch as never)
-    .eq("id", params.id);
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  try {
+    await dbUpdate(
+      "update budget_estimate (sections/name)",
+      supabase
+        .from("budget_estimates")
+        .update(patch as never)
+        .eq("id", params.id)
+        .select("id"),
+    );
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    const { status, body } = dbWriteErrorResponse(err);
+    return NextResponse.json(body, { status });
   }
-
-  return NextResponse.json({ ok: true });
 }

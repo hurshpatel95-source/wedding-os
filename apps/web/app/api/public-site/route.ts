@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import {
+  dbUpdate,
+  dbWriteErrorResponse,
+  DbWriteError,
+} from "@/lib/db-write-guard";
 import { SITE_THEMES } from "@/lib/tier1-types";
 
 export const runtime = "nodejs";
@@ -84,20 +89,29 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: "nothing to update" }, { status: 400 });
   }
 
-  const { error } = await supabase
-    .from("workspaces")
-    .update(patch as never)
-    .eq("id", profile.workspace_id);
-
-  if (error) {
-    if (error.message.includes("workspaces_public_slug_key")) {
+  try {
+    await dbUpdate(
+      "update public_site (slug/story/theme/publish)",
+      supabase
+        .from("workspaces")
+        .update(patch as never)
+        .eq("id", profile.workspace_id)
+        .select("id"),
+    );
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    // Preserve the slug-conflict UX. Unique-constraint hits arrive as a
+    // DbWriteError wrapping the underlying pg error.
+    if (
+      err instanceof DbWriteError &&
+      err.reason.includes("workspaces_public_slug_key")
+    ) {
       return NextResponse.json(
         { error: "That slug is already taken — pick another." },
         { status: 409 },
       );
     }
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    const { status, body: errBody } = dbWriteErrorResponse(err);
+    return NextResponse.json(errBody, { status });
   }
-
-  return NextResponse.json({ ok: true });
 }

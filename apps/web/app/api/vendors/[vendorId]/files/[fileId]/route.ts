@@ -5,6 +5,11 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import {
+  dbUpdate,
+  dbDelete,
+  dbWriteErrorResponse,
+} from "@/lib/db-write-guard";
 import type { DocumentKind, DocumentRow } from "@/lib/wave2-types";
 
 export const runtime = "nodejs";
@@ -96,18 +101,19 @@ type LooseSb = {
     };
     update: (p: Record<string, unknown>) => {
       eq: (col: string, val: string) => {
-        select: (cols: string) => {
-          maybeSingle: () => Promise<{
-            data: DocumentRow | null;
-            error: { message: string } | null;
-          }>;
-        };
+        select: (cols: string) => PromiseLike<{
+          data: DocumentRow[] | null;
+          error: { message: string } | null;
+        }>;
       };
     };
     delete: () => {
-      eq: (col: string, val: string) => Promise<{
-        error: { message: string } | null;
-      }>;
+      eq: (col: string, val: string) => {
+        select: (cols: string) => PromiseLike<{
+          data: { id: string }[] | null;
+          error: { message: string } | null;
+        }>;
+      };
     };
   };
 };
@@ -217,19 +223,20 @@ export async function PATCH(
     );
   }
 
-  const { data: updated, error: updErr } = await sb
-    .from("documents")
-    .update(patch)
-    .eq("id", params.fileId)
-    .select(DOC_COLS)
-    .maybeSingle();
-  if (updErr) {
-    return NextResponse.json(
-      { error: `update failed: ${updErr.message}` },
-      { status: 500 },
+  try {
+    const rows = await dbUpdate(
+      "update document (kind/notes/name)",
+      sb
+        .from("documents")
+        .update(patch)
+        .eq("id", params.fileId)
+        .select(DOC_COLS),
     );
+    return NextResponse.json({ document: rows[0] });
+  } catch (err) {
+    const { status, body: errBody } = dbWriteErrorResponse(err);
+    return NextResponse.json(errBody, { status });
   }
-  return NextResponse.json({ document: updated });
 }
 
 export async function DELETE(
@@ -258,15 +265,14 @@ export async function DELETE(
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
 
-  const { error: delErr } = await sb
-    .from("documents")
-    .delete()
-    .eq("id", params.fileId);
-  if (delErr) {
-    return NextResponse.json(
-      { error: `delete failed: ${delErr.message}` },
-      { status: 500 },
+  try {
+    await dbDelete(
+      "delete document (vendor file)",
+      sb.from("documents").delete().eq("id", params.fileId).select("id"),
     );
+  } catch (err) {
+    const { status, body: errBody } = dbWriteErrorResponse(err);
+    return NextResponse.json(errBody, { status });
   }
 
   // Best-effort storage cleanup. Even if this fails the row is gone.
