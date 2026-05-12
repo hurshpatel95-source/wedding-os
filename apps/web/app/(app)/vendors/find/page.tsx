@@ -1,9 +1,11 @@
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, ArrowRight, Plus, Search } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { VendorSearchForm } from "@/components/vendor-search/vendor-search-form";
 import { isFeatureReady } from "@/lib/feature-flags";
-import { FeaturePreviewCard } from "@/components/feature-status/feature-preview-card";
+import { Card, CardContent } from "@/components/ui/card";
+import { normalizeSkin } from "@/lib/workspace-skin";
+import { resolveWorkspaceMode, isPlannerServed } from "@/lib/workspace-mode";
 
 export const dynamic = "force-dynamic";
 
@@ -20,6 +22,7 @@ export default async function VendorFindPage() {
   } = await supabase.auth.getUser();
 
   let defaultRegion: string | null = null;
+  let plannerServed = false;
 
   if (user) {
     const { data: profile } = await supabase
@@ -49,8 +52,33 @@ export default async function VendorFindPage() {
         .eq("id", workspaceId)
         .maybeSingle();
       defaultRegion = ws?.wedding_region ?? null;
+
+      // Also read the skin to fork the gated fallback CTA — planner-served
+      // couples should be pointed at their planner, B2C couples at the
+      // manual-add page on /vendors.
+      const sbSkin = supabase as unknown as {
+        from: (t: string) => {
+          select: (c: string) => {
+            eq: (col: string, val: string) => {
+              maybeSingle: () => Promise<{
+                data: { skin: string | null } | null;
+              }>;
+            };
+          };
+        };
+      };
+      const { data: skinRow } = await sbSkin
+        .from("workspaces")
+        .select("skin")
+        .eq("id", workspaceId)
+        .maybeSingle();
+      const mode = resolveWorkspaceMode(normalizeSkin(skinRow?.skin ?? null));
+      plannerServed = isPlannerServed(mode);
     }
   }
+
+  const searchReady =
+    isFeatureReady("google_places") || isFeatureReady("brave_search");
 
   return (
     <div className="space-y-6">
@@ -78,10 +106,46 @@ export default async function VendorFindPage() {
         </div>
       </header>
 
-      {isFeatureReady("google_places") || isFeatureReady("brave_search") ? (
+      {searchReady ? (
         <VendorSearchForm defaultRegion={defaultRegion} />
       ) : (
-        <FeaturePreviewCard feature="google_places" />
+        <Card className="border-stone-200 bg-stone-50/60">
+          <CardContent className="space-y-4 py-6">
+            <div className="flex items-start gap-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-rose-100 text-rose-700">
+                <Search className="h-4 w-4" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h3 className="font-serif text-lg font-medium tracking-tight text-stone-900">
+                  Vendor search isn&rsquo;t turned on yet
+                </h3>
+                <p className="mt-1 text-sm text-stone-700">
+                  Vendor search uses web search APIs which aren&rsquo;t
+                  enabled in this environment yet. You can still add vendors
+                  by hand — autopilot will research each one you add.
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2 pl-12">
+              <Link
+                href="/vendors"
+                className="inline-flex items-center gap-2 rounded-full bg-stone-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-stone-700"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Add a vendor manually
+              </Link>
+              {plannerServed && (
+                <Link
+                  href="/assistant"
+                  className="inline-flex items-center gap-2 rounded-full border border-stone-300 bg-white px-4 py-2 text-sm font-medium text-stone-800 transition hover:border-stone-900"
+                >
+                  Ask your planner
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
+              )}
+            </div>
+          </CardContent>
+        </Card>
       )}
     </div>
   );

@@ -473,15 +473,18 @@ export function OnboardingChat({
             </Badge>
             <p className="mt-2 text-xs text-stone-600">
               You can answer "skip" to anything. We'll ask later if it
-              matters. Visit{" "}
-              <a
-                href="/?skip-onboarding=1"
-                className="text-rose-700 underline-offset-2 hover:underline"
-              >
-                /?skip-onboarding=1
-              </a>{" "}
-              to bypass entirely.
+              matters.
             </p>
+            <Button
+              asChild
+              variant="ghost"
+              size="sm"
+              className="mt-3 h-auto px-2 py-1 text-xs text-stone-700"
+            >
+              <a href="/?skip-onboarding=1">
+                Skip for now (you can come back)
+              </a>
+            </Button>
           </CardContent>
         </Card>
       </div>

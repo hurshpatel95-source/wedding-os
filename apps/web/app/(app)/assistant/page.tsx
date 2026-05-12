@@ -96,7 +96,7 @@ export default async function AssistantPage({
     <div className="space-y-4">
       <header className="space-y-1">
         <div className="text-[11px] uppercase tracking-[0.25em] text-stone-500">
-          Workspace-aware AI · Haiku 4.5 · capped at 30 messages/day
+          Workspace-aware AI · 30 messages a day
         </div>
         <h1 className="font-serif text-4xl font-light tracking-tight md:text-5xl">
           Co-pilot

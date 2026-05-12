@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, Plus, UserPlus, Users } from "lucide-react";
+import { ArrowLeft, ArrowRight, Plus, UserPlus, Users } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -74,6 +74,13 @@ export default async function SeatingListPage() {
 
   return (
     <div className="space-y-6">
+      <Link
+        href="/guests"
+        className="inline-flex items-center gap-1.5 text-xs uppercase tracking-[0.2em] text-stone-500 hover:text-stone-700"
+      >
+        <ArrowLeft className="h-3 w-3" />
+        Back to guests
+      </Link>
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <div className="text-[11px] uppercase tracking-[0.25em] text-stone-500">

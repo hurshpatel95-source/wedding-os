@@ -1,4 +1,6 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
+import { ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { ImportWizard } from "@/components/guests/import-wizard";
 
@@ -17,6 +19,13 @@ export default async function GuestImportPage() {
 
   return (
     <div className="space-y-6">
+      <Link
+        href="/guests"
+        className="inline-flex items-center gap-1.5 text-xs uppercase tracking-[0.2em] text-stone-500 hover:text-stone-700"
+      >
+        <ArrowLeft className="h-3 w-3" />
+        Back to guests
+      </Link>
       <header className="space-y-1">
         <div className="text-[11px] uppercase tracking-[0.25em] text-stone-500">
           Bulk import · AI column-mapping

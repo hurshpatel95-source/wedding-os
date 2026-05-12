@@ -578,13 +578,65 @@ export default async function DashboardPage({
   // Top 3 for shortlist
   const shortlist = venueList.slice(0, 3);
 
+  // ── WelcomeBanner starter-state (audit #9) ──────────────────────────
+  // Banner surfaces a 3-step starter list for brand-new B2C couples: add
+  // wedding date / generate budget / pick public URL. Only compute the
+  // gating flags if we're actually going to render it. budget_lines and
+  // workspaces.public_slug aren't in the generated DB types yet — cast.
+  let bannerHasBudget = false;
+  let bannerHasPublicSlug = false;
+  if (!isPlannerServed && workspace?.created_at) {
+    try {
+      const sbBudget = supabase as unknown as {
+        from: (t: string) => {
+          select: (
+            c: string,
+            opts: { count: "exact"; head: true },
+          ) => Promise<{ count: number | null }>;
+        };
+      };
+      const { count: budgetLineCount } = await sbBudget
+        .from("budget_lines")
+        .select("id", { count: "exact", head: true });
+      bannerHasBudget = (budgetLineCount ?? 0) > 0;
+    } catch {
+      bannerHasBudget = false;
+    }
+    try {
+      const sbSlug = supabase as unknown as {
+        from: (t: string) => {
+          select: (c: string) => {
+            limit: (n: number) => {
+              maybeSingle: () => Promise<{
+                data: { public_slug: string | null } | null;
+              }>;
+            };
+          };
+        };
+      };
+      const { data: slugRow } = await sbSlug
+        .from("workspaces")
+        .select("public_slug")
+        .limit(1)
+        .maybeSingle();
+      bannerHasPublicSlug = Boolean(slugRow?.public_slug);
+    } catch {
+      bannerHasPublicSlug = false;
+    }
+  }
+
   return (
     <div className="space-y-12">
       {/* WelcomeBanner is a B2C cold-start nudge ("set up your workspace,
           tell us about your wedding"). Planner-served couples don't need
           this — their planner already configured everything. */}
       {!isPlannerServed && workspace?.created_at && (
-        <WelcomeBanner workspaceCreatedAt={workspace.created_at} />
+        <WelcomeBanner
+          workspaceCreatedAt={workspace.created_at}
+          hasWeddingDate={Boolean(workspace.wedding_date)}
+          hasBudget={bannerHasBudget}
+          hasPublicSlug={bannerHasPublicSlug}
+        />
       )}
       {/* Autopilot is a B2C feature — Gmail integration, AI vendor
           outreach drafts. For planner-served couples, the planner owns
