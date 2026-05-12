@@ -20,10 +20,10 @@ interface WorkspaceLite {
 export function EmptyBudgetTree({ workspace }: { workspace: WorkspaceLite }) {
   const router = useRouter();
   const [guestCount, setGuestCount] = useState<string>(
-    workspace.guest_count_estimate?.toString() ?? "120",
+    workspace.guest_count_estimate?.toString() ?? "",
   );
   const [budgetTarget, setBudgetTarget] = useState<string>(
-    workspace.budget_target_eur?.toString() ?? "75000",
+    workspace.budget_target_eur?.toString() ?? "",
   );
   const [region, setRegion] = useState<string>(workspace.wedding_region ?? "");
   const [generating, setGenerating] = useState(false);

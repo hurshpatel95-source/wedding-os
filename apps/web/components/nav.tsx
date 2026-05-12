@@ -208,10 +208,16 @@ export function Nav({
         <div className="flex items-center gap-4">
           <div className="text-right leading-none">
             <div className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
-              Days to wedding
+              {daysUntil !== null && daysUntil < 0
+                ? "Days since wedding"
+                : "Days to wedding"}
             </div>
             <div className="mt-1 font-serif text-2xl font-medium leading-none">
-              {daysUntil !== null && daysUntil >= 0 ? daysUntil : "TBD"}
+              {daysUntil === null
+                ? "TBD"
+                : daysUntil >= 0
+                  ? daysUntil
+                  : Math.abs(daysUntil)}
             </div>
           </div>
           <AlertsBell />

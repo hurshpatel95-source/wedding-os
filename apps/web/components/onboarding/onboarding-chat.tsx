@@ -326,9 +326,33 @@ export function OnboardingChat({
             </div>
           </div>
 
+          {/* Mobile-only progress bar — keeps the signal visible above the composer */}
+          {!complete && (
+            <div
+              className="border-t border-stone-200 bg-white px-3 pt-2 md:hidden"
+              aria-label={`Onboarding progress: ${filledCount} of ${FIELD_CHIPS.length}`}
+            >
+              <div className="mb-1 flex items-center justify-between text-[10px] uppercase tracking-[0.2em] text-stone-500">
+                <span>
+                  Onboarding progress · {filledCount} of {FIELD_CHIPS.length}
+                </span>
+              </div>
+              <div className="h-1.5 w-full overflow-hidden rounded-full bg-stone-100">
+                <div
+                  className="h-full bg-gradient-to-r from-rose-400 to-amber-500 transition-all"
+                  style={{
+                    width: `${Math.round(
+                      (filledCount / FIELD_CHIPS.length) * 100,
+                    )}%`,
+                  }}
+                />
+              </div>
+            </div>
+          )}
+
           {/* Composer — hidden once complete */}
           {!complete && (
-            <div className="border-t border-stone-200 bg-white p-3">
+            <div className="border-t border-stone-200 bg-white p-3 max-md:border-t-0">
               <div className="flex gap-2">
                 <Textarea
                   ref={textareaRef}

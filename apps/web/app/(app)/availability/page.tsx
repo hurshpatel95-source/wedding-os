@@ -26,10 +26,10 @@ export default async function AvailabilityPage() {
     supabase.from("workspaces").select("wedding_date").limit(1).maybeSingle(),
   ]);
 
-  // Default month = wedding_date's month if set, else September 2027 (the active planning window).
+  // Default month = wedding_date's month if set, else current month.
   const initialMonth = workspace?.wedding_date
     ? workspace.wedding_date.slice(0, 7)
-    : "2027-09";
+    : new Date().toISOString().slice(0, 7);
 
   const venuesLite: VenueLite[] = (venues ?? []).map((v) => ({
     id: v.id,

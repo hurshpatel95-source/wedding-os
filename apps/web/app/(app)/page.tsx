@@ -1,4 +1,4 @@
-import { differenceInCalendarDays, formatDistanceToNow, parseISO } from "date-fns";
+import { differenceInCalendarDays, format, formatDistanceToNow, parseISO } from "date-fns";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ArrowRight, Camera, MapPin, Sparkles, Users } from "lucide-react";
@@ -627,11 +627,12 @@ export default async function DashboardPage({
             All your scouting, photos, notes, and pricing in one place — no more hunting
             through WhatsApp threads or PDFs to remember which courtyard belonged to which
             venue.
-            {daysUntil !== null && daysUntil > 0 && (
+            {daysUntil !== null && daysUntil > 0 && workspace?.wedding_date && (
               <>
                 {" "}
                 <span className="text-stone-900">
-                  {daysUntil} days until {workspace?.wedding_date}.
+                  {daysUntil} days until{" "}
+                  {format(parseISO(workspace.wedding_date), "MMMM d, yyyy")}.
                 </span>
               </>
             )}
