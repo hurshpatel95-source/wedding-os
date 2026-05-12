@@ -19,7 +19,7 @@ pnpm smoke:local       # in another
 pnpm smoke:ui
 ```
 
-## What's covered (May 11 — 15 spec files)
+## What's covered (May 11 — 20 spec files)
 
 | # | Test file | What it guards |
 |---|---|---|
@@ -38,6 +38,11 @@ pnpm smoke:ui
 | 13 | `13-vendor-detail-tabs.spec.ts` | /vendors/<id> renders Overview/Pricing/Tasks/Files tabs; Pricing + Files reachable for B2C (T1.5 admin-gate fix) |
 | 14 | `14-guests-import.spec.ts` | /guests/import renders dropzone for B2C; "AI" in copy, no "Claude"/"Anthropic" leak on drop stage |
 | 15 | `15-public-site-render.spec.ts` | /settings/public-site renders Site editor; slug input + theme picker reachable for B2C |
+| 16 | `16-payments-currency.spec.ts` | /payments shows "$" for USD workspace; no literal "EUR" / "€" leaks on B2C account |
+| 17 | `17-spend-no-vat-multiplier.spec.ts` | /spend totals have no 1.21 VAT inflation; no "VAT"/"IVA"/"21%" copy on B2C account |
+| 18 | `18-pricing-fork.spec.ts` | /pricing renders FullPricingPlanner for B2B (event_roles); redirects to /budget for B2C couple |
+| 19 | `19-availability-default-month.spec.ts` | /availability does NOT default to legacy "September 2027" Barcelona hardcode |
+| 20 | `20-settings-name-saves.spec.ts` | /settings/preferences Partner A name change persists through reload (silent-save guard, sibling to test 04) |
 
 ## Growing the suite (toward 25 tests)
 
