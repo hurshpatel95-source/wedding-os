@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { validateRoutingInput } from "@/lib/lead-routing";
+import {
+  dbUpdate,
+  dbDelete,
+  dbWriteErrorResponse,
+} from "@/lib/db-write-guard";
 
 export const runtime = "nodejs";
 
@@ -90,30 +95,35 @@ export async function PATCH(
     enabled: parsed.value.enabled,
   };
 
-  const { error } = await (
-    supabase as unknown as {
-      from: (t: string) => {
-        update: (row: unknown) => {
+  const updSb = supabase as unknown as {
+    from: (t: string) => {
+      update: (row: unknown) => {
+        eq: (col: string, val: string) => {
           eq: (col: string, val: string) => {
-            eq: (
-              col: string,
-              val: string,
-            ) => Promise<{ error: { message: string } | null }>;
+            select: (cols: string) => PromiseLike<{
+              data: { id: string }[] | null;
+              error: { message: string } | null;
+            }>;
           };
         };
       };
-    }
-  )
-    .from("lead_routing_rules")
-    .update(patch)
-    .eq("id", params.id)
-    .eq("org_id", profile.org_id!);
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    };
+  };
+  try {
+    await dbUpdate(
+      "update lead_routing_rule",
+      updSb
+        .from("lead_routing_rules")
+        .update(patch)
+        .eq("id", params.id)
+        .eq("org_id", profile.org_id!)
+        .select("id"),
+    );
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    const { status, body } = dbWriteErrorResponse(err);
+    return NextResponse.json(body, { status });
   }
-
-  return NextResponse.json({ ok: true });
 }
 
 export async function DELETE(
@@ -126,28 +136,33 @@ export async function DELETE(
   }
   const { supabase, profile } = auth;
 
-  const { error } = await (
-    supabase as unknown as {
-      from: (t: string) => {
-        delete: () => {
+  const delSb = supabase as unknown as {
+    from: (t: string) => {
+      delete: () => {
+        eq: (col: string, val: string) => {
           eq: (col: string, val: string) => {
-            eq: (
-              col: string,
-              val: string,
-            ) => Promise<{ error: { message: string } | null }>;
+            select: (cols: string) => PromiseLike<{
+              data: { id: string }[] | null;
+              error: { message: string } | null;
+            }>;
           };
         };
       };
-    }
-  )
-    .from("lead_routing_rules")
-    .delete()
-    .eq("id", params.id)
-    .eq("org_id", profile.org_id!);
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    };
+  };
+  try {
+    await dbDelete(
+      "delete lead_routing_rule",
+      delSb
+        .from("lead_routing_rules")
+        .delete()
+        .eq("id", params.id)
+        .eq("org_id", profile.org_id!)
+        .select("id"),
+    );
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    const { status, body } = dbWriteErrorResponse(err);
+    return NextResponse.json(body, { status });
   }
-
-  return NextResponse.json({ ok: true });
 }

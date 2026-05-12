@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { requireOrgAdmin } from "../../_guard";
+import {
+  dbUpdate,
+  dbDelete,
+  dbWriteErrorResponse,
+} from "@/lib/db-write-guard";
 
 export const runtime = "nodejs";
 
@@ -30,15 +35,20 @@ export async function PATCH(
   }
 
   const supabase = createClient();
-  const { error } = await supabase
-    .from("playbook_phases")
-    .update(patch as never)
-    .eq("id", params.id);
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  try {
+    await dbUpdate(
+      "update playbook_phase",
+      supabase
+        .from("playbook_phases")
+        .update(patch as never)
+        .eq("id", params.id)
+        .select("id"),
+    );
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    const { status, body } = dbWriteErrorResponse(err);
+    return NextResponse.json(body, { status });
   }
-  return NextResponse.json({ ok: true });
 }
 
 export async function DELETE(
@@ -49,13 +59,14 @@ export async function DELETE(
   if (!guard.ok) return guard.response;
 
   const supabase = createClient();
-  const { error } = await supabase
-    .from("playbook_phases")
-    .delete()
-    .eq("id", params.id);
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  try {
+    await dbDelete(
+      "delete playbook_phase",
+      supabase.from("playbook_phases").delete().eq("id", params.id).select("id"),
+    );
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    const { status, body } = dbWriteErrorResponse(err);
+    return NextResponse.json(body, { status });
   }
-  return NextResponse.json({ ok: true });
 }

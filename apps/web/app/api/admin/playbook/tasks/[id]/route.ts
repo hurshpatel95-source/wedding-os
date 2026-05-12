@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { requireOrgAdmin } from "../../_guard";
 import { isValidRecurrenceRule } from "@/lib/wave2-types";
+import {
+  dbUpdate,
+  dbDelete,
+  dbWriteErrorResponse,
+} from "@/lib/db-write-guard";
 
 export const runtime = "nodejs";
 
@@ -71,12 +76,20 @@ export async function PATCH(
   }
 
   const supabase = createClient();
-  const { error } = await supabase
-    .from("playbook_tasks")
-    .update(patch as never)
-    .eq("id", params.id);
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ ok: true });
+  try {
+    await dbUpdate(
+      "update playbook_task",
+      supabase
+        .from("playbook_tasks")
+        .update(patch as never)
+        .eq("id", params.id)
+        .select("id"),
+    );
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    const { status, body: errBody } = dbWriteErrorResponse(err);
+    return NextResponse.json(errBody, { status });
+  }
 }
 
 export async function DELETE(
@@ -87,10 +100,14 @@ export async function DELETE(
   if (!guard.ok) return guard.response;
 
   const supabase = createClient();
-  const { error } = await supabase
-    .from("playbook_tasks")
-    .delete()
-    .eq("id", params.id);
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ ok: true });
+  try {
+    await dbDelete(
+      "delete playbook_task",
+      supabase.from("playbook_tasks").delete().eq("id", params.id).select("id"),
+    );
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    const { status, body } = dbWriteErrorResponse(err);
+    return NextResponse.json(body, { status });
+  }
 }

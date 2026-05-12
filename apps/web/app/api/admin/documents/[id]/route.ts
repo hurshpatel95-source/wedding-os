@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import type { DocumentKind, DocumentRow } from "@/lib/wave2-types";
+import {
+  dbUpdate,
+  dbDelete,
+  dbWriteErrorResponse,
+} from "@/lib/db-write-guard";
 
 export const runtime = "nodejs";
 
@@ -51,18 +56,19 @@ type LooseSb = {
     };
     update: (p: Record<string, unknown>) => {
       eq: (col: string, val: string) => {
-        select: (cols: string) => {
-          maybeSingle: () => Promise<{
-            data: DocumentRow | null;
-            error: { message: string } | null;
-          }>;
-        };
+        select: (cols: string) => PromiseLike<{
+          data: DocumentRow[] | null;
+          error: { message: string } | null;
+        }>;
       };
     };
     delete: () => {
-      eq: (col: string, val: string) => Promise<{
-        error: { message: string } | null;
-      }>;
+      eq: (col: string, val: string) => {
+        select: (cols: string) => PromiseLike<{
+          data: { id: string }[] | null;
+          error: { message: string } | null;
+        }>;
+      };
     };
   };
 };
@@ -122,21 +128,22 @@ export async function PATCH(
     );
   }
 
-  const { data: updated, error: updErr } = await sb
-    .from("documents")
-    .update(patch)
-    .eq("id", params.id)
-    .select(
-      "id, org_id, workspace_id, name, storage_path, file_size_bytes, mime_type, kind, uploaded_by, notes, created_at, updated_at",
-    )
-    .maybeSingle();
-  if (updErr) {
-    return NextResponse.json(
-      { error: `update failed: ${updErr.message}` },
-      { status: 500 },
+  try {
+    const rows = await dbUpdate(
+      "update document (admin)",
+      sb
+        .from("documents")
+        .update(patch)
+        .eq("id", params.id)
+        .select(
+          "id, org_id, workspace_id, name, storage_path, file_size_bytes, mime_type, kind, uploaded_by, notes, created_at, updated_at",
+        ),
     );
+    return NextResponse.json({ document: rows[0] });
+  } catch (err) {
+    const { status, body } = dbWriteErrorResponse(err);
+    return NextResponse.json(body, { status });
   }
-  return NextResponse.json({ document: updated });
 }
 
 export async function DELETE(
@@ -166,15 +173,14 @@ export async function DELETE(
 
   // Delete the row first — if storage delete fails we'd rather have a
   // dangling object than a row that 404s on download.
-  const { error: delErr } = await sb
-    .from("documents")
-    .delete()
-    .eq("id", params.id);
-  if (delErr) {
-    return NextResponse.json(
-      { error: `delete failed: ${delErr.message}` },
-      { status: 500 },
+  try {
+    await dbDelete(
+      "delete document (admin)",
+      sb.from("documents").delete().eq("id", params.id).select("id"),
     );
+  } catch (err) {
+    const { status, body } = dbWriteErrorResponse(err);
+    return NextResponse.json(body, { status });
   }
 
   // Best-effort storage cleanup.

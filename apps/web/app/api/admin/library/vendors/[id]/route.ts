@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import type { LibraryVendorUpdate } from "@/lib/library-vendor-types";
 import type { VendorCategory } from "@/lib/vendor-types";
+import {
+  dbUpdate,
+  dbDelete,
+  dbWriteErrorResponse,
+} from "@/lib/db-write-guard";
 
 export const runtime = "nodejs";
 
@@ -105,21 +110,30 @@ export async function PATCH(
         eq: (
           col: string,
           val: string,
-        ) => Promise<{ error: { message: string } | null }>;
+        ) => {
+          select: (cols: string) => PromiseLike<{
+            data: { id: string }[] | null;
+            error: { message: string } | null;
+          }>;
+        };
       };
     };
   };
 
-  const { error } = await sb
-    .from("library_vendors")
-    .update(patch as unknown as Record<string, unknown>)
-    .eq("id", params.id);
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  try {
+    await dbUpdate(
+      "update library_vendor",
+      sb
+        .from("library_vendors")
+        .update(patch as unknown as Record<string, unknown>)
+        .eq("id", params.id)
+        .select("id"),
+    );
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    const { status, body } = dbWriteErrorResponse(err);
+    return NextResponse.json(body, { status });
   }
-
-  return NextResponse.json({ ok: true });
 }
 
 export async function DELETE(
@@ -143,16 +157,24 @@ export async function DELETE(
         eq: (
           col: string,
           val: string,
-        ) => Promise<{ error: { message: string } | null }>;
+        ) => {
+          select: (cols: string) => PromiseLike<{
+            data: { id: string }[] | null;
+            error: { message: string } | null;
+          }>;
+        };
       };
     };
   };
 
-  const { error } = await sb.from("library_vendors").delete().eq("id", params.id);
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  try {
+    await dbDelete(
+      "delete library_vendor",
+      sb.from("library_vendors").delete().eq("id", params.id).select("id"),
+    );
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    const { status, body } = dbWriteErrorResponse(err);
+    return NextResponse.json(body, { status });
   }
-
-  return NextResponse.json({ ok: true });
 }

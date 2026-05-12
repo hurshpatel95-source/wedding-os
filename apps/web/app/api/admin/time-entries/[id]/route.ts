@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import {
+  dbUpdate,
+  dbDelete,
+  dbWriteErrorResponse,
+} from "@/lib/db-write-guard";
 
 export const runtime = "nodejs";
 
@@ -73,24 +78,34 @@ export async function PATCH(
   const sb = supabase as unknown as {
     from: (t: string) => {
       update: (p: Record<string, unknown>) => {
-        eq: (col: string, val: string) => Promise<{
-          error: { message: string } | null;
-        }>;
+        eq: (col: string, val: string) => {
+          select: (cols: string) => PromiseLike<{
+            data: { id: string }[] | null;
+            error: { message: string } | null;
+          }>;
+        };
       };
       delete: () => {
-        eq: (col: string, val: string) => Promise<{
-          error: { message: string } | null;
-        }>;
+        eq: (col: string, val: string) => {
+          select: (cols: string) => PromiseLike<{
+            data: { id: string }[] | null;
+            error: { message: string } | null;
+          }>;
+        };
       };
     };
   };
 
-  const { error } = await sb
-    .from("time_entries")
-    .update(patch)
-    .eq("id", params.id);
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ ok: true });
+  try {
+    await dbUpdate(
+      "update time_entry",
+      sb.from("time_entries").update(patch).eq("id", params.id).select("id"),
+    );
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    const { status, body } = dbWriteErrorResponse(err);
+    return NextResponse.json(body, { status });
+  }
 }
 
 export async function DELETE(
@@ -106,16 +121,23 @@ export async function DELETE(
   const sb = supabase as unknown as {
     from: (t: string) => {
       delete: () => {
-        eq: (col: string, val: string) => Promise<{
-          error: { message: string } | null;
-        }>;
+        eq: (col: string, val: string) => {
+          select: (cols: string) => PromiseLike<{
+            data: { id: string }[] | null;
+            error: { message: string } | null;
+          }>;
+        };
       };
     };
   };
-  const { error } = await sb
-    .from("time_entries")
-    .delete()
-    .eq("id", params.id);
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ ok: true });
+  try {
+    await dbDelete(
+      "delete time_entry",
+      sb.from("time_entries").delete().eq("id", params.id).select("id"),
+    );
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    const { status, body } = dbWriteErrorResponse(err);
+    return NextResponse.json(body, { status });
+  }
 }

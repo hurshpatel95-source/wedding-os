@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { LIBRARY_MEDIA_BUCKET } from "@/lib/library-venue-types";
 import type { Database } from "@wedding-os/db";
+import {
+  dbUpdate,
+  dbDelete,
+  dbWriteErrorResponse,
+} from "@/lib/db-write-guard";
 
 type LibraryVenueMediaUpdate =
   Database["public"]["Tables"]["library_venue_media"]["Update"];
@@ -49,16 +54,21 @@ export async function PATCH(
     return NextResponse.json({ ok: true });
   }
 
-  const { error } = await supabase
-    .from("library_venue_media")
-    .update(update)
-    .eq("id", params.mediaId)
-    .eq("library_venue_id", params.id);
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  try {
+    await dbUpdate(
+      "update library_venue_media",
+      supabase
+        .from("library_venue_media")
+        .update(update as never)
+        .eq("id", params.mediaId)
+        .eq("library_venue_id", params.id)
+        .select("id"),
+    );
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    const { status, body } = dbWriteErrorResponse(err);
+    return NextResponse.json(body, { status });
   }
-  return NextResponse.json({ ok: true });
 }
 
 export async function DELETE(
@@ -85,14 +95,19 @@ export async function DELETE(
       .remove([row.storage_path]);
   }
 
-  const { error } = await supabase
-    .from("library_venue_media")
-    .delete()
-    .eq("id", params.mediaId)
-    .eq("library_venue_id", params.id);
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  try {
+    await dbDelete(
+      "delete library_venue_media",
+      supabase
+        .from("library_venue_media")
+        .delete()
+        .eq("id", params.mediaId)
+        .eq("library_venue_id", params.id)
+        .select("id"),
+    );
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    const { status, body } = dbWriteErrorResponse(err);
+    return NextResponse.json(body, { status });
   }
-  return NextResponse.json({ ok: true });
 }

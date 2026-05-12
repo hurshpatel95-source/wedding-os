@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { dbInsert, dbWriteErrorResponse } from "@/lib/db-write-guard";
 
 export const runtime = "nodejs";
 
@@ -73,11 +74,18 @@ export async function PUT(request: NextRequest) {
       delete: () => {
         eq: (col: string, val: string) => Promise<{ error: { message: string } | null }>;
       };
-      insert: (rows: unknown) => Promise<{ error: { message: string } | null }>;
+      insert: (rows: unknown) => {
+        select: (cols: string) => PromiseLike<{
+          data: { id: string }[] | null;
+          error: { message: string } | null;
+        }>;
+      };
     };
   };
 
-  // Replace-all
+  // Replace-all. We intentionally don't wrap the DELETE in dbDelete —
+  // 0 rows affected is a valid state (org may have no prior windows),
+  // so 0 rows ≠ silent-fail here.
   const { error: delErr } = await sb
     .from("booking_windows")
     .delete()
@@ -94,9 +102,14 @@ export async function PUT(request: NextRequest) {
       end_minute: w.end_minute,
       label: w.label ?? null,
     }));
-    const { error: insErr } = await sb.from("booking_windows").insert(rows);
-    if (insErr) {
-      return NextResponse.json({ error: insErr.message }, { status: 500 });
+    try {
+      await dbInsert(
+        "insert booking_windows (replace-all)",
+        sb.from("booking_windows").insert(rows).select("id"),
+      );
+    } catch (err) {
+      const { status, body } = dbWriteErrorResponse(err);
+      return NextResponse.json(body, { status });
     }
   }
 

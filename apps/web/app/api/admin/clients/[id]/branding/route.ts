@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import {
+  dbInsert,
+  dbUpdate,
+  dbWriteErrorResponse,
+} from "@/lib/db-write-guard";
 
 export const runtime = "nodejs";
 
@@ -92,25 +97,31 @@ export async function PATCH(
       accent_hex: update.accent_hex ?? "#9d174d",
       planner_display_name: update.planner_display_name ?? null,
     };
-    const { error: insErr } = await supabase
-      .from("workspace_branding")
-      .insert(insertRow);
-    if (insErr) {
-      return NextResponse.json(
-        { error: `insert failed: ${insErr.message}` },
-        { status: 500 },
+    try {
+      await dbInsert(
+        "insert workspace_branding",
+        supabase
+          .from("workspace_branding")
+          .insert(insertRow as never)
+          .select("workspace_id"),
       );
+    } catch (err) {
+      const { status, body } = dbWriteErrorResponse(err);
+      return NextResponse.json(body, { status });
     }
   } else {
-    const { error: updErr } = await supabase
-      .from("workspace_branding")
-      .update(update)
-      .eq("workspace_id", params.id);
-    if (updErr) {
-      return NextResponse.json(
-        { error: `update failed: ${updErr.message}` },
-        { status: 500 },
+    try {
+      await dbUpdate(
+        "update workspace_branding",
+        supabase
+          .from("workspace_branding")
+          .update(update as never)
+          .eq("workspace_id", params.id)
+          .select("workspace_id"),
       );
+    } catch (err) {
+      const { status, body } = dbWriteErrorResponse(err);
+      return NextResponse.json(body, { status });
     }
   }
 

@@ -5,6 +5,11 @@ import {
   type LibraryVenueFormPayload,
   type LibraryVenueUpdate,
 } from "@/lib/library-venue-types";
+import {
+  dbUpdate,
+  dbDelete,
+  dbWriteErrorResponse,
+} from "@/lib/db-write-guard";
 
 export const runtime = "nodejs";
 
@@ -69,15 +74,20 @@ export async function PATCH(
   if (body.internal_notes !== undefined)
     update.internal_notes = body.internal_notes;
 
-  const { error } = await supabase
-    .from("library_venues")
-    .update(update)
-    .eq("id", params.id);
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  try {
+    await dbUpdate(
+      "update library_venue",
+      supabase
+        .from("library_venues")
+        .update(update as never)
+        .eq("id", params.id)
+        .select("id"),
+    );
+    return NextResponse.json({ id: params.id });
+  } catch (err) {
+    const { status, body } = dbWriteErrorResponse(err);
+    return NextResponse.json(body, { status });
   }
-  return NextResponse.json({ id: params.id });
 }
 
 export async function DELETE(
@@ -104,13 +114,14 @@ export async function DELETE(
     await supabase.storage.from(LIBRARY_MEDIA_BUCKET).remove(paths);
   }
 
-  const { error } = await supabase
-    .from("library_venues")
-    .delete()
-    .eq("id", params.id);
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  try {
+    await dbDelete(
+      "delete library_venue",
+      supabase.from("library_venues").delete().eq("id", params.id).select("id"),
+    );
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    const { status, body } = dbWriteErrorResponse(err);
+    return NextResponse.json(body, { status });
   }
-  return NextResponse.json({ ok: true });
 }

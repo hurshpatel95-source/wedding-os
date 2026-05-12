@@ -6,6 +6,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import type { TestimonialRow } from "@/lib/wave2-types";
+import {
+  dbUpdate,
+  dbDelete,
+  dbWriteErrorResponse,
+} from "@/lib/db-write-guard";
 
 export const runtime = "nodejs";
 
@@ -122,20 +127,25 @@ export async function PATCH(
   const updSb = supabase as unknown as {
     from: (t: string) => {
       update: (row: unknown) => {
-        eq: (col: string, val: string) => Promise<{
-          error: { message: string } | null;
-        }>;
+        eq: (col: string, val: string) => {
+          select: (cols: string) => PromiseLike<{
+            data: { id: string }[] | null;
+            error: { message: string } | null;
+          }>;
+        };
       };
     };
   };
-  const { error } = await updSb
-    .from("testimonials")
-    .update(patch)
-    .eq("id", params.id);
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  try {
+    await dbUpdate(
+      "update testimonial",
+      updSb.from("testimonials").update(patch).eq("id", params.id).select("id"),
+    );
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    const { status, body } = dbWriteErrorResponse(err);
+    return NextResponse.json(body, { status });
   }
-  return NextResponse.json({ ok: true });
 }
 
 export async function DELETE(
@@ -177,18 +187,23 @@ export async function DELETE(
   const delSb = supabase as unknown as {
     from: (t: string) => {
       delete: () => {
-        eq: (col: string, val: string) => Promise<{
-          error: { message: string } | null;
-        }>;
+        eq: (col: string, val: string) => {
+          select: (cols: string) => PromiseLike<{
+            data: { id: string }[] | null;
+            error: { message: string } | null;
+          }>;
+        };
       };
     };
   };
-  const { error } = await delSb
-    .from("testimonials")
-    .delete()
-    .eq("id", params.id);
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  try {
+    await dbDelete(
+      "delete testimonial",
+      delSb.from("testimonials").delete().eq("id", params.id).select("id"),
+    );
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    const { status, body } = dbWriteErrorResponse(err);
+    return NextResponse.json(body, { status });
   }
-  return NextResponse.json({ ok: true });
 }

@@ -9,6 +9,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import type { TeamRole } from "@/lib/wave2-types";
+import { dbUpdate, dbWriteErrorResponse } from "@/lib/db-write-guard";
 
 export const runtime = "nodejs";
 
@@ -178,25 +179,32 @@ export async function PATCH(
 
   // team_role isn't yet in the generated Database types — cast through
   // unknown so the Supabase client accepts the column.
-  const { error } = await (
-    supabase as unknown as {
-      from: (t: string) => {
-        update: (row: unknown) => {
-          eq: (col: string, val: string) => Promise<{
+  const updSb = supabase as unknown as {
+    from: (t: string) => {
+      update: (row: unknown) => {
+        eq: (col: string, val: string) => {
+          select: (cols: string) => PromiseLike<{
+            data: { id: string }[] | null;
             error: { message: string } | null;
           }>;
         };
       };
-    }
-  )
-    .from("users")
-    .update({ team_role: nextRole })
-    .eq("id", params.user_id);
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    };
+  };
+  try {
+    await dbUpdate(
+      "update user team_role",
+      updSb
+        .from("users")
+        .update({ team_role: nextRole })
+        .eq("id", params.user_id)
+        .select("id"),
+    );
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    const { status, body } = dbWriteErrorResponse(err);
+    return NextResponse.json(body, { status });
   }
-  return NextResponse.json({ ok: true });
 }
 
 export async function DELETE(
@@ -236,23 +244,30 @@ export async function DELETE(
 
   // Demote: org_role='member', team_role=null. The auth.users row is left
   // alone so the user can still sign in but loses planner-side access.
-  const { error } = await (
-    supabase as unknown as {
-      from: (t: string) => {
-        update: (row: unknown) => {
-          eq: (col: string, val: string) => Promise<{
+  const updSb = supabase as unknown as {
+    from: (t: string) => {
+      update: (row: unknown) => {
+        eq: (col: string, val: string) => {
+          select: (cols: string) => PromiseLike<{
+            data: { id: string }[] | null;
             error: { message: string } | null;
           }>;
         };
       };
-    }
-  )
-    .from("users")
-    .update({ org_role: "member", team_role: null })
-    .eq("id", params.user_id);
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    };
+  };
+  try {
+    await dbUpdate(
+      "demote user (org_role=member, team_role=null)",
+      updSb
+        .from("users")
+        .update({ org_role: "member", team_role: null })
+        .eq("id", params.user_id)
+        .select("id"),
+    );
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    const { status, body } = dbWriteErrorResponse(err);
+    return NextResponse.json(body, { status });
   }
-  return NextResponse.json({ ok: true });
 }

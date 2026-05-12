@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { dbUpdate, dbWriteErrorResponse } from "@/lib/db-write-guard";
 
 export const runtime = "nodejs";
 
@@ -99,21 +100,26 @@ export async function PATCH(request: NextRequest) {
     }
   }
 
-  const { error } = await (
-    supabase as unknown as {
-      from: (t: string) => {
-        update: (row: unknown) => {
-          eq: (col: string, val: string) => Promise<{ error: { message: string } | null }>;
+  const updSb = supabase as unknown as {
+    from: (t: string) => {
+      update: (row: unknown) => {
+        eq: (col: string, val: string) => {
+          select: (cols: string) => PromiseLike<{
+            data: { id: string }[] | null;
+            error: { message: string } | null;
+          }>;
         };
       };
-    }
-  )
-    .from("organizations")
-    .update(patch)
-    .eq("id", profile.org_id);
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    };
+  };
+  try {
+    await dbUpdate(
+      "update organizations (booking settings)",
+      updSb.from("organizations").update(patch).eq("id", profile.org_id).select("id"),
+    );
+  } catch (err) {
+    const { status, body: errBody } = dbWriteErrorResponse(err);
+    return NextResponse.json(errBody, { status });
   }
 
   return NextResponse.json({
