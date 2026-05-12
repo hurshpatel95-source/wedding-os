@@ -1,9 +1,18 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown, ChevronRight, Link2, Trash2 } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -118,6 +127,9 @@ export function LineRow({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [localEstimate]);
 
+  // Confirm dialog for delete (audit #10 — replaces native window.confirm)
+  const [deleteOpen, setDeleteOpen] = useState(false);
+
   // Inline-edit state for label
   const [editingLabel, setEditingLabel] = useState(false);
   const [labelDraft, setLabelDraft] = useState(line.label);
@@ -169,14 +181,20 @@ export function LineRow({
   );
   // Step scales with magnitude. The number-entry input is the precise tool;
   // the slider is a "feel it out" affordance — keep it snappy on small ranges.
-  const sliderStep =
-    sliderMax >= 50000
-      ? 250
-      : sliderMax >= 10000
-      ? 100
-      : sliderMax >= 2500
-      ? 25
-      : 10;
+  // Frozen on first render (audit #8) so the step doesn't double when the drag
+  // crosses a band boundary like $10k or $50k — that caused the slider to "jump"
+  // mid-drag.
+  const sliderStep = useMemo(() => {
+    const initialMax = Math.max(
+      Math.round(((line.amount_estimated ?? line.total_eur ?? 0) || 1000) * 3),
+      5000,
+    );
+    if (initialMax >= 50000) return 250;
+    if (initialMax >= 10000) return 100;
+    if (initialMax >= 2500) return 25;
+    return 10;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const denom = Math.max(estimated, committed, paid, 1);
   const pctCommitted = Math.min((committed / denom) * 100, 100);
@@ -350,11 +368,7 @@ export function LineRow({
         {!isParent && (
           <button
             type="button"
-            onClick={() => {
-              if (confirm(`Delete "${line.label}"?`)) {
-                onDelete(line.id);
-              }
-            }}
+            onClick={() => setDeleteOpen(true)}
             className="text-stone-400 transition-colors hover:text-red-600"
             aria-label="Delete line"
           >
@@ -362,6 +376,40 @@ export function LineRow({
           </button>
         )}
       </div>
+
+      {/* Delete-confirm dialog (audit #10) — replaces native window.confirm,
+          which leaked the in-app URL in its title bar on iOS Safari. */}
+      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete this line?</DialogTitle>
+            <DialogDescription>
+              &ldquo;{line.label}&rdquo; will be removed from your budget. This
+              can&rsquo;t be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setDeleteOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={() => {
+                setDeleteOpen(false);
+                onDelete(line.id);
+              }}
+            >
+              <Trash2 className="h-4 w-4" />
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Slider + 3 progress bars — only for leaf rows */}
       {!isParent && (

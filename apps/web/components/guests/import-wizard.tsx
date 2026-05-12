@@ -27,6 +27,15 @@ import {
 
 type Stage = "drop" | "uploading" | "preview" | "committing" | "done" | "error";
 
+const ACCEPTED_EXTENSIONS = [".xlsx", ".xls", ".csv", ".tsv", ".numbers"];
+const BAD_FORMAT_MSG =
+  "Drop an .xlsx or .csv. Got a PDF? Copy-paste names into a sheet first, then drop here.";
+
+function hasAcceptedExtension(filename: string): boolean {
+  const lower = filename.toLowerCase();
+  return ACCEPTED_EXTENSIONS.some((ext) => lower.endsWith(ext));
+}
+
 export function ImportWizard() {
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -36,8 +45,18 @@ export function ImportWizard() {
   const [defaultSide, setDefaultSide] = useState<GuestSide | "unset">("unset");
   const [committed, setCommitted] = useState<{ imported: number; skipped: number } | null>(null);
   const [dragOver, setDragOver] = useState(false);
+  // Inline format-warning shown next to the dropzone when the user drops a
+  // PDF / image / unsupported file (audit #25).
+  const [formatHint, setFormatHint] = useState<string | null>(null);
 
   const upload = async (file: File) => {
+    // Client-side format gate (audit #25). Server still validates, but we
+    // bounce obvious wrong-format drops without spinning up the upload UI.
+    if (!hasAcceptedExtension(file.name)) {
+      setFormatHint(BAD_FORMAT_MSG);
+      return;
+    }
+    setFormatHint(null);
     setStage("uploading");
     setError(null);
     const fd = new FormData();
@@ -160,6 +179,15 @@ export function ImportWizard() {
                 if (f) upload(f);
               }}
             />
+            {formatHint && (
+              <div
+                role="alert"
+                className="mx-auto mt-4 max-w-md rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900"
+              >
+                <AlertTriangle className="mr-1 inline h-3.5 w-3.5 align-text-bottom" />
+                {formatHint}
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>

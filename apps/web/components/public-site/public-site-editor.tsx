@@ -1,16 +1,42 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Plus, Save, Send, X } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { SITE_THEMES, type SiteThemeSlug } from "@/lib/tier1-types";
 import { cn } from "@/lib/utils";
+
+// Mirrors SLUG_RE in apps/web/app/api/public-site/route.ts.
+const SLUG_RE = /^[a-z0-9](?:[a-z0-9-]{0,60}[a-z0-9])?$/;
+
+/**
+ * Lowercase, swap whitespace + invalid chars for dashes, collapse runs, strip
+ * leading/trailing dashes, cap at 62 chars. Audit #28: live slug feedback so
+ * users don't get a server-side reject after typing.
+ */
+function cleanSlug(raw: string): string {
+  return raw
+    .toLowerCase()
+    .replace(/[^a-z0-9-]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 62)
+    .replace(/-+$/g, "");
+}
 
 interface ScheduleItem {
   time?: string;
@@ -63,6 +89,33 @@ export function PublicSiteEditor({ initial, isPublished, publicSlug }: Props) {
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<number | null>(null);
+  // Audit #30: dirty/clean distinction so the "Saved" pill doesn't persist
+  // forever after the first save. Any field-change effect below flips dirty=true.
+  const [dirty, setDirty] = useState(false);
+  // Audit #31: confirm dialog when publishing an essentially-empty site.
+  const [publishConfirmOpen, setPublishConfirmOpen] = useState(false);
+
+  // Mark dirty whenever any tracked input changes. Mount-pass is skipped via
+  // initial dirty=false; the effect just flips it on first real edit.
+  useEffect(() => {
+    setDirty(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    slug,
+    story,
+    regUrl,
+    regLabel,
+    travel,
+    hotel,
+    dress,
+    faq,
+    schedule,
+    theme,
+  ]);
+
+  const cleanedSlug = cleanSlug(slug);
+  const slugValid = cleanedSlug.length >= 3 && SLUG_RE.test(cleanedSlug);
+  const slugWillChange = cleanedSlug !== slug;
 
   const save = async (publish?: boolean) => {
     setErr(null);
@@ -92,6 +145,7 @@ export function PublicSiteEditor({ initial, isPublished, publicSlug }: Props) {
         return;
       }
       setSavedAt(Date.now());
+      setDirty(false);
       if (publish === true) toast.success("Published — your URL is live");
       else if (publish === false) toast.success("Unpublished — guests can't reach the site");
       else toast.success("Site saved");
@@ -122,7 +176,19 @@ export function PublicSiteEditor({ initial, isPublished, publicSlug }: Props) {
                 onChange={(e) => setSlug(e.target.value)}
                 placeholder="nisha-and-hursh"
                 disabled={saving}
+                aria-invalid={slug.length > 0 && !slugValid}
               />
+              {slug.length > 0 && slugWillChange && slugValid && (
+                <p className="text-[11px] text-stone-500">
+                  Will save as: <code className="font-medium">{cleanedSlug}</code>
+                </p>
+              )}
+              {slug.length > 0 && !slugValid && (
+                <p className="text-[11px] text-amber-700">
+                  Slug must be 3–62 characters: lowercase letters, numbers, and
+                  dashes (not starting or ending with a dash).
+                </p>
+              )}
             </div>
             <div className="space-y-1.5">
               <Label>&nbsp;</Label>
@@ -424,30 +490,97 @@ export function PublicSiteEditor({ initial, isPublished, publicSlug }: Props) {
         </div>
       )}
 
-      <div className="sticky bottom-0 -mx-4 flex flex-wrap items-center justify-end gap-2 border-t border-stone-200 bg-white/90 px-4 py-3 backdrop-blur md:rounded-xl md:border md:bg-white">
-        {savedAt && (
-          <span className="text-[10px] uppercase tracking-[0.2em] text-emerald-700">
-            Saved
-          </span>
-        )}
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => save()}
-          disabled={saving}
-        >
-          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-          Save draft
-        </Button>
-        <Button
-          type="button"
-          onClick={() => save(!isPublished)}
-          disabled={saving || !slug}
-        >
-          <Send className="h-4 w-4" />
-          {isPublished ? "Unpublish" : "Save + Publish"}
-        </Button>
+      {/* Spacer so the fixed save bar (below) doesn't cover content. */}
+      <div aria-hidden className="h-20" />
+
+      {/*
+        Audit #44: pinned to the viewport (fixed bottom-0 …) instead of the
+        page-scroll container — the previous `sticky bottom-0` meant the bar
+        only appeared after scrolling past all 7-8 cards.
+        Audit #30: dirty/saving/saved indicator instead of a permanent "Saved".
+      */}
+      <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-stone-200 bg-white/95 backdrop-blur">
+        <div className="container flex flex-wrap items-center justify-end gap-2 py-3">
+          {dirty && saving && (
+            <span className="text-[10px] uppercase tracking-[0.2em] text-stone-500">
+              <Loader2 className="mr-1 inline h-3 w-3 animate-spin" />
+              Saving…
+            </span>
+          )}
+          {dirty && !saving && (
+            <span className="text-[10px] uppercase tracking-[0.2em] text-amber-700">
+              Unsaved changes
+            </span>
+          )}
+          {!dirty && savedAt && (
+            <span className="text-[10px] uppercase tracking-[0.2em] text-stone-500">
+              Saved
+            </span>
+          )}
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => save()}
+            disabled={saving}
+          >
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            Save draft
+          </Button>
+          <Button
+            type="button"
+            onClick={() => {
+              // Audit #31: confirm before publishing an essentially-empty site.
+              const essentiallyEmpty =
+                !story.trim() &&
+                schedule.length === 0 &&
+                faq.length === 0 &&
+                !regUrl.trim();
+              if (!isPublished && essentiallyEmpty) {
+                setPublishConfirmOpen(true);
+                return;
+              }
+              save(!isPublished);
+            }}
+            disabled={saving || !slug}
+          >
+            <Send className="h-4 w-4" />
+            {isPublished ? "Unpublish" : "Save + Publish"}
+          </Button>
+        </div>
       </div>
+
+      {/* Empty-publish confirm dialog (audit #31) */}
+      <Dialog open={publishConfirmOpen} onOpenChange={setPublishConfirmOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Publish a mostly-empty site?</DialogTitle>
+            <DialogDescription>
+              Your public site has no story, schedule, FAQ, or registry yet.
+              Guests who land on it will see almost nothing. Publish anyway?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setPublishConfirmOpen(false)}
+            >
+              Keep editing
+            </Button>
+            <Button
+              type="button"
+              onClick={() => {
+                setPublishConfirmOpen(false);
+                save(true);
+              }}
+            >
+              <Send className="h-4 w-4" />
+              Publish anyway
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {publicSlug && isPublished && (
         <p className="text-center text-xs text-muted-foreground">
           Live at <code>/w/{publicSlug}</code> — share this link with guests.

@@ -179,6 +179,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <ImpersonationBanner workspaceName={impersonatingWorkspaceName} />
       )}
       <WorkspaceModeProvider mode={mode}>
+        {/* Audit #42: skip-to-content link — visually hidden until focused. */}
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded focus:bg-stone-900 focus:px-3 focus:py-2 focus:text-sm focus:text-white"
+        >
+          Skip to content
+        </a>
         <Nav
           userEmail={user.email ?? null}
           role={role}
@@ -190,7 +197,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           brand={brand}
           brandSubtitleFallback={navSubtitle}
         />
-        <main className="container flex-1 py-10">{children}</main>
+        <main id="main-content" className="container flex-1 py-10">
+          {children}
+        </main>
       </WorkspaceModeProvider>
     </div>
   );

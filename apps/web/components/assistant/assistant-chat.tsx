@@ -8,6 +8,14 @@ import remarkGfm from "remark-gfm";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -56,6 +64,8 @@ export function AssistantChat({
   const [error, setError] = useState<string | null>(null);
   const [dailyUsed, setDailyUsed] = useState<number>(initialDailyUsed);
   const [costToday, setCostToday] = useState<number>(0);
+  // Audit #35: confirm dialog replaces native confirm() for "Delete this thread".
+  const [clearOpen, setClearOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll to bottom on new messages
@@ -121,7 +131,6 @@ export function AssistantChat({
 
   const clearAll = async () => {
     if (!conversationId) return;
-    if (!confirm("Delete this conversation? Cannot be undone.")) return;
     const supabase = createClient();
     await supabase.from("ai_conversations").delete().eq("id", conversationId);
     setConversationId(null);
@@ -205,15 +214,27 @@ export function AssistantChat({
                 className="resize-none"
                 disabled={sending || dailyUsed >= DAILY_CAP}
               />
-              <Button
-                type="button"
-                onClick={() => send(draft)}
-                disabled={sending || !draft.trim() || dailyUsed >= DAILY_CAP}
-                className="self-end"
-              >
-                <Send className="h-4 w-4" />
-                Send
-              </Button>
+              <div className="flex flex-col items-end gap-1 self-end">
+                <Button
+                  type="button"
+                  onClick={() => send(draft)}
+                  disabled={sending || !draft.trim() || dailyUsed >= DAILY_CAP}
+                  // Audit #33: match the onboarding-chat pattern for a11y.
+                  aria-label={sending ? "Sending message" : "Send message"}
+                >
+                  <Send className="h-4 w-4" />
+                  Send
+                </Button>
+                {/*
+                  Audit #34: inline usage chip so couples on mobile (lg sidebar
+                  collapsed) still see their daily quota next to the composer.
+                */}
+                {Number.isFinite(dailyUsed) && (
+                  <span className="text-[10px] uppercase tracking-wide text-stone-500">
+                    {dailyUsed}/{DAILY_CAP} today
+                  </span>
+                )}
+              </div>
             </div>
           </div>
         </CardContent>
@@ -274,7 +295,7 @@ export function AssistantChat({
               <Button
                 variant="outline"
                 size="sm"
-                onClick={clearAll}
+                onClick={() => setClearOpen(true)}
                 disabled={sending}
                 className="w-full text-destructive hover:text-destructive"
               >
@@ -344,6 +365,38 @@ export function AssistantChat({
           </CardContent>
         </Card>
       </div>
+
+      {/* Clear-conversation confirm dialog (audit #35) */}
+      <Dialog open={clearOpen} onOpenChange={setClearOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Clear this conversation?</DialogTitle>
+            <DialogDescription>
+              All messages will be deleted. This can&rsquo;t be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setClearOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={() => {
+                setClearOpen(false);
+                void clearAll();
+              }}
+            >
+              <Trash2 className="h-4 w-4" />
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

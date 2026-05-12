@@ -12,6 +12,9 @@ build/
 !.env.example
 
 .DS_Store
+# macOS Finder duplicates ("* 2.tsx", "* 2.ts") — never check these in
+** 2.tsx
+** 2.ts
 *.log
 npm-debug.log*
 pnpm-debug.log*

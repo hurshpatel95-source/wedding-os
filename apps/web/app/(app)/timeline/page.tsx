@@ -77,7 +77,12 @@ export default async function TimelinePage() {
         </div>
       </header>
 
-      {itemsList.length === 0 && !hasWeddingDate && (
+      {/*
+        Audit #32: previously the EmptyState + TimelineEditor both rendered when
+        the timeline was empty AND no wedding date was set. Now we render one or
+        the other so the "Set your wedding date first" CTA stands alone.
+      */}
+      {itemsList.length === 0 && !hasWeddingDate ? (
         <EmptyState
           icon={CalendarClock}
           title="Set your wedding date first"
@@ -85,14 +90,14 @@ export default async function TimelinePage() {
           primary={{ label: "Open onboarding", href: "/onboarding" }}
           secondary={{ label: "Workspace settings", href: "/settings/preferences" }}
         />
+      ) : (
+        <TimelineEditor
+          items={itemsList}
+          role={role}
+          workspaceId={workspace?.id ?? null}
+          orgId={workspace?.org_id ?? null}
+        />
       )}
-
-      <TimelineEditor
-        items={itemsList}
-        role={role}
-        workspaceId={workspace?.id ?? null}
-        orgId={workspace?.org_id ?? null}
-      />
     </div>
   );
 }
