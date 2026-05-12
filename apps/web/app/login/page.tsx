@@ -208,7 +208,7 @@ export default function LoginPage() {
               {error && <p className="text-sm text-destructive">{error}</p>}
               <p className="text-center text-xs text-muted-foreground">
                 {mode === "password"
-                  ? "Forgot? Ask Hursh — passwords are admin-set for this private workspace."
+                  ? "Forgot? Use the magic-link option above."
                   : "We'll email a single-use link. Stays signed in for ~7 days."}
               </p>
             </>

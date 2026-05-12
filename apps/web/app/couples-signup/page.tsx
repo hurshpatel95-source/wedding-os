@@ -3,7 +3,7 @@ import { Heart } from "lucide-react";
 import { CouplesSignupForm } from "@/components/couples-signup/couples-signup-form";
 
 export const metadata = {
-  title: "Plan your wedding · wedding-os",
+  title: "Plan your wedding · Acquired Planner",
   description:
     "Spin up your own wedding planning workspace in 60 seconds. AI co-pilot, 12-month plan, and a public RSVP site — built for couples doing it themselves.",
 };
@@ -18,7 +18,7 @@ export default function CouplesSignupPage() {
               <Heart className="h-4 w-4 text-white" fill="white" />
             </div>
             <span className="font-serif text-lg font-medium tracking-tight">
-              wedding-os
+              Acquired Planner
             </span>
           </Link>
           <Link
@@ -43,7 +43,7 @@ export default function CouplesSignupPage() {
             </span>
           </h1>
           <p className="mt-4 text-base leading-relaxed text-stone-700">
-            wedding-os was built for planners, but we kept hearing from couples
+            Acquired Planner was built for planners, but we kept hearing from couples
             who wanted to do it themselves — with the same playbook, the same
             AI co-pilot, the same vendor tooling. So here&rsquo;s the front
             door, just for you.

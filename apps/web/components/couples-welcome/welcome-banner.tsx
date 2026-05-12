@@ -57,7 +57,7 @@ export function WelcomeBanner({
         </div>
         <div>
           <div className="font-serif text-base font-medium tracking-tight text-stone-900">
-            Welcome to wedding-os.
+            Welcome to Acquired Planner.
           </div>
           <p className="mt-0.5 text-sm leading-snug text-stone-700">
             Start by saying hi to your AI planner — it already knows your

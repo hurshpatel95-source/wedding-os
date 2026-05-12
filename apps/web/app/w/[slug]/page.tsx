@@ -227,10 +227,14 @@ export default async function PublicWeddingSite({
   if (!workspaceRaw) notFound();
 
   // public_theme_slug is post-0025 and `skin` is post-20260508000003;
-  // types lag both, so cast to read.
+  // types lag both, so cast to read. wedding_region is also generated-type
+  // lagged in the public-page select — cast it in here so the hero subtitle
+  // can render the couple's actual region (or fall back to date-only when
+  // it isn't set).
   const workspace = workspaceRaw as typeof workspaceRaw & {
     public_theme_slug?: string | null;
     skin?: string | null;
+    wedding_region?: string | null;
   };
 
   const skin = normalizeSkin(workspace.skin);
@@ -344,7 +348,10 @@ export default async function PublicWeddingSite({
             {coupleHeading}
           </h1>
           <div className={`mt-6 text-base font-light tracking-wide md:text-xl ${theme.heroDateText}`}>
-            {dateLabel} &nbsp;·&nbsp; Barcelona, Spain
+            {dateLabel}
+            {workspace.wedding_region ? (
+              <>&nbsp;·&nbsp; {workspace.wedding_region}</>
+            ) : null}
           </div>
           <a
             href="#rsvp"

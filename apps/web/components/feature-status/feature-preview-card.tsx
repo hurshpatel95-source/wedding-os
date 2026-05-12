@@ -93,7 +93,7 @@ export function FeaturePreviewCard({
       <div className="border-t border-stone-200 bg-white/60 px-6 py-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-xs text-stone-600">
-            Tell Hursh you&rsquo;d use this — he&rsquo;ll wire it up.
+            Tell us you&rsquo;d use this — we&rsquo;ll wire it up.
           </p>
           <a
             href="/feature-status"

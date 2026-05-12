@@ -16,7 +16,7 @@ export default function FeatureStatusPage() {
           Tour
         </div>
         <h1 className="mt-1 font-serif text-4xl font-light tracking-tight md:text-5xl">
-          Everything wedding-os does
+          Everything Acquired Planner does
         </h1>
         <p className="mt-3 max-w-2xl text-base leading-relaxed text-stone-700">
           Some pieces are live for you right now. Others depend on third-party
@@ -82,8 +82,8 @@ export default function FeatureStatusPage() {
           <p className="mb-4 max-w-2xl text-sm text-stone-600">
             These features are built and tested — they just need their
             third-party API keys configured. Below is what each one does and
-            the value it adds. Tell Hursh which ones you&rsquo;d actually use
-            and he&rsquo;ll turn them on.
+            the value it adds. Tell us which ones you&rsquo;d actually use
+            and we&rsquo;ll turn them on.
           </p>
           <div className="grid gap-4">
             {pending.map((f) => (
@@ -144,7 +144,7 @@ export default function FeatureStatusPage() {
 
       <footer className="rounded-2xl border border-stone-200 bg-stone-50/40 p-5 text-center">
         <p className="text-sm text-stone-700">
-          Like what you see? Tell Hursh which features you&rsquo;d use — he
+          Like what you see? Tell us which features you&rsquo;d use — we
           can turn them on whenever.
         </p>
         <p className="mt-2 text-xs text-stone-500">

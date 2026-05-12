@@ -399,7 +399,7 @@ export function PublicSiteEditor({ initial, isPublished, publicSlug }: Props) {
                     )
                   }
                   rows={2}
-                  placeholder="Plus-ones are listed on your invitation. If you didn't see one and think you should have, message Hursh."
+                  placeholder="Plus-ones are listed on your invitation. If you didn't see one and think you should have, message us."
                   disabled={saving}
                 />
               </div>

@@ -30,7 +30,7 @@ export default function RootError({
           <h1 className="font-serif text-2xl">Something went sideways.</h1>
           <p className="mt-2 text-sm text-stone-600">
             Refresh, or try one of the links below. If this keeps happening,
-            tell Hursh.
+            tell us — error ref:
           </p>
           {error.digest && (
             <p className="mt-2 text-[10px] uppercase tracking-[0.2em] text-stone-400">
