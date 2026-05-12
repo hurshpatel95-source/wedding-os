@@ -7,6 +7,10 @@ import { STATUS_LABEL, STATUS_VARIANT } from "@/lib/venue-status";
 import { Badge } from "@/components/ui/badge";
 import { WelcomeBanner } from "@/components/couples-welcome/welcome-banner";
 import { AutopilotTodayWidget } from "@/components/autopilot/today-widget";
+import {
+  ActionWidgets,
+  type ActionWidgetData,
+} from "@/components/dashboard/action-widgets";
 import { currencySymbol } from "@/lib/utils";
 import { normalizeSkin } from "@/lib/workspace-skin";
 import { isB2B, resolveWorkspaceMode } from "@/lib/workspace-mode";
@@ -276,6 +280,143 @@ export default async function DashboardPage({
   const mode = resolveWorkspaceMode(normalizeSkin(workspaceSkin));
   const isPlannerServed = isB2B(mode);
 
+  // ── Action-widget counts (audit #7) ─────────────────────────────────
+  // B2C couples land on a hub of "what needs me right now" tiles, drawn
+  // from existing tables. Each count is wrapped in try/catch so a missing
+  // table or RLS edge case falls back to "—" instead of breaking the page.
+  // B2B planner-served couples skip these — their planner runs the show.
+  const actionData: ActionWidgetData = {
+    dueThisWeek: null,
+    depositsComingUp: null,
+    rsvps: null,
+    unansweredQuestions: null,
+  };
+  if (!isPlannerServed) {
+    const sbAny = supabase as unknown as {
+      from: (t: string) => {
+        select: (
+          c: string,
+          opts?: Record<string, unknown>,
+        ) => Promise<{
+          data: Record<string, unknown>[] | null;
+          count?: number | null;
+        }>;
+      };
+    };
+
+    // 1) Tasks due in the next 7 days OR already overdue, status not done/na.
+    //    planning_tasks uses due_date (date) and status enum
+    //    ('not_started','in_progress','blocked','done','na').
+    try {
+      const sevenDaysOut = new Date(
+        Date.now() + 7 * 24 * 60 * 60 * 1000,
+      )
+        .toISOString()
+        .slice(0, 10);
+      const { data: tasks } = await sbAny
+        .from("planning_tasks")
+        .select("id, status, due_date");
+      const taskRows = (tasks ?? []) as Array<{
+        status?: string | null;
+        due_date?: string | null;
+      }>;
+      actionData.dueThisWeek = taskRows.filter((t) => {
+        if (!t.due_date) return false;
+        if (t.status === "done" || t.status === "na") return false;
+        return t.due_date <= sevenDaysOut; // overdue OR within window
+      }).length;
+    } catch {
+      actionData.dueThisWeek = null;
+    }
+
+    // 2) Vendor deposits + finals due in the next 30 days, not yet paid.
+    //    No payment_milestones table exists in this schema — the deposits
+    //    concept lives on vendors.{deposit,final}_{due_at,paid_at}, which
+    //    is the same source /payments uses.
+    try {
+      const thirtyDaysOut = new Date(
+        Date.now() + 30 * 24 * 60 * 60 * 1000,
+      )
+        .toISOString()
+        .slice(0, 10);
+      const today = new Date().toISOString().slice(0, 10);
+      const { data: vrows } = await sbAny
+        .from("vendors")
+        .select(
+          "deposit_due_at, deposit_paid_at, final_due_at, final_paid_at",
+        );
+      const vendorRows = (vrows ?? []) as Array<{
+        deposit_due_at?: string | null;
+        deposit_paid_at?: string | null;
+        final_due_at?: string | null;
+        final_paid_at?: string | null;
+      }>;
+      let count = 0;
+      for (const v of vendorRows) {
+        if (
+          v.deposit_due_at &&
+          !v.deposit_paid_at &&
+          v.deposit_due_at >= today &&
+          v.deposit_due_at <= thirtyDaysOut
+        ) {
+          count += 1;
+        }
+        if (
+          v.final_due_at &&
+          !v.final_paid_at &&
+          v.final_due_at >= today &&
+          v.final_due_at <= thirtyDaysOut
+        ) {
+          count += 1;
+        }
+      }
+      actionData.depositsComingUp = count;
+    } catch {
+      actionData.depositsComingUp = null;
+    }
+
+    // 3) RSVPs landing — count guests by overall_rsvp value. Hide entirely
+    //    if total === 0 (handled in <ActionWidgets/>).
+    try {
+      const { data: grows } = await sbAny
+        .from("guests")
+        .select("overall_rsvp");
+      const guestRows = (grows ?? []) as Array<{
+        overall_rsvp?: string | null;
+      }>;
+      const total = guestRows.length;
+      let yes = 0,
+        no = 0,
+        maybe = 0;
+      for (const g of guestRows) {
+        if (g.overall_rsvp === "yes") yes += 1;
+        else if (g.overall_rsvp === "no") no += 1;
+        else if (g.overall_rsvp === "maybe") maybe += 1;
+      }
+      const responded = yes + no + maybe;
+      actionData.rsvps = { responded, total, yes, no, maybe };
+    } catch {
+      actionData.rsvps = null;
+    }
+
+    // 4) Unanswered venue questions — status='open' (matches the
+    //    venue_question_status enum: open/answered/wont_answer).
+    try {
+      const { data: qrows } = await sbAny
+        .from("venue_questions")
+        .select("status, answer");
+      const qRows = (qrows ?? []) as Array<{
+        status?: string | null;
+        answer?: string | null;
+      }>;
+      actionData.unansweredQuestions = qRows.filter(
+        (q) => q.status === "open" && !q.answer,
+      ).length;
+    } catch {
+      actionData.unansweredQuestions = null;
+    }
+  }
+
   type DueItem = {
     id: string;
     label: string;
@@ -449,6 +590,12 @@ export default async function DashboardPage({
           outreach drafts. For planner-served couples, the planner owns
           this workflow off-platform (WhatsApp, email). Hide on B2B. */}
       {!isPlannerServed && <AutopilotTodayWidget />}
+      {/* Action widgets (audit #7) — actionable hub for B2C couples.
+          Surfaces tasks due, deposits upcoming, RSVPs landing, and
+          unanswered venue questions, each linking to the source page.
+          Hidden for planner-served couples; their planner handles all
+          of this off-platform. */}
+      {!isPlannerServed && <ActionWidgets data={actionData} />}
       {/* Hero */}
       <section className="grid grid-cols-1 gap-8 lg:grid-cols-12 lg:items-end">
         <div className="lg:col-span-8">
@@ -509,37 +656,41 @@ export default async function DashboardPage({
         </aside>
       </section>
 
-      {/* Stats strip */}
-      <section className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        <StatCard
-          label="Venues scouted"
-          value={String(venuesScouted)}
-          sub={`of ${venueList.length} on the list`}
-        />
-        <StatCard
-          label="Questions for venues"
-          value="—"
-          sub="Track them on each venue"
-        />
-        <StatCard
-          label="Working budget"
-          value={
-            estimatedTotalEur != null
-              ? `${currencySym}${Math.round(estimatedTotalEur).toLocaleString()}`
-              : "—"
-          }
-          sub={
-            estimatedTotalEur != null
-              ? "Your honest-budget estimate"
-              : "Set yours in the Estimator"
-          }
-        />
-        <StatCard
-          label="Notes captured"
-          value={String(decisionsLogged)}
-          sub="Across every venue"
-        />
-      </section>
+      {/* Stats strip — informational, retained for B2B planner-served
+          couples (their hub is light/glanceable). For B2C, the actionable
+          ActionWidgets above replaces this strip per audit #7. */}
+      {isPlannerServed && (
+        <section className="grid grid-cols-2 gap-4 md:grid-cols-4">
+          <StatCard
+            label="Venues scouted"
+            value={String(venuesScouted)}
+            sub={`of ${venueList.length} on the list`}
+          />
+          <StatCard
+            label="Questions for venues"
+            value="—"
+            sub="Track them on each venue"
+          />
+          <StatCard
+            label="Working budget"
+            value={
+              estimatedTotalEur != null
+                ? `${currencySym}${Math.round(estimatedTotalEur).toLocaleString()}`
+                : "—"
+            }
+            sub={
+              estimatedTotalEur != null
+                ? "Your honest-budget estimate"
+                : "Set yours in the Estimator"
+            }
+          />
+          <StatCard
+            label="Notes captured"
+            value={String(decisionsLogged)}
+            sub="Across every venue"
+          />
+        </section>
+      )}
 
       {/* Due soon */}
       {dueWindow.length > 0 && (
