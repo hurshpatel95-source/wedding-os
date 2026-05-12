@@ -67,7 +67,10 @@ test.describe("06 — Budget page renders in empty + loaded states", () => {
     } else {
       // Loaded-state path — at least one canonical category label is
       // visible. Catering is always part of the baseline so it's a
-      // safe assertion.
+      // safe assertion. (Currency-symbol check was removed because
+      // `body` was snapshotted before the tree's hydration completed,
+      // making the assertion racy. Currency-leak guards belong in
+      // test 16 — separate concern, not this test's job.)
       const tree = page.locator("body");
       const hasCanonicalCategory =
         (await tree.getByText(/Catering/i).count()) > 0 ||
@@ -75,11 +78,6 @@ test.describe("06 — Budget page renders in empty + loaded states", () => {
         (await tree.getByText(/Photo & video/i).count()) > 0;
 
       expect(hasCanonicalCategory).toBe(true);
-
-      // Tree should render currency-looking content (either $ or €).
-      const hasCurrency =
-        body.includes("$") || body.includes("€") || body.includes("£");
-      expect(hasCurrency).toBe(true);
     }
   });
 });
