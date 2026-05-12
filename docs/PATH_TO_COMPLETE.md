@@ -2,7 +2,13 @@
 
 **Author:** Claude
 **Date:** 2026-05-12
-**Status:** Live plan. Update as decisions land.
+**Status:** ⚠️ **SUPERSEDED by `docs/STRATEGIC_PIVOT_2026-05-12.md`.**
+
+This doc was the operating plan for ~2 hours before Hursh recognized that ~40% of the listed work was Zola-parity polish for a battle we can't win. Phase 1 items (1.1 money pages, 1.2 nav trim, 1.3 settings hub) shipped. Most of Phase 2 is killed by the pivot. Phase 3 schema-gated items are mostly still relevant (Stripe, multi-event support) but re-sequenced under the new build order in the pivot doc.
+
+**Read `STRATEGIC_PIVOT_2026-05-12.md` for the current plan.** This doc kept for history only.
+
+---
 
 This doc maps the work from "where we are now" → "Hursh is comfortable handing this to Rachel and other paying customers." It's the operating plan, not a wishlist. Each phase has clear in-scope work, time estimates, dependencies, and an explicit gate to the next phase.
 
