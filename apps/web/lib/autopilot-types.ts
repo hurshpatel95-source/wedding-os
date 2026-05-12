@@ -149,6 +149,10 @@ export interface BudgetLineRow {
   metadata: Record<string, unknown>;
   created_at: string;
   updated_at: string;
+  // Move 5 Day 1 — per-event allocation column. Optional because the
+  // migration that adds it (20260512100000_event_details.sql) hasn't
+  // been applied in every environment yet. null = shared / unallocated.
+  event_role?: string | null;
 }
 
 // ─── Gmail ───────────────────────────────────────────────────────────

@@ -2,9 +2,12 @@ import { createClient } from "@/lib/supabase/server";
 import { BudgetTree } from "@/components/budget/budget-tree";
 import { EmptyBudgetTree } from "@/components/budget/empty-budget-tree";
 import { MoneyTabs } from "@/components/money/money-tabs";
+import { BudgetGroupToggle } from "@/components/budget/budget-group-toggle";
 import type { BudgetLineRow } from "@/lib/autopilot-types";
 
 export const dynamic = "force-dynamic";
+
+type BudgetGroupMode = "category" | "event";
 
 interface VendorOption {
   id: string;
@@ -21,8 +24,14 @@ interface WorkspaceSlim {
   wedding_region: string | null;
 }
 
-export default async function BudgetPage() {
+export default async function BudgetPage({
+  searchParams,
+}: {
+  searchParams?: { group?: string };
+}) {
   const supabase = createClient();
+  const groupMode: BudgetGroupMode =
+    searchParams?.group === "event" ? "event" : "category";
 
   // workspaces row — using cast for the autopilot fields not in generated types
   const { data: rawWorkspace } = await supabase
@@ -90,28 +99,41 @@ export default async function BudgetPage() {
   };
 
   let lines: BudgetLineRow[] = [];
+  // Try with event_role first (Move 5 Day 1 migration adds the column).
+  // If the column isn't present yet, fall back to the original select.
+  const SELECT_WITH_EVENT_ROLE =
+    "id, workspace_id, org_id, parent_line_id, category, label, qty, unit_price_eur, total_eur, amount_estimated, amount_committed, amount_paid, vendor_id, status, source, notes, sort_order, metadata, created_at, updated_at, event_role";
+  const SELECT_WITHOUT_EVENT_ROLE =
+    "id, workspace_id, org_id, parent_line_id, category, label, qty, unit_price_eur, total_eur, amount_estimated, amount_committed, amount_paid, vendor_id, status, source, notes, sort_order, metadata, created_at, updated_at";
+  let raw: BudgetLineRow[] = [];
   try {
     const { data } = await sbBudget
       .from("budget_lines")
-      .select(
-        "id, workspace_id, org_id, parent_line_id, category, label, qty, unit_price_eur, total_eur, amount_estimated, amount_committed, amount_paid, vendor_id, status, source, notes, sort_order, metadata, created_at, updated_at",
-      )
+      .select(SELECT_WITH_EVENT_ROLE)
       .order("sort_order", { ascending: true });
-    lines = (data ?? []).map((r) => ({
-      ...r,
-      qty: r.qty == null ? null : Number(r.qty),
-      unit_price_eur: r.unit_price_eur == null ? null : Number(r.unit_price_eur),
-      total_eur: r.total_eur == null ? null : Number(r.total_eur),
-      amount_estimated:
-        r.amount_estimated == null ? null : Number(r.amount_estimated),
-      amount_committed:
-        r.amount_committed == null ? null : Number(r.amount_committed),
-      amount_paid: r.amount_paid == null ? null : Number(r.amount_paid),
-    }));
+    raw = data ?? [];
   } catch {
-    // pre-migration tolerant
-    lines = [];
+    try {
+      const { data } = await sbBudget
+        .from("budget_lines")
+        .select(SELECT_WITHOUT_EVENT_ROLE)
+        .order("sort_order", { ascending: true });
+      raw = data ?? [];
+    } catch {
+      raw = [];
+    }
   }
+  lines = raw.map((r) => ({
+    ...r,
+    qty: r.qty == null ? null : Number(r.qty),
+    unit_price_eur: r.unit_price_eur == null ? null : Number(r.unit_price_eur),
+    total_eur: r.total_eur == null ? null : Number(r.total_eur),
+    amount_estimated:
+      r.amount_estimated == null ? null : Number(r.amount_estimated),
+    amount_committed:
+      r.amount_committed == null ? null : Number(r.amount_committed),
+    amount_paid: r.amount_paid == null ? null : Number(r.amount_paid),
+  }));
 
   // Vendors — for the "connect vendor" dropdown. Cast pattern.
   const sbVendors = supabase as unknown as {
@@ -196,10 +218,14 @@ export default async function BudgetPage() {
         </p>
       </header>
       <MoneyTabs />
+      <div className="flex items-center justify-end">
+        <BudgetGroupToggle active={groupMode} />
+      </div>
       <BudgetTree
         lines={lines}
         workspace={workspace}
         vendorOptions={vendorOptions}
+        groupMode={groupMode}
       />
     </div>
   );

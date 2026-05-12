@@ -14,6 +14,12 @@ import {
   type BudgetCategory,
   type BudgetLineRow,
 } from "@/lib/autopilot-types";
+import {
+  EVENT_ROLE_LABEL,
+  EVENT_ROLE_ORDER,
+  isEventRole,
+  type EventRole,
+} from "@/lib/event-types";
 
 interface VendorOption {
   id: string;
@@ -34,10 +40,17 @@ export function BudgetTree({
   lines: initial,
   workspace,
   vendorOptions,
+  groupMode = "category",
 }: {
   lines: BudgetLineRow[];
   workspace: WorkspaceLite;
   vendorOptions: VendorOption[];
+  /**
+   * Move 5 Day 2 — top-level grouping for the tree. "category" keeps
+   * the original behavior. "event" groups parents by their event_role
+   * (null = "Shared / unallocated" at the top).
+   */
+  groupMode?: "category" | "event";
 }) {
   const router = useRouter();
   const [lines, setLines] = useState<BudgetLineRow[]>(initial);
@@ -188,6 +201,99 @@ export function BudgetTree({
     setLines((prev) => [...prev, line]);
   }, []);
 
+  // Move 5 Day 2 — re-sort parents into event groups when groupMode="event".
+  // Each group is one event_role (or "shared" for null event_role).
+  // Children retain their parent grouping (BudgetTree's existing
+  // parent_line_id model is unchanged); we only re-order parents and
+  // inject section headers.
+  const eventGroups = useMemo(() => {
+    if (groupMode !== "event") return null;
+    type Group = {
+      key: string;
+      label: string;
+      role: EventRole | null;
+      parents: BudgetLineRow[];
+    };
+    const sharedKey = "__shared__";
+    const map = new Map<string, Group>();
+    map.set(sharedKey, {
+      key: sharedKey,
+      label: "Shared / unallocated",
+      role: null,
+      parents: [],
+    });
+    for (const p of parents) {
+      const role = p.event_role && isEventRole(p.event_role) ? p.event_role : null;
+      const key = role ?? sharedKey;
+      const label = role ? EVENT_ROLE_LABEL[role] : "Shared / unallocated";
+      const existing = map.get(key) ?? { key, label, role, parents: [] };
+      existing.parents.push(p);
+      map.set(key, existing);
+    }
+    // Stable group ordering: shared first, then canonical EVENT_ROLE_ORDER.
+    const ordered: Group[] = [];
+    const shared = map.get(sharedKey);
+    if (shared && shared.parents.length > 0) ordered.push(shared);
+    for (const role of EVENT_ROLE_ORDER) {
+      const g = map.get(role);
+      if (g && g.parents.length > 0) ordered.push(g);
+    }
+    return ordered;
+  }, [groupMode, parents]);
+
+  // Local renderer reused by both grouping modes — keeps the actual
+  // parent + nested-children markup identical regardless of grouping.
+  const renderParentBlock = (parent: BudgetLineRow) => {
+    const kids = childrenByParent[parent.id] ?? [];
+    const isExpanded = expanded[parent.id] ?? false;
+    const rollup = parentRollups[parent.id];
+    return (
+      <div key={parent.id} className="space-y-2">
+        <LineRow
+          line={parent}
+          childrenLines={kids}
+          symbol={symbol}
+          isParent
+          expanded={isExpanded}
+          onToggleExpand={() =>
+            setExpanded((e) => ({ ...e, [parent.id]: !e[parent.id] }))
+          }
+          onPatch={patchLine}
+          onDelete={handleDelete}
+          onSliderChange={handleSliderChange}
+          vendorOptions={vendorOptions}
+          rolledUpTotal={rollup?.estimated}
+          rolledUpCommitted={rollup?.committed}
+          rolledUpPaid={rollup?.paid}
+        />
+        {isExpanded && (
+          <div className="ml-6 space-y-2 border-l-2 border-stone-100 pl-4">
+            {kids.map((child) => (
+              <LineRow
+                key={child.id}
+                line={child}
+                childrenLines={[]}
+                symbol={symbol}
+                isParent={false}
+                expanded={false}
+                onToggleExpand={() => {}}
+                onPatch={patchLine}
+                onDelete={handleDelete}
+                onSliderChange={handleSliderChange}
+                vendorOptions={vendorOptions}
+              />
+            ))}
+            <AddLineForm
+              category={parent.category as BudgetCategory}
+              parentLineId={parent.id}
+              onCreated={handleCreated}
+            />
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-6">
       {/* Top-level summary */}
@@ -246,56 +352,21 @@ export function BudgetTree({
 
       {/* Parent rows + nested children */}
       <div className="space-y-3">
-        {parents.map((parent) => {
-          const kids = childrenByParent[parent.id] ?? [];
-          const isExpanded = expanded[parent.id] ?? false;
-          const rollup = parentRollups[parent.id];
-          return (
-            <div key={parent.id} className="space-y-2">
-              <LineRow
-                line={parent}
-                childrenLines={kids}
-                symbol={symbol}
-                isParent
-                expanded={isExpanded}
-                onToggleExpand={() =>
-                  setExpanded((e) => ({ ...e, [parent.id]: !e[parent.id] }))
-                }
-                onPatch={patchLine}
-                onDelete={handleDelete}
-                onSliderChange={handleSliderChange}
-                vendorOptions={vendorOptions}
-                rolledUpTotal={rollup?.estimated}
-                rolledUpCommitted={rollup?.committed}
-                rolledUpPaid={rollup?.paid}
-              />
-              {isExpanded && (
-                <div className="ml-6 space-y-2 border-l-2 border-stone-100 pl-4">
-                  {kids.map((child) => (
-                    <LineRow
-                      key={child.id}
-                      line={child}
-                      childrenLines={[]}
-                      symbol={symbol}
-                      isParent={false}
-                      expanded={false}
-                      onToggleExpand={() => {}}
-                      onPatch={patchLine}
-                      onDelete={handleDelete}
-                      onSliderChange={handleSliderChange}
-                      vendorOptions={vendorOptions}
-                    />
-                  ))}
-                  <AddLineForm
-                    category={parent.category as BudgetCategory}
-                    parentLineId={parent.id}
-                    onCreated={handleCreated}
-                  />
+        {eventGroups
+          ? eventGroups.map((group) => (
+              <div key={group.key} className="space-y-2">
+                <div className="flex items-center gap-2 pt-2 text-[10px] uppercase tracking-[0.2em] text-stone-500">
+                  <span>{group.label}</span>
+                  <span className="text-stone-300">·</span>
+                  <span className="tabular-nums text-stone-400">
+                    {group.parents.length} categor
+                    {group.parents.length === 1 ? "y" : "ies"}
+                  </span>
                 </div>
-              )}
-            </div>
-          );
-        })}
+                {group.parents.map((parent) => renderParentBlock(parent))}
+              </div>
+            ))
+          : parents.map((parent) => renderParentBlock(parent))}
       </div>
 
       {/* Show category-key legend for orphan / category-fallback */}

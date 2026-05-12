@@ -27,7 +27,6 @@ import {
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
   fetchEventDetails,
   fetchEventSummaries,
@@ -43,6 +42,11 @@ import {
 import { normalizeSkin } from "@/lib/workspace-skin";
 import { isB2B, resolveWorkspaceMode } from "@/lib/workspace-mode";
 import { currencySymbol } from "@/lib/utils";
+import {
+  AddEventChip,
+  EditEventButton,
+} from "@/components/events/event-edit-buttons";
+import type { VenueOption } from "@/components/events/event-edit-drawer";
 
 export const dynamic = "force-dynamic";
 
@@ -167,35 +171,24 @@ export default async function EventsPage() {
     ? await fetchEventSummaries(supabase, workspaceId)
     : [];
 
-  // Lookup map for venue names referenced by detail rows.
-  const venueIds = Array.from(
-    new Set(
-      summaries
-        .map((s) => s.detail?.venue_id)
-        .filter((v): v is string => Boolean(v)),
-    ),
-  );
+  // Lookup map for venue names referenced by detail rows + full list
+  // for the edit-drawer dropdown. One query covers both: read every
+  // venue for the workspace (RLS scopes by workspace_id), then derive
+  // the map (used by the card render) and the option list (passed to
+  // the drawer client component).
   let venueMap = new Map<string, VenueLite>();
-  if (venueIds.length > 0) {
-    try {
-      const sbVenues = supabase as unknown as {
-        from: (t: string) => {
-          select: (c: string) => {
-            in: (
-              col: string,
-              vals: string[],
-            ) => Promise<{ data: VenueLite[] | null }>;
-          };
-        };
-      };
-      const { data: venueRows } = await sbVenues
-        .from("venues")
-        .select("id, name, address")
-        .in("id", venueIds);
-      venueMap = new Map((venueRows ?? []).map((v) => [v.id, v]));
-    } catch {
-      venueMap = new Map();
-    }
+  let venueOptions: VenueOption[] = [];
+  try {
+    const { data: venueRows } = await supabase
+      .from("venues")
+      .select("id, name, address")
+      .order("name", { ascending: true });
+    const rows = (venueRows ?? []) as VenueLite[];
+    venueMap = new Map(rows.map((v) => [v.id, v]));
+    venueOptions = rows.map((v) => ({ id: v.id, name: v.name }));
+  } catch {
+    venueMap = new Map();
+    venueOptions = [];
   }
 
   // Which event roles are still toggle-able (not yet active)?
@@ -218,7 +211,10 @@ export default async function EventsPage() {
       </header>
 
       {summaries.length === 0 ? (
-        <EmptyEventsState inactiveRoles={inactiveRoles} />
+        <EmptyEventsState
+          inactiveRoles={inactiveRoles}
+          venueOptions={venueOptions}
+        />
       ) : (
         <>
           <div className="grid gap-5 md:grid-cols-2">
@@ -232,11 +228,15 @@ export default async function EventsPage() {
                     : null
                 }
                 currencySym={currencySym}
+                venueOptions={venueOptions}
               />
             ))}
           </div>
           {inactiveRoles.length > 0 && (
-            <AddEventAffordance inactiveRoles={inactiveRoles} />
+            <AddEventAffordance
+              inactiveRoles={inactiveRoles}
+              venueOptions={venueOptions}
+            />
           )}
         </>
       )}
@@ -274,7 +274,13 @@ function MigrationPendingState() {
   );
 }
 
-function EmptyEventsState({ inactiveRoles }: { inactiveRoles: EventRole[] }) {
+function EmptyEventsState({
+  inactiveRoles,
+  venueOptions,
+}: {
+  inactiveRoles: EventRole[];
+  venueOptions: VenueOption[];
+}) {
   return (
     <Card className="border-dashed border-stone-300 bg-white/50">
       <CardContent className="space-y-4 py-10 text-center">
@@ -289,13 +295,11 @@ function EmptyEventsState({ inactiveRoles }: { inactiveRoles: EventRole[] }) {
         </p>
         <div className="flex flex-wrap justify-center gap-2 pt-2">
           {inactiveRoles.slice(0, 6).map((r) => (
-            <Badge
+            <AddEventChip
               key={r}
-              variant="outline"
-              className="border-stone-300 bg-white text-xs"
-            >
-              {EVENT_ROLE_LABEL[r]}
-            </Badge>
+              eventRole={r}
+              venues={venueOptions}
+            />
           ))}
         </div>
       </CardContent>
@@ -307,10 +311,12 @@ function EventCard({
   summary,
   venue,
   currencySym,
+  venueOptions,
 }: {
   summary: EventSummary;
   venue: VenueLite | null;
   currencySym: string;
+  venueOptions: VenueOption[];
 }) {
   const { event_role, detail } = summary;
   const displayName = detail?.display_name || EVENT_ROLE_LABEL[event_role];
@@ -372,14 +378,11 @@ function EventCard({
         </div>
 
         <div className="flex flex-wrap items-center gap-2 pt-1">
-          <Button
-            variant="outline"
-            size="sm"
-            disabled
-            title="Editing comes next (Day 2)"
-          >
-            Edit
-          </Button>
+          <EditEventButton
+            eventRole={event_role}
+            existing={detail}
+            venues={venueOptions}
+          />
           <Button asChild variant="ghost" size="sm">
             <Link href={`/guests?event=${event_role}`}>View guests</Link>
           </Button>
@@ -394,12 +397,11 @@ function EventCard({
 
 function AddEventAffordance({
   inactiveRoles,
+  venueOptions,
 }: {
   inactiveRoles: EventRole[];
+  venueOptions: VenueOption[];
 }) {
-  // Day-1 stub: show the remaining toggle-able roles as a static row.
-  // Day 2 wires this up to a server action / API route that flips
-  // is_active on the matching event_details row.
   return (
     <Card className="border-dashed border-stone-300 bg-stone-50/40">
       <CardContent className="space-y-3 p-5">
@@ -412,16 +414,7 @@ function AddEventAffordance({
         </p>
         <div className="flex flex-wrap gap-2">
           {inactiveRoles.map((r) => (
-            <Button
-              key={r}
-              variant="outline"
-              size="sm"
-              disabled
-              title="Activation comes next (Day 2)"
-              className="border-stone-300 bg-white text-xs"
-            >
-              + {EVENT_ROLE_LABEL[r]}
-            </Button>
+            <AddEventChip key={r} eventRole={r} venues={venueOptions} />
           ))}
         </div>
       </CardContent>

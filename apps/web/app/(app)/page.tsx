@@ -14,6 +14,9 @@ import {
 import { currencySymbol } from "@/lib/utils";
 import { normalizeSkin } from "@/lib/workspace-skin";
 import { isB2B, resolveWorkspaceMode } from "@/lib/workspace-mode";
+import { fetchEventDetails } from "@/lib/data/events";
+import { NextEventWidget } from "@/components/events/next-event-widget";
+import type { EventDetailRow } from "@/lib/event-types";
 
 export const dynamic = "force-dynamic";
 
@@ -146,7 +149,7 @@ export default async function DashboardPage({
   ] = await Promise.all([
     supabase
       .from("workspaces")
-      .select("name, wedding_date, base_currency, created_at")
+      .select("id, name, wedding_date, base_currency, created_at")
       .limit(1)
       .maybeSingle(),
     supabase
@@ -279,6 +282,43 @@ export default async function DashboardPage({
   }
   const mode = resolveWorkspaceMode(normalizeSkin(workspaceSkin));
   const isPlannerServed = isB2B(mode);
+
+  // ── Next upcoming event (Move 5 Day 2) ──────────────────────────────
+  // For B2C couples, surface the soonest event_details row with
+  // start_at > now as a small dashboard tile. Tolerates pre-migration
+  // state (event_details missing) — fetchEventDetails returns [].
+  let nextUpcomingEvent: EventDetailRow | null = null;
+  let nextEventVenueName: string | null = null;
+  if (!isPlannerServed && workspace?.id) {
+    try {
+      const details = await fetchEventDetails(supabase, workspace.id);
+      const now = Date.now();
+      const upcoming = details
+        .filter((d) => d.is_active && d.start_at)
+        .map((d) => ({ row: d, t: new Date(d.start_at as string).getTime() }))
+        .filter(({ t }) => Number.isFinite(t) && t > now)
+        .sort((a, b) => a.t - b.t);
+      if (upcoming.length > 0) {
+        nextUpcomingEvent = upcoming[0].row;
+        const venueId = nextUpcomingEvent.venue_id;
+        if (venueId) {
+          try {
+            const { data: venueRow } = await supabase
+              .from("venues")
+              .select("name")
+              .eq("id", venueId)
+              .maybeSingle();
+            const vTyped = venueRow as { name?: string | null } | null;
+            nextEventVenueName = vTyped?.name ?? null;
+          } catch {
+            nextEventVenueName = null;
+          }
+        }
+      }
+    } catch {
+      nextUpcomingEvent = null;
+    }
+  }
 
   // ── Action-widget counts (audit #7) ─────────────────────────────────
   // B2C couples land on a hub of "what needs me right now" tiles, drawn
@@ -637,6 +677,15 @@ export default async function DashboardPage({
           hasBudget={bannerHasBudget}
           hasPublicSlug={bannerHasPublicSlug}
           justOnboarded={searchParams?.["just-onboarded"] === "1"}
+        />
+      )}
+      {/* Move 5 — Day 2. Next upcoming event tile. B2C only. Hidden
+          when there's no event_details row with a future start_at
+          (covers pre-migration AND empty / TBD-date workspaces). */}
+      {!isPlannerServed && nextUpcomingEvent && (
+        <NextEventWidget
+          event={nextUpcomingEvent}
+          venueName={nextEventVenueName}
         />
       )}
       {/* Autopilot is a B2C feature — Gmail integration, AI vendor

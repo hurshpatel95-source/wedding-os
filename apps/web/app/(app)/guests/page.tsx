@@ -6,11 +6,26 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { GuestList } from "@/components/guests/guest-list";
 import { GuestCreateButton } from "@/components/guests/guest-create-button";
 import { GuestComposeButton } from "@/components/email/guest-compose-button";
+import {
+  EventFilterTabs,
+  type EventFilterTab,
+} from "@/components/events/event-filter-tabs";
+import {
+  EVENT_ROLE_LABEL,
+  EVENT_ROLE_ORDER,
+  isEventRole,
+  type EventRole,
+} from "@/lib/event-types";
+import { fetchEventDetails } from "@/lib/data/events";
 import type { Database } from "@wedding-os/db";
 
 export const dynamic = "force-dynamic";
 
-export default async function GuestsPage() {
+export default async function GuestsPage({
+  searchParams,
+}: {
+  searchParams?: { event?: string };
+}) {
   const supabase = createClient();
 
   const {
@@ -45,6 +60,15 @@ export default async function GuestsPage() {
     string,
     Array<{ event_role: string; rsvp: string }>
   >();
+  // Track which event_roles have any invitation rows (for the tab strip
+  // fallback when event_details isn't seeded yet).
+  const rolesWithInvitations = new Set<EventRole>();
+  // Per-event guest counts ("X yes" sub-badge on each tab). Counts the
+  // number of invited guests per role and how many said yes.
+  const guestCountsByRole = new Map<
+    EventRole,
+    { invited: number; yes: number }
+  >();
   for (const row of invitationsRaw ?? []) {
     const r = row as {
       guest_id: string;
@@ -56,7 +80,71 @@ export default async function GuestsPage() {
     const existing = invitationsByGuest.get(r.guest_id) ?? [];
     existing.push({ event_role: r.event_role, rsvp: r.rsvp });
     invitationsByGuest.set(r.guest_id, existing);
+    if (isEventRole(r.event_role)) {
+      rolesWithInvitations.add(r.event_role);
+      const bucket = guestCountsByRole.get(r.event_role) ?? {
+        invited: 0,
+        yes: 0,
+      };
+      bucket.invited += 1;
+      if (r.rsvp === "yes") bucket.yes += 1;
+      guestCountsByRole.set(r.event_role, bucket);
+    }
   }
+
+  // ── Per-event filter (Move 5 Day 2) ────────────────────────────────
+  // Validate the ?event= query param. Anything else collapses to null.
+  const rawEvent = searchParams?.event;
+  const eventFilter: EventRole | null =
+    rawEvent && isEventRole(rawEvent) ? rawEvent : null;
+
+  // Build the tab strip's role list. Prefer the active event_details
+  // rows if the table exists; fall back to roles derived from existing
+  // invitations so the page degrades gracefully pre-migration.
+  let tabRoles: EventRole[] = [];
+  try {
+    const { data: { user: tabUser } } = await supabase.auth.getUser();
+    if (tabUser) {
+      const { data: tabProfile } = await supabase
+        .from("users")
+        .select("workspace_id")
+        .eq("id", tabUser.id)
+        .maybeSingle();
+      const wsId = (tabProfile as { workspace_id?: string } | null)
+        ?.workspace_id;
+      if (wsId) {
+        const details = await fetchEventDetails(supabase, wsId);
+        if (details.length > 0) {
+          tabRoles = details
+            .filter((d) => d.is_active)
+            .sort((a, b) => {
+              if (a.sort_order !== b.sort_order) {
+                return a.sort_order - b.sort_order;
+              }
+              return (
+                EVENT_ROLE_ORDER.indexOf(a.event_role) -
+                EVENT_ROLE_ORDER.indexOf(b.event_role)
+              );
+            })
+            .map((d) => d.event_role);
+        }
+      }
+    }
+  } catch {
+    tabRoles = [];
+  }
+  if (tabRoles.length === 0) {
+    // Fallback: any role with at least one invitation row.
+    tabRoles = EVENT_ROLE_ORDER.filter((r) => rolesWithInvitations.has(r));
+  }
+
+  const eventTabs: EventFilterTab[] = tabRoles.map((role) => {
+    const c = guestCountsByRole.get(role);
+    return {
+      role,
+      sub: c && c.invited > 0 ? `${c.yes} yes` : null,
+    };
+  });
 
   type GuestRow = Database["public"]["Tables"]["guests"]["Row"];
   const baseList = (guests ?? []) as unknown as Array<
@@ -81,10 +169,20 @@ export default async function GuestsPage() {
       | "updated_at"
     > & { plus_one_max: number | null }
   >;
-  const list = baseList.map((g) => ({
+  const unfilteredList = baseList.map((g) => ({
     ...g,
     event_invitations: invitationsByGuest.get(g.id) ?? [],
   }));
+
+  // Apply the per-event filter (server-side). When a tab is active, we
+  // only show guests with an is_invited=true row for that event_role.
+  const list = eventFilter
+    ? unfilteredList.filter((g) =>
+        g.event_invitations.some(
+          (inv) => inv.event_role === eventFilter,
+        ),
+      )
+    : unfilteredList;
 
   const total = list.length;
   const yes = list.filter((g) => g.overall_rsvp === "yes").length;
@@ -151,7 +249,11 @@ export default async function GuestsPage() {
         </div>
       </header>
 
-      {total === 0 ? (
+      {eventTabs.length > 0 && (
+        <EventFilterTabs tabs={eventTabs} ariaLabel="Filter guests by event" />
+      )}
+
+      {unfilteredList.length === 0 ? (
         <EmptyState
           icon={Users}
           title="No guests on your list yet"
@@ -168,6 +270,16 @@ export default async function GuestsPage() {
             </>
           }
         />
+      ) : total === 0 ? (
+        <section className="rounded-2xl border border-dashed border-stone-300 bg-white/50 px-6 py-12 text-center">
+          <p className="font-serif text-xl text-stone-700">
+            No one invited to {eventFilter ? EVENT_ROLE_LABEL[eventFilter] : "this event"} yet
+          </p>
+          <p className="mt-2 text-sm text-stone-500">
+            Pick another event tab, or invite guests to this one from
+            their detail row.
+          </p>
+        </section>
       ) : (
         <>
           <section className="grid grid-cols-2 gap-3 md:grid-cols-5">
