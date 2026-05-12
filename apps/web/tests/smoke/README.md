@@ -19,7 +19,7 @@ pnpm smoke:local       # in another
 pnpm smoke:ui
 ```
 
-## What's covered (May 11 — 20 spec files)
+## What's covered (May 11 — 25 spec files)
 
 | # | Test file | What it guards |
 |---|---|---|
@@ -43,13 +43,18 @@ pnpm smoke:ui
 | 18 | `18-pricing-fork.spec.ts` | /pricing renders FullPricingPlanner for B2B (event_roles); redirects to /budget for B2C couple |
 | 19 | `19-availability-default-month.spec.ts` | /availability does NOT default to legacy "September 2027" Barcelona hardcode |
 | 20 | `20-settings-name-saves.spec.ts` | /settings/preferences Partner A name change persists through reload (silent-save guard, sibling to test 04) |
+| 21 | `21-settings-currency-toggle.spec.ts` | /settings/preferences USD ↔ EUR currency toggle persists through reload (auto-restores original value) |
+| 22 | `22-task-edit-drawer.spec.ts` | /plan pencil icon opens the task edit drawer; native status `<select>` is reachable with canonical options (no save) |
+| 23 | `23-budget-add-category.spec.ts` | /budget loaded state exposes "Add a new category" affordance for B2C; reveals category combobox + label input + submit (no save) |
+| 24 | `24-vendor-status-pipeline.spec.ts` | /vendors/<id> shows current-status badge in header + Status timeline pipeline (researching → … → completed); skip gracefully when account has no vendors |
+| 25 | `25-impersonation-banner.spec.ts` | /admin renders the planner landing for admin-astha + admin-hursh without crash; admin nav exposes "View as workspace" picker (impersonation entry point) |
 
-## Growing the suite (toward 25 tests)
+## Growing the suite
 
-The design doc (`docs/stabilization/T1.4_design.md`) lists tests 11-25.
-Add as features ship — one test should be added in the same commit as
-the feature it guards. Tests 11-15 shipped on the T1.4 follow-up
-branch; 16-25 remain.
+Tests 01-25 shipped across the T1.4 series. Add as features ship —
+one test should be added in the same commit as the feature it guards.
+Tests 11-15 shipped on the T1.4 follow-up branch; 16-20 on
+`smoke-16-20`; 21-25 on `smoke-21-25`.
 
 ## Test account roster
 
