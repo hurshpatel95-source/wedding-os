@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
 import { format, parseISO } from "date-fns";
@@ -197,17 +198,78 @@ export async function generateMetadata({
   params,
 }: {
   params: { slug: string };
-}) {
+}): Promise<Metadata> {
   const sb = publicClient();
-  const { data } = await sb
+  // The generated DB types still lag `public_theme_slug` (post-0025
+  // migration), so we select * and treat the result loosely — same
+  // pattern the main page render below uses to read this column.
+  const { data: raw } = await sb
     .from("workspaces")
-    .select("name")
+    .select("*")
     .eq("public_slug", params.slug)
     .maybeSingle();
-  const name = data?.name ?? "Our wedding";
+
+  // No workspace → return empty metadata. The page itself will 404
+  // through notFound(); we just avoid setting a misleading title in
+  // the meantime.
+  if (!raw) {
+    return { title: "Our wedding" };
+  }
+
+  const row = raw as {
+    name: string | null;
+    wedding_date: string | null;
+    story_html: string | null;
+    public_theme_slug?: string | null;
+  };
+
+  const themeSlug =
+    row.public_theme_slug && VALID_THEME_SLUGS.has(row.public_theme_slug)
+      ? row.public_theme_slug
+      : "classic";
+
+  const coupleHeading = parseCoupleName(row.name ?? "Our wedding");
+  const dateLabel = row.wedding_date ? formatDate(row.wedding_date) : "";
+  const title = dateLabel
+    ? `${coupleHeading} · ${dateLabel}`
+    : coupleHeading;
+
+  // Strip the seeded HTML wrapper, then trim to a sane unfurl preview
+  // length. 160 chars is the typical Twitter/Facebook description
+  // ceiling — anything longer gets truncated by the consumer anyway.
+  const storyPlain = row.story_html ? stripHtml(row.story_html) : "";
+  const description = storyPlain
+    ? storyPlain.slice(0, 160).trim() + (storyPlain.length > 160 ? "…" : "")
+    : "Join us at our wedding.";
+
+  // Relative URL — Next.js resolves to absolute when it serializes
+  // OG tags at render time, using NEXT_PUBLIC_SITE_URL / the request
+  // host. Per-theme so iMessage/Slack/WhatsApp unfurl with the right
+  // visual (Option B from PATH_TO_COMPLETE.md).
+  const ogImageUrl = `/api/og/${themeSlug}`;
+
   return {
-    title: name,
-    description: "We can't wait to celebrate with you.",
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      type: "website",
+      images: [
+        {
+          url: ogImageUrl,
+          width: 1200,
+          height: 630,
+          alt: `${coupleHeading} — wedding invitation`,
+        },
+      ],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: [ogImageUrl],
+    },
   };
 }
 
