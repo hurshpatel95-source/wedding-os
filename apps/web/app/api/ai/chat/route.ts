@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { format, parseISO } from "date-fns";
 import type Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -7,6 +8,8 @@ import {
   DEFAULT_CHAT_MODEL,
   estimateChatCost,
 } from "@/lib/anthropic";
+import { fetchEventSummaries } from "@/lib/data/events";
+import { EVENT_ROLE_LABEL } from "@/lib/event-types";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -130,6 +133,23 @@ interface WorkspaceContextSnapshot {
     side: string | null;
     rsvp: string;
   }>;
+  // Move 5 — multi-event orchestration. One row per active event in
+  // event_details (sangeet / ceremony / reception / etc.) with the
+  // venue name, guest counts, timeline item count. Empty array when
+  // event_details doesn't exist (pre-migration) OR when no active
+  // events are set up — the system-prompt injector omits the section
+  // entirely in that case so the model doesn't see noise.
+  events_summary: Array<{
+    event_role: string;
+    display_name: string;
+    date_label: string | null;
+    venue_name: string | null;
+    guests_invited: number;
+    guests_yes: number;
+    guests_no: number;
+    guests_pending: number;
+    timeline_items: number;
+  }>;
 }
 
 async function buildContext(workspaceId: string): Promise<WorkspaceContextSnapshot> {
@@ -225,6 +245,48 @@ async function buildContext(workspaceId: string): Promise<WorkspaceContextSnapsh
   const planDone = taskList.filter((t) => t.status === "done").length;
   const planInProgress = taskList.filter((t) => t.status === "in_progress").length;
   const planBlocked = taskList.filter((t) => t.status === "blocked").length;
+
+  // ── Move 5: per-event summary ─────────────────────────────────────
+  // fetchEventSummaries is tolerant of event_details not existing yet
+  // (returns [] in that case). We also map venue_id → venue name from
+  // the venues list we already pulled above, so we don't double-fetch.
+  let eventsSummary: WorkspaceContextSnapshot["events_summary"] = [];
+  try {
+    const summaries = await fetchEventSummaries(supabase, workspaceId);
+    const venueRows = (venues ?? []) as Array<{ id: string; name: string }>;
+    eventsSummary = summaries.map((s) => {
+      const display =
+        s.detail?.display_name?.trim() || EVENT_ROLE_LABEL[s.event_role];
+      let dateLabel: string | null = null;
+      if (s.detail?.start_at) {
+        try {
+          dateLabel = format(parseISO(s.detail.start_at), "EEEE, MMMM d");
+        } catch {
+          dateLabel = null;
+        }
+      }
+      const venue = s.detail?.venue_id
+        ? venueRows.find((v) => v.id === s.detail!.venue_id) ?? null
+        : null;
+      const responded = s.guests_responded;
+      const yes = s.guests_yes;
+      const no = Math.max(0, responded - yes);
+      const pending = Math.max(0, s.guests_invited - responded);
+      return {
+        event_role: s.event_role,
+        display_name: display,
+        date_label: dateLabel,
+        venue_name: venue?.name ?? null,
+        guests_invited: s.guests_invited,
+        guests_yes: yes,
+        guests_no: no,
+        guests_pending: pending,
+        timeline_items: s.timeline_items,
+      };
+    });
+  } catch {
+    eventsSummary = [];
+  }
 
   return {
     workspace: {
@@ -340,6 +402,7 @@ async function buildContext(workspaceId: string): Promise<WorkspaceContextSnapsh
         null,
       rsvp: g.overall_rsvp,
     })),
+    events_summary: eventsSummary,
   };
 }
 
@@ -433,8 +496,35 @@ export async function POST(request: NextRequest) {
   const context = await buildContext(profile.workspace_id);
   const contextJson = JSON.stringify(context, null, 2);
 
+  // Move 5 — multi-event prelude. If the workspace has active events
+  // we build a human-readable summary section so Claude treats the
+  // wedding as a multi-event whole, not a single ceremony. Omitted
+  // entirely (no injection) when events_summary is empty — pre-
+  // migration state OR a fresh workspace with no events set up — so
+  // the model doesn't see confusing empty bullets.
+  let eventsPrelude = "";
+  if (context.events_summary.length > 0) {
+    const bullets = context.events_summary
+      .map((e) => {
+        const parts: string[] = [];
+        if (e.date_label) parts.push(e.date_label);
+        if (e.venue_name) parts.push(`at ${e.venue_name}`);
+        parts.push(`${e.guests_invited} invited`);
+        parts.push(`${e.guests_yes} yes`);
+        parts.push(
+          `${e.timeline_items} timeline item${e.timeline_items === 1 ? "" : "s"}`,
+        );
+        return `- ${e.display_name}: ${parts.join(" — ")}`;
+      })
+      .join("\n");
+    eventsPrelude = `The user's wedding has the following events:\n${bullets}\n\nWhen the user asks about "the wedding" without specifying an event, default to the ceremony unless context clearly suggests otherwise. When the user asks about specific events, scope your answers to that event's data.`;
+  }
+
   const systemBlocks: Anthropic.TextBlockParam[] = [
     { type: "text", text: SYSTEM_PROMPT },
+    ...(eventsPrelude
+      ? [{ type: "text" as const, text: eventsPrelude }]
+      : []),
     {
       type: "text",
       text: `CONTEXT (live workspace data — re-read from DB this turn):\n\n${contextJson}`,

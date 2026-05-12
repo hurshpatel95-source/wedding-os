@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { CalendarClock, Printer, Smartphone } from "lucide-react";
+import { CalendarClock, ChevronLeft, Printer, Smartphone } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -114,8 +114,23 @@ export default async function TimelinePage({
         : null,
   }));
 
+  // Move 5 — small breadcrumb above the header so /timeline reads as a
+  // per-event drill-down from /events (the new entry point). Shown only
+  // when the user lands on /timeline directly OR with ?event=<role> —
+  // either way they can hop back to /events.
+  const breadcrumbLabel = eventFilter
+    ? `Events / ${EVENT_ROLE_LABEL[eventFilter]} timeline`
+    : "Events / Timeline";
+
   return (
     <div className="space-y-8">
+      <Link
+        href="/events"
+        className="inline-flex items-center gap-1 text-[11px] uppercase tracking-[0.2em] text-stone-500 transition hover:text-stone-900"
+      >
+        <ChevronLeft className="h-3 w-3" />
+        {breadcrumbLabel}
+      </Link>
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div className="space-y-1">
           <div className="text-[11px] uppercase tracking-[0.25em] text-stone-500">

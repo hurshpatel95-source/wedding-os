@@ -8,6 +8,7 @@ import {
   Briefcase,
   Calculator,
   Calendar,
+  CalendarDays,
   CheckSquare,
   ChevronDown,
   Clock,
@@ -50,7 +51,13 @@ const primaryLinks: NavLink[] = [
 // Secondary items — accessible via the "More" dropdown. /feature-status
 // is intentionally omitted; the page still exists at the URL but is
 // admin-only.
+//
+// Move 5 — /events added at the top as the new multi-event entry point.
+// /timeline remains directly reachable (per-event drill-down via
+// /timeline?event=<role>) so existing bookmarks + the per-event "View
+// timeline" buttons on /events keep working.
 const moreLinks: NavLink[] = [
+  { href: "/events", label: "Events", icon: CalendarDays },
   { href: "/map", label: "Map", icon: Globe },
   { href: "/availability", label: "Availability", icon: Calendar },
   { href: "/compare", label: "Compare", icon: Users },

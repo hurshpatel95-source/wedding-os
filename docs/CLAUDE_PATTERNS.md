@@ -68,6 +68,20 @@ Other pages share rendering across modes — same data shape, same actions.
 - `/(app)/estimator/page.tsx` — `budget_estimates` rows present → planner-seeded view; else `budget_lines` → drill-down view
 - `/(app)/pricing/page.tsx` — venues with `event_roles` present → FullPricingPlanner; else admin → ScenarioStudio; else couple → redirect to /budget
 
+### Multi-event scoping (shipped May 12)
+
+- Events are scoped via the `event_role` enum (11 values in `20260505000004_event_roles.sql` + extensions)
+- `event_details` table (post-migration `20260512100000`) stores per-event metadata (display_name, start_at, end_at, venue_id, is_active, sort_order) keyed on (workspace_id, event_role)
+- Existing per-event scoping tables: `guest_event_invitations`, `timeline_items`, `floor_plans`, `venues.event_roles` array
+- `budget_lines.event_role` (nullable) — null means "shared / unallocated"
+- UI surfaces: `/events` (entry, in More dropdown), `/guests?event=<role>`, `/timeline?event=<role>`, `/budget?group=event`
+- API: `/api/events/[role]` PATCH (upsert) + DELETE (soft via is_active=false)
+- Read helpers in `apps/web/lib/data/events.ts` — all tolerant of pre-migration state (try/catch wraps the table reads)
+- Co-pilot context: `apps/web/app/api/ai/chat/route.ts` injects an `events_summary` section into the system prompt when active events exist; omitted entirely otherwise
+- Onboarding: `apps/web/app/api/onboarding/complete/route.ts` scans the chat transcript for multi-event keywords (sangeet, mehndi, rehearsal dinner, brunch, after-party, indian/jewish wedding) and seeds the matching `event_details` rows
+- Default behavior: B2C couples auto-enable `ceremony` + `reception` on first `/events` page load
+- B2B planner-served couples see a calm "your planner is building this" splash on `/events` — they don't drive event creation themselves
+
 ---
 
 ## 3. Database operation patterns

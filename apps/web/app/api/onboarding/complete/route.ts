@@ -292,6 +292,151 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  // ─── Move 5: multi-event signal detection ────────────────────────────
+  // Scan the chat transcript + AI-captured venue_candidates for signals
+  // that this is a multi-event wedding (Indian, Jewish, or any couple
+  // doing rehearsal dinner / welcome / brunch / after-party). If found,
+  // seed event_details rows so the first /events visit auto-enables the
+  // right events instead of defaulting to ceremony + reception only.
+  //
+  // Tolerant of event_details table not existing (pre-migration). The
+  // detection itself is keyword-based — we don't change the Claude
+  // extraction prompt, so this is purely additive and won't affect
+  // non-Indian / non-multi-event weddings (which simply produce no
+  // signals → no extra event_details rows seeded).
+  try {
+    type DetectedRole =
+      | "mehndi"
+      | "sangeet"
+      | "haldi"
+      | "welcome"
+      | "rehearsal"
+      | "after_party"
+      | "brunch";
+
+    const KEYWORD_TO_ROLE: Array<{
+      pattern: RegExp;
+      role: DetectedRole | "multi_default";
+    }> = [
+      { pattern: /\bsangeet\b/i, role: "sangeet" },
+      { pattern: /\bmehndi\b|\bmehendi\b/i, role: "mehndi" },
+      { pattern: /\bhaldi\b/i, role: "haldi" },
+      { pattern: /\brehearsal\s+dinner\b/i, role: "rehearsal" },
+      { pattern: /\bwelcome\s+(dinner|party|drinks|event)\b/i, role: "welcome" },
+      { pattern: /\bafter[- ]?party\b/i, role: "after_party" },
+      { pattern: /\bbrunch\b/i, role: "brunch" },
+      // Cultural-cue keywords that don't map to a specific role but
+      // imply "this is multi-event" — these enable our default Indian-
+      // wedding set when paired with at least one explicit event keyword.
+      { pattern: /\bindian\s+wedding\b/i, role: "multi_default" },
+      { pattern: /\bhindu\s+wedding\b/i, role: "multi_default" },
+      { pattern: /\bsouth\s+asian\b/i, role: "multi_default" },
+      { pattern: /\bjewish\s+wedding\b/i, role: "multi_default" },
+    ];
+
+    const detected = new Set<DetectedRole>();
+    let multiHint = false;
+
+    // (a) Keyword scan over the chat transcript (user messages only —
+    // assistant messages would echo our own prompt keywords).
+    const messages = (session.chat_messages ?? []) as Array<{
+      role: string;
+      content: string;
+    }>;
+    const haystack = messages
+      .filter((m) => m.role === "user")
+      .map((m) => m.content)
+      .join("\n");
+    for (const { pattern, role } of KEYWORD_TO_ROLE) {
+      if (pattern.test(haystack)) {
+        if (role === "multi_default") multiHint = true;
+        else detected.add(role);
+      }
+    }
+
+    // (b) AI-captured venue_candidates with event_role — the structured
+    // path. Maps directly. (Tool already covered for in `venue_candidates`.)
+    for (const v of data.venue_candidates ?? []) {
+      const r = v.event_role;
+      if (
+        r === "mehndi" ||
+        r === "sangeet" ||
+        r === "haldi" ||
+        r === "welcome" ||
+        r === "rehearsal" ||
+        r === "after_party" ||
+        r === "brunch"
+      ) {
+        detected.add(r);
+      }
+    }
+
+    // If we have a cultural cue ("Indian wedding") but no explicit event
+    // keywords yet, seed the canonical Indian-wedding set so the user's
+    // first /events visit isn't a blank ceremony+reception page.
+    if (multiHint && detected.size === 0) {
+      detected.add("mehndi");
+      detected.add("sangeet");
+    }
+
+    if (detected.size > 0) {
+      // Seed event_details rows. ceremony + reception are auto-seeded by
+      // the /events page itself on first load; here we add the detected
+      // extras so they show up alongside.
+      type EventDetailInsert = {
+        workspace_id: string;
+        org_id: string;
+        event_role: string;
+        is_active: boolean;
+        sort_order: number;
+      };
+      const SORT_ORDER: Record<DetectedRole, number> = {
+        // Roughly chronological: pre-events → rehearsal → after-events
+        mehndi: 1,
+        haldi: 2,
+        welcome: 3,
+        rehearsal: 4,
+        sangeet: 5,
+        // ceremony=10, reception=11 are seeded by the /events page
+        after_party: 20,
+        brunch: 21,
+      };
+      const rows: EventDetailInsert[] = [...detected].map((role) => ({
+        workspace_id: profile.workspace_id,
+        org_id: profile.org_id,
+        event_role: role,
+        is_active: true,
+        sort_order: SORT_ORDER[role],
+      }));
+
+      const sbEvents = supabase as unknown as {
+        from: (t: string) => {
+          insert: (
+            rows: unknown,
+          ) => Promise<{ error: { message?: string; code?: string } | null }>;
+        };
+      };
+      const { error: evErr } = await sbEvents
+        .from("event_details")
+        .insert(rows);
+      if (evErr) {
+        // Pre-migration state OR duplicate-key (table exists, row already
+        // there for this role). Both are non-fatal — just log and move on
+        // so onboarding completion isn't blocked.
+        const msg = String(evErr.message ?? "");
+        if (!/does not exist|duplicate|conflict/i.test(msg)) {
+          console.error(
+            "[onboarding/complete] event_details seed:",
+            evErr.message,
+          );
+        }
+      }
+    }
+  } catch (err) {
+    // Defensive: never block onboarding completion on this signal pass.
+    console.error("[onboarding/complete] multi-event detection:", err);
+  }
+
   // ─── Auto-seed the 84-task starter checklist if planning_tasks empty ──
   const sbCheck = supabase as unknown as {
     from: (t: string) => {
