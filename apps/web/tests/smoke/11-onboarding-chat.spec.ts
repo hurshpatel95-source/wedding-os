@@ -58,9 +58,12 @@ test.describe("11 — /onboarding renders chat UI", () => {
       // disabled by a hung sending state).
       await expect(composer).toBeEnabled();
 
-      // The Send button is next to the composer.
+      // The Send button is next to the composer. Post-a04fd2a polish,
+      // the visible "Send" text is wrapped in `hidden sm:inline` (mobile
+      // shows icon-only). The aria-label "Send message" is always set,
+      // so we match against that instead of the visible text.
       await expect(
-        page.getByRole("button", { name: /^Send$/i }),
+        page.getByRole("button", { name: /send message/i }),
       ).toBeVisible();
 
       // Do NOT actually type or send — writing to intake_sessions on
