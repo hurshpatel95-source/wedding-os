@@ -1,10 +1,28 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { CheckCircle2, Lock } from "lucide-react";
+import { createClient } from "@/lib/supabase/server";
 import { listAllFeatures } from "@/lib/feature-flags";
 
 export const dynamic = "force-dynamic";
 
-export default function FeatureStatusPage() {
+export default async function FeatureStatusPage() {
+  // Phase 1 Q3 — gate to admin only. The roadmap/tour content is sales-y
+  // and not appropriate for B2C couples; non-admins land on the
+  // dashboard instead. The page is still reachable by URL for admins.
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  const { data: profile } = await supabase
+    .from("users")
+    .select("role")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (profile?.role !== "admin") redirect("/");
+
   const features = listAllFeatures();
   const live = features.filter((f) => f.ready);
   const pending = features.filter((f) => !f.ready);

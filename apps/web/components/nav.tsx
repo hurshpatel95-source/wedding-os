@@ -2,21 +2,20 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 import {
   Bot,
   Briefcase,
   Calculator,
   Calendar,
   CheckSquare,
+  ChevronDown,
   Clock,
   Coins,
-  Compass,
-  ListChecks,
   Globe,
   Heart,
   LogOut,
   MapPin,
-  PieChart,
   Plane,
   Receipt,
   Settings,
@@ -32,26 +31,35 @@ import { cn } from "@/lib/utils";
 import { AlertsBell } from "@/components/alerts/alerts-bell";
 import type { BrandPreset } from "@/lib/workspace-skin";
 
-const links: { href: string; label: string; icon: LucideIcon }[] = [
+type NavLink = { href: string; label: string; icon: LucideIcon };
+
+// Phase 1.2 — primary nav is trimmed to 8 items. Secondary items live
+// behind the "More" dropdown so the strip is usable on mobile and the
+// shell feels focused on couple workflows that matter day-to-day.
+const primaryLinks: NavLink[] = [
   { href: "/", label: "Dashboard", icon: Sparkles },
-  { href: "/onboarding", label: "Setup chat", icon: ListChecks },
-  { href: "/autopilot", label: "Autopilot", icon: Plane },
-  { href: "/assistant", label: "Co-pilot", icon: Bot },
   { href: "/plan", label: "Plan", icon: CheckSquare },
   { href: "/venues", label: "Venues", icon: MapPin },
-  { href: "/map", label: "Map", icon: Globe },
-  { href: "/availability", label: "Availability", icon: Calendar },
   { href: "/vendors", label: "Vendors", icon: Briefcase },
   { href: "/guests", label: "Guests", icon: UserCheck },
   { href: "/budget", label: "Budget", icon: Coins },
-  { href: "/estimator", label: "Estimator", icon: Receipt },
-  { href: "/pricing", label: "Full pricing", icon: Calculator },
   { href: "/payments", label: "Payments", icon: Wallet },
-  { href: "/compare", label: "Compare venues", icon: Users },
-  { href: "/timeline", label: "Timeline", icon: Clock },
   { href: "/settings/public-site", label: "Public site", icon: Globe },
-  { href: "/settings/preferences", label: "Settings", icon: Settings },
-  { href: "/feature-status", label: "Tour", icon: Compass },
+];
+
+// Secondary items — accessible via the "More" dropdown. /feature-status
+// is intentionally omitted; the page still exists at the URL but is
+// admin-only.
+const moreLinks: NavLink[] = [
+  { href: "/map", label: "Map", icon: Globe },
+  { href: "/availability", label: "Availability", icon: Calendar },
+  { href: "/compare", label: "Compare", icon: Users },
+  { href: "/estimator", label: "Estimator", icon: Receipt },
+  { href: "/pricing", label: "Pricing", icon: Calculator },
+  { href: "/timeline", label: "Timeline", icon: Clock },
+  { href: "/assistant", label: "Co-pilot", icon: Bot },
+  { href: "/autopilot", label: "Autopilot", icon: Plane },
+  { href: "/settings", label: "Settings", icon: Settings },
 ];
 
 export function Nav({
@@ -80,6 +88,34 @@ export function Nav({
 }) {
   const pathname = usePathname();
   const router = useRouter();
+  const [moreOpen, setMoreOpen] = useState(false);
+  const moreRef = useRef<HTMLDivElement | null>(null);
+
+  // Close the More dropdown on outside click or Escape. Keeps the
+  // overlay from getting stuck open when the user clicks somewhere
+  // else in the shell.
+  useEffect(() => {
+    if (!moreOpen) return;
+    const onClick = (e: MouseEvent) => {
+      if (!moreRef.current) return;
+      if (!moreRef.current.contains(e.target as Node)) setMoreOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMoreOpen(false);
+    };
+    document.addEventListener("mousedown", onClick);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onClick);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [moreOpen]);
+
+  // Close the dropdown whenever the route actually changes — covers
+  // clicks on items inside the panel.
+  useEffect(() => {
+    setMoreOpen(false);
+  }, [pathname]);
 
   const handleSignOut = async () => {
     const supabase = createClient();
@@ -133,6 +169,13 @@ export function Nav({
   // updated yet.
   const accentBg = "var(--brand-accent)";
 
+  const isActive = (href: string) =>
+    href === "/" ? pathname === "/" : pathname.startsWith(href);
+
+  // The More pill should show as active whenever any secondary route is
+  // mounted, so the user has a hint about where they are.
+  const moreActive = moreLinks.some((l) => isActive(l.href));
+
   return (
     <header className="sticky top-0 z-40 border-b border-stone-300/40 bg-background/80 backdrop-blur">
       <div className="container flex h-16 items-center justify-between gap-6">
@@ -175,11 +218,10 @@ export function Nav({
           </div>
         </Link>
 
-        {/* Center: pill tabs */}
+        {/* Center: pill tabs (desktop) */}
         <nav className="hidden items-center gap-1 rounded-full border border-stone-200 bg-white/60 p-1 backdrop-blur md:flex">
-          {links.map((l) => {
-            const active =
-              l.href === "/" ? pathname === "/" : pathname.startsWith(l.href);
+          {primaryLinks.map((l) => {
+            const active = isActive(l.href);
             const Icon = l.icon;
             return (
               <Link
@@ -191,17 +233,66 @@ export function Nav({
                     ? "text-white shadow-sm"
                     : "text-stone-600 hover:text-stone-900",
                 )}
-                style={
-                  active
-                    ? { background: accentBg }
-                    : undefined
-                }
+                style={active ? { background: accentBg } : undefined}
               >
                 <Icon className="h-3.5 w-3.5" />
                 {l.label}
               </Link>
             );
           })}
+
+          {/* More dropdown */}
+          <div ref={moreRef} className="relative">
+            <button
+              type="button"
+              aria-haspopup="menu"
+              aria-expanded={moreOpen}
+              onClick={() => setMoreOpen((v) => !v)}
+              className={cn(
+                "flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors",
+                moreActive
+                  ? "text-white shadow-sm"
+                  : "text-stone-600 hover:text-stone-900",
+              )}
+              style={moreActive ? { background: accentBg } : undefined}
+            >
+              More
+              <ChevronDown
+                className={cn(
+                  "h-3.5 w-3.5 transition-transform",
+                  moreOpen && "rotate-180",
+                )}
+              />
+            </button>
+            {moreOpen && (
+              <div
+                role="menu"
+                className="absolute right-0 top-[calc(100%+0.5rem)] z-50 w-56 overflow-hidden rounded-2xl border border-stone-200 bg-white py-1 shadow-lg"
+              >
+                {moreLinks.map((l) => {
+                  const active = isActive(l.href);
+                  const Icon = l.icon;
+                  return (
+                    <Link
+                      key={l.href}
+                      href={l.href}
+                      role="menuitem"
+                      onClick={() => setMoreOpen(false)}
+                      className={cn(
+                        "flex items-center gap-2.5 px-3.5 py-2 text-sm transition-colors",
+                        active
+                          ? "bg-stone-100 font-medium text-stone-900"
+                          : "text-stone-700 hover:bg-stone-50 hover:text-stone-900",
+                      )}
+                    >
+                      <Icon className="h-3.5 w-3.5 text-stone-500" />
+                      {l.label}
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </nav>
 
         {/* Right: countdown + sign out */}
@@ -239,11 +330,12 @@ export function Nav({
         </div>
       </div>
 
-      {/* Mobile pill row */}
+      {/* Mobile pill row — 8 primaries + More. We keep overflow-x-auto as
+          a fallback for very narrow viewports; with 8 + 1 pills most
+          phones (375px+) won't need it. */}
       <nav className="container flex items-center gap-1 overflow-x-auto pb-3 md:hidden">
-        {links.map((l) => {
-          const active =
-            l.href === "/" ? pathname === "/" : pathname.startsWith(l.href);
+        {primaryLinks.map((l) => {
+          const active = isActive(l.href);
           const Icon = l.icon;
           return (
             <Link
@@ -255,17 +347,67 @@ export function Nav({
                   ? "text-white"
                   : "border border-stone-200 bg-white/60 text-stone-600",
               )}
-              style={
-                active
-                  ? { background: accentBg }
-                  : undefined
-              }
+              style={active ? { background: accentBg } : undefined}
             >
               <Icon className="h-3 w-3" />
               {l.label}
             </Link>
           );
         })}
+
+        {/* Mobile "More" pill — opens the same dropdown panel anchored
+            beneath the strip. */}
+        <div className="relative shrink-0">
+          <button
+            type="button"
+            aria-haspopup="menu"
+            aria-expanded={moreOpen}
+            onClick={() => setMoreOpen((v) => !v)}
+            className={cn(
+              "flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-medium transition-colors",
+              moreActive
+                ? "text-white"
+                : "border border-stone-200 bg-white/60 text-stone-600",
+            )}
+            style={moreActive ? { background: accentBg } : undefined}
+          >
+            More
+            <ChevronDown
+              className={cn(
+                "h-3 w-3 transition-transform",
+                moreOpen && "rotate-180",
+              )}
+            />
+          </button>
+          {moreOpen && (
+            <div
+              role="menu"
+              className="absolute right-0 top-[calc(100%+0.5rem)] z-50 w-52 overflow-hidden rounded-2xl border border-stone-200 bg-white py-1 shadow-lg"
+            >
+              {moreLinks.map((l) => {
+                const active = isActive(l.href);
+                const Icon = l.icon;
+                return (
+                  <Link
+                    key={l.href}
+                    href={l.href}
+                    role="menuitem"
+                    onClick={() => setMoreOpen(false)}
+                    className={cn(
+                      "flex items-center gap-2.5 px-3.5 py-2 text-xs transition-colors",
+                      active
+                        ? "bg-stone-100 font-medium text-stone-900"
+                        : "text-stone-700 hover:bg-stone-50 hover:text-stone-900",
+                    )}
+                  >
+                    <Icon className="h-3 w-3 text-stone-500" />
+                    {l.label}
+                  </Link>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </nav>
     </header>
   );
