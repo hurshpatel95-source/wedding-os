@@ -13,6 +13,7 @@ import {
   VENDOR_AUTOPILOT_LABEL,
   type VendorAutopilotStatus,
 } from "@/lib/autopilot-types";
+import { formatCurrency } from "@/lib/utils";
 
 interface Props {
   status: VendorAutopilotStatus | null | undefined;
@@ -21,6 +22,12 @@ interface Props {
   ai_summary?: string | null;
   last_inbound_at?: string | null;
   last_outbound_at?: string | null;
+  /**
+   * Workspace's display currency (workspaces.base_currency). The "_eur"
+   * suffix on quote_eur is legacy — the actual value is in this currency.
+   * Falls back to USD when unspecified to match the US-default elsewhere.
+   */
+  base_currency?: string | null;
   compact?: boolean;
 }
 
@@ -41,6 +48,7 @@ export function VendorStatusDisplay({
   ai_summary,
   last_inbound_at,
   last_outbound_at,
+  base_currency,
   compact = false,
 }: Props) {
   const effective: VendorAutopilotStatus = status ?? "none";
@@ -57,11 +65,13 @@ export function VendorStatusDisplay({
     );
   }
 
+  // Currency-aware quote formatting. The column is named quote_eur for
+  // legacy reasons but the stored value is in workspaces.base_currency
+  // (USD for US couples, EUR for European). Fall back to USD when the
+  // caller didn't pass a currency.
   const formattedQuote =
     typeof quote_eur === "number" && Number.isFinite(quote_eur)
-      ? `€${Number(quote_eur).toLocaleString(undefined, {
-          maximumFractionDigits: 0,
-        })}`
+      ? formatCurrency(quote_eur, base_currency)
       : null;
 
   return (

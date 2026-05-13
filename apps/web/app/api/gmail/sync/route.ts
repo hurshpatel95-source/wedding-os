@@ -8,16 +8,23 @@ import {
   parseGmailMessage,
   type GmailMessage,
 } from "@/lib/gmail-thread-importer";
+import { analyzeVendorThread } from "@/lib/autopilot-analyzer";
+import { assertNonChatAiQuota } from "@/lib/ai-quota";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const MAX_MESSAGES_PER_RUN = 50;
+// Cap how many vendor threads we auto-analyze per sync to bound cost
+// (each call is ~$0.02-$0.05 against Sonnet). Couples with bigger reply
+// bursts can still re-trigger via /api/autopilot/run-all.
+const MAX_AUTO_ANALYZE_PER_SYNC = 5;
 
 interface SyncResultBody {
   ok: boolean;
   messages_processed?: number;
   vendor_threads?: number;
+  auto_analyzed?: number;
   error?: string;
 }
 
@@ -163,6 +170,11 @@ export async function POST(): Promise<NextResponse<SyncResultBody>> {
 
   let processed = 0;
   let vendorThreads = 0;
+  // Track vendor ids that received a fresh inbound in this sync so we
+  // can auto-trigger the autopilot analyzer once the loop ends. Without
+  // this, inbound replies sit unanalyzed until the couple manually clicks
+  // "Analyze with AI" — defeating the autopilot's main promise.
+  const vendorIdsWithNewInbound = new Set<string>();
   let maxHistoryFromMessages: bigint | null = nextHistoryId
     ? safeBigInt(nextHistoryId)
     : null;
@@ -233,6 +245,9 @@ export async function POST(): Promise<NextResponse<SyncResultBody>> {
     const { error: insErr } = await insSb.from("email_messages").insert(insertRow);
     if (!insErr) {
       processed += 1;
+      if (vendorId) {
+        vendorIdsWithNewInbound.add(vendorId);
+      }
     }
 
     // Track historyId for the highest-numbered message we saw
@@ -264,10 +279,43 @@ export async function POST(): Promise<NextResponse<SyncResultBody>> {
     })
     .eq("id", connection.id);
 
+  // ─── Auto-trigger the autopilot analyzer for vendors that received
+  //     a fresh inbound in this sync ──────────────────────────────────
+  //
+  // The /autopilot dashboard's main promise is that vendor replies show
+  // up as alerts in "Today's queue" automatically. Without this trigger
+  // the couple has to click "Analyze with AI" per vendor. We cap the
+  // batch to bound cost; the quota guard ($5/day, 50 calls/day per org)
+  // is the hard backstop. Analyzer failure is swallowed — sync result
+  // is the contract; analysis is a best-effort follow-on.
+  let autoAnalyzed = 0;
+  const vendorBatch = Array.from(vendorIdsWithNewInbound).slice(
+    0,
+    MAX_AUTO_ANALYZE_PER_SYNC,
+  );
+  for (const vId of vendorBatch) {
+    try {
+      const overBudget = await assertNonChatAiQuota(supabase, profile.org_id);
+      if (overBudget) break;
+      const outcome = await analyzeVendorThread(supabase, vId, "webhook");
+      if (outcome.ok && !outcome.skipped) {
+        autoAnalyzed += 1;
+      }
+    } catch (err) {
+      // Swallow — analyzer failure should never break Gmail sync.
+      // eslint-disable-next-line no-console
+      console.warn(
+        "[gmail-sync] post-sync analyzer call failed:",
+        (err as Error).message ?? "unknown",
+      );
+    }
+  }
+
   return NextResponse.json({
     ok: true,
     messages_processed: processed,
     vendor_threads: vendorThreads,
+    auto_analyzed: autoAnalyzed,
   });
 }
 

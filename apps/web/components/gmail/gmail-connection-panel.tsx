@@ -84,10 +84,10 @@ export function GmailConnectionPanel({
       const res = await fetch("/api/gmail/sync", { method: "POST" });
       const j = await res.json().catch(() => ({}));
       if (!res.ok || !j.ok) throw new Error(j.error || "Sync failed");
-      toast.success(
-        `Synced — ${j.messages_processed ?? 0} new messages` +
-          (j.vendor_threads ? `, ${j.vendor_threads} vendor` : ""),
-      );
+      const parts: string[] = [`${j.messages_processed ?? 0} new messages`];
+      if (j.vendor_threads) parts.push(`${j.vendor_threads} vendor`);
+      if (j.auto_analyzed) parts.push(`${j.auto_analyzed} auto-analyzed`);
+      toast.success(`Synced — ${parts.join(", ")}`);
       router.refresh();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Sync failed");

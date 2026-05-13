@@ -21,6 +21,7 @@ import {
   estimateCost,
 } from "@/lib/anthropic";
 import { assertNonChatAiQuota, recordNonChatAiCall } from "@/lib/ai-quota";
+import { currencySymbol, normalizeCurrency } from "@/lib/utils";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -78,6 +79,7 @@ const DRAFT_SYSTEM = [
   "- One draft per vendor. Each one is unique. Never write the same opening line twice across the batch.",
   "- Open with something SPECIFIC to that vendor — their work style, their location, their rating count, an explicit mention of their website. NOT generic ('Hi, I love your work').",
   "- Always state the wedding date, region, guest count, and budget hint when available.",
+  "- The couple's budget (when given) is pre-formatted with their workspace's currency symbol in `budget_target_display`. Quote that verbatim. NEVER convert the budget to a different currency, and never substitute another currency symbol.",
   "- Ask 2-3 specific questions. Examples: 'Are you available [date]?', 'What's your typical package for {N} guests?', 'Do you offer {category-specific thing}?'",
   "- Sign off using the couple's first names (or first name) when provided. Never use 'The {couple_name} family' or formal titles.",
   "- DO NOT include placeholders like {{name}} or [insert]. Fill everything from the data given.",
@@ -164,6 +166,7 @@ export async function POST(request: NextRequest) {
               wedding_region: string | null;
               guest_count_estimate: number | null;
               budget_target_eur: number | null;
+              base_currency: string | null;
             } | null;
           }>;
         };
@@ -173,7 +176,7 @@ export async function POST(request: NextRequest) {
   const { data: workspace } = await wsClient
     .from("workspaces")
     .select(
-      "name, wedding_date, wedding_region, guest_count_estimate, budget_target_eur",
+      "name, wedding_date, wedding_region, guest_count_estimate, budget_target_eur, base_currency",
     )
     .eq("id", profile.workspace_id)
     .maybeSingle();
@@ -183,6 +186,18 @@ export async function POST(request: NextRequest) {
   const firstNames =
     coupleNameRaw && coupleNameRaw.length > 0 ? coupleNameRaw : "[your name]";
 
+  // Currency-aware budget formatting. The "_eur" column name is legacy;
+  // the stored value is in workspace.base_currency. We surface a
+  // pre-formatted string so the model quotes it verbatim and never
+  // substitutes the wrong symbol (mirrors Co-pilot fix 903462f).
+  const baseCurrency = normalizeCurrency(workspace?.base_currency);
+  const sym = currencySymbol(baseCurrency);
+  const budgetTarget = workspace?.budget_target_eur ?? null;
+  const budgetTargetDisplay =
+    budgetTarget != null && Number.isFinite(budgetTarget)
+      ? `${sym}${Number(budgetTarget).toLocaleString("en-US")}`
+      : null;
+
   const userMessage = JSON.stringify(
     {
       couple: {
@@ -190,7 +205,8 @@ export async function POST(request: NextRequest) {
         wedding_date: workspace?.wedding_date ?? null,
         region: workspace?.wedding_region ?? null,
         guest_count: workspace?.guest_count_estimate ?? null,
-        budget_target_eur: workspace?.budget_target_eur ?? null,
+        base_currency: baseCurrency,
+        budget_target_display: budgetTargetDisplay,
       },
       vendors: vendors.map((v) => ({
         id: v.id,

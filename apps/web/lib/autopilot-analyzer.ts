@@ -19,6 +19,7 @@ import {
   estimateCost,
 } from "@/lib/anthropic";
 import { recordNonChatAiCall } from "@/lib/ai-quota";
+import { currencySymbol, normalizeCurrency } from "@/lib/utils";
 import type {
   AlertSeverity,
   VendorAutopilotStatus,
@@ -50,12 +51,12 @@ export const ANALYZE_TOOL: Anthropic.Tool = {
       quote_eur: {
         type: ["number", "null"],
         description:
-          "Numeric quote (rough EUR). NULL unless the vendor explicitly stated a price in this thread. Strip currency symbols. If the vendor priced in another currency, give an approximate EUR equivalent.",
+          "Numeric quote in the WORKSPACE's base currency (see workspace.base_currency in CONTEXT — typically USD for US couples, EUR for European). NULL unless the vendor explicitly stated a price in this thread. Strip currency symbols and use the raw number. DO NOT convert between currencies — if the vendor priced in a different currency than the workspace, take the number verbatim and note the currency mismatch in quote_summary. The field is named quote_eur for legacy reasons; the value is in workspace currency, not always EUR.",
       },
       quote_summary: {
         type: ["string", "null"],
         description:
-          "1-line summary of what's included at that price (e.g. \"$4,500 includes ceremony + reception florals + delivery\"). NULL when quote_eur is null.",
+          "1-line summary of what's included at that price, in the vendor's own words/symbols (e.g. \"$4,500 includes ceremony + reception florals + delivery\" or \"€6,000 for full-day coverage\"). Keep the vendor's original currency symbol verbatim. NULL when quote_eur is null.",
       },
       ai_summary: {
         type: "string",
@@ -95,7 +96,9 @@ export const ANALYZE_TOOL: Anthropic.Tool = {
 
 export const ANALYZE_SYSTEM = `You are an autopilot for a couple planning their wedding. You read the full email thread between the couple and a vendor, decide where the relationship stands, and emit a structured update.
 
-Be conservative — never invent quotes. quote_eur is null unless the vendor sent an actual price. new_status is the latest state in the thread, not the entire history. If the most recent message is from the couple awaiting a reply, the state stays "contacted". If the vendor sent a price, it's "quoted". If the vendor said no, it's "declined" or "unavailable".`;
+Be conservative — never invent quotes. quote_eur is null unless the vendor sent an actual price. Record the price as-given in the vendor's own currency — DO NOT convert between currencies. The field is named "quote_eur" for legacy column-name reasons, but the value should be the raw number the vendor stated. The CONTEXT block tells you what currency the workspace uses; if the vendor quoted in a different currency, take the number verbatim and call out the mismatch in quote_summary so the couple notices.
+
+new_status is the latest state in the thread, not the entire history. If the most recent message is from the couple awaiting a reply, the state stays "contacted". If the vendor sent a price, it's "quoted". If the vendor said no, it's "declined" or "unavailable".`;
 
 export const FOLLOWUP_TOOL: Anthropic.Tool = {
   name: "emit_followup_draft",
@@ -149,6 +152,7 @@ interface EmailMessageLite {
 interface WorkspaceLite {
   name: string | null;
   wedding_date: string | null;
+  base_currency: string | null;
 }
 
 interface AnalyzeToolInput {
@@ -171,6 +175,8 @@ export interface AnalyzeOutcome {
   reason?: string;
   status?: VendorAutopilotStatus;
   quote_eur?: number | null;
+  /** Workspace's display currency for formatting the quote in the UI. */
+  base_currency?: string;
   alerts_created?: number;
   cost_usd?: number;
   ai_summary?: string;
@@ -248,10 +254,15 @@ export async function analyzeVendorThread(
 
   const { data: workspaceRow } = await cast
     .from("workspaces")
-    .select("name, wedding_date")
+    .select("name, wedding_date, base_currency")
     .eq("id", vendor.workspace_id)
     .maybeSingle!();
   const workspace = (workspaceRow as unknown as WorkspaceLite | null) ?? null;
+  // Workspace currency drives both the prompt context and the in-app
+  // display symbol. Normalize unknown → USD as the safe fallback (matches
+  // /budget + /payments + Co-pilot fix 903462f).
+  const baseCurrency = normalizeCurrency(workspace?.base_currency);
+  const currencySym = currencySymbol(baseCurrency);
 
   // Load last 20 messages for this vendor, oldest first
   const { data: msgsRaw } = await cast
@@ -289,6 +300,9 @@ export async function analyzeVendorThread(
       }`,
     );
   }
+  lines.push(
+    `Workspace currency: ${baseCurrency} (symbol ${currencySym}) — quotes should be recorded in this currency without converting.`,
+  );
   lines.push(
     `Vendor: ${vendor.name}${vendor.category ? ` (${vendor.category})` : ""}`,
   );
@@ -512,6 +526,7 @@ export async function analyzeVendorThread(
     ok: true,
     status: toolInput.new_status,
     quote_eur: quoteEur,
+    base_currency: baseCurrency,
     alerts_created: alertsCreated,
     cost_usd: costUsd,
     ai_summary: toolInput.ai_summary,

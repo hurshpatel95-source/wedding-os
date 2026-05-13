@@ -116,6 +116,7 @@ export async function POST(request: NextRequest) {
     ok: true,
     status: outcome.status,
     quote_eur: outcome.quote_eur,
+    base_currency: outcome.base_currency ?? null,
     alerts_created: outcome.alerts_created,
     cost_usd: outcome.cost_usd,
     ai_summary: outcome.ai_summary,

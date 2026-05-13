@@ -11,6 +11,7 @@ import { useRouter } from "next/navigation";
 import { Loader2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { formatCurrency } from "@/lib/utils";
 
 interface Props {
   vendorId: string;
@@ -25,6 +26,8 @@ interface AnalyzeResponse {
   reason?: string;
   status?: string;
   quote_eur?: number | null;
+  /** Workspace's display currency, used to format quote_eur correctly. */
+  base_currency?: string | null;
   alerts_created?: number;
   ai_summary?: string;
   error?: string;
@@ -61,9 +64,11 @@ export function AnalyzeWithAiButton({
       }
 
       const summary = json.ai_summary?.trim();
+      // quote_eur column is named for legacy reasons; the value is in
+      // workspaces.base_currency. Use the right symbol per workspace.
       const quote =
         typeof json.quote_eur === "number"
-          ? `€${json.quote_eur.toLocaleString()}`
+          ? formatCurrency(json.quote_eur, json.base_currency)
           : null;
       toast.success(`Status: ${json.status ?? "updated"}`, {
         description: [quote, summary].filter(Boolean).join(" — ") || undefined,
