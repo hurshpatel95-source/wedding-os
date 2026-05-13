@@ -9,7 +9,6 @@ import {
   Calculator,
   Calendar,
   CalendarDays,
-  Camera,
   CheckSquare,
   ChevronDown,
   Clock,
@@ -25,6 +24,7 @@ import {
   UserCheck,
   Users,
   Wallet,
+  Wand2,
 } from "lucide-react";
 import { differenceInCalendarDays, parseISO } from "date-fns";
 import type { LucideIcon } from "lucide-react";
@@ -58,10 +58,11 @@ const primaryLinks: NavLink[] = [
 // /timeline?event=<role>) so existing bookmarks + the per-event "View
 // timeline" buttons on /events keep working.
 const moreLinks: NavLink[] = [
-  // Move 2 — Photo → Pricing. Most magical entry in this menu, so it
-  // leads. AI vision identifies wedding elements + estimates local
-  // pricing in the workspace currency.
-  { href: "/visualize", label: "Visualize", icon: Camera },
+  // AI Studio — the wedding-domain prompt-optimizer hub (mood board,
+  // venue mockup, dress-on-me, etc.). Replaces /visualize in the nav;
+  // /visualize remains reachable until Day 3 migration folds the
+  // pricing-analyzer card into the studio.
+  { href: "/studio", label: "Studio", icon: Wand2 },
   { href: "/events", label: "Events", icon: CalendarDays },
   { href: "/map", label: "Map", icon: Globe },
   { href: "/availability", label: "Availability", icon: Calendar },
