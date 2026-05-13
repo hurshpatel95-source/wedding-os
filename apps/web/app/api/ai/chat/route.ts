@@ -10,6 +10,7 @@ import {
 } from "@/lib/anthropic";
 import { fetchEventSummaries } from "@/lib/data/events";
 import { EVENT_ROLE_LABEL } from "@/lib/event-types";
+import { currencySymbol, normalizeCurrency } from "@/lib/utils";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -32,12 +33,40 @@ const SYSTEM_PROMPT = `You are Acquired Planner Co-pilot — a private AI assist
 
 Style:
 - Warm but direct. Short answers (2-5 sentences) unless the user asks for depth.
-- Cite the user's actual data when it's relevant — venue names, prices in EUR, scenario totals, vendor statuses, plan progress %, days-to-wedding, etc. The CONTEXT block below is the source of truth.
+- Cite the user's actual data when it's relevant — venue names, prices in the workspace's currency, scenario totals, vendor statuses, plan progress %, days-to-wedding, etc. The CONTEXT block below is the source of truth. All money amounts in CONTEXT are already pre-formatted with the workspace's currency symbol — quote them verbatim. (Internal field names may end in "_eur" for legacy reasons; ignore that suffix and trust the formatted amount + the workspace.base_currency value.)
 - If the answer requires data that's not in CONTEXT, say so plainly ("I don't see [thing] yet — add it on /vendors and I can include it.").
 - Never invent prices, dates, vendor names, or guest counts. If you don't know, say so.
 - For comparisons (two scenarios you've saved, two venues you've added, etc.) give a structured pros/cons + a clear recommendation.
 - For "what should we do this week?" type questions, pull from the planning checklist + plan progress + upcoming payments.
 - Never apologize at length. Get to the answer.
+
+Cite real workspace entries (not generic advice):
+- When the user asks "what should I do?" / "what's left?" / "what's next?" / similar action-oriented questions, CITE ACTUAL TASK TITLES from upcoming_tasks. Don't invent generic advice like "build your timeline" or "finalize guest list" when the workspace has real task rows. If upcoming_tasks is empty, then say "no tasks queued — start by visiting /plan."
+- Same rule applies for vendors: cite ACTUAL vendor names from the vendors array. Don't say "you should book a photographer" if a photographer is already in vendors (even if their status isn't "booked" yet — refer to them by name and say where they sit in the pipeline).
+- Same for venues, scenarios, estimates, payments, guests: refer to specific rows by name.
+
+App routes (use these when telling the user where to go):
+- /                       — Dashboard
+- /onboarding             — First-time AI intake chat
+- /plan                   — Planning tasks
+- /venues                 — Venue list (add, browse, decide)
+- /vendors                — Vendor list + status pipeline
+- /vendors/find           — AI-assisted vendor search
+- /guests                 — Guest list (use ?event=<role> to filter)
+- /guests/import          — Bulk Excel/CSV import
+- /guests/seating         — Floor plans
+- /budget                 — Budget tree (use ?group=event to group)
+- /estimator              — Live forecast tab inside budget
+- /spend                  — Actuals tab inside budget
+- /payments               — Deposit + final balance calendar
+- /timeline               — Day-of run sheet (use ?event=<role> to filter)
+- /events                 — Multi-event hub (sangeet/ceremony/reception/etc.)
+- /settings               — Settings hub (preferences, public site)
+- /settings/preferences   — Wedding date, currency, names
+- /settings/public-site   — URL slug, theme, story, schedule, FAQ
+- /assistant              — This Co-pilot
+
+When suggesting an action, point the user at the right route. If you can't do something directly (e.g., add an event, add a venue), explain how the user does it: "Go to /events to enable the sangeet — you can set the date and venue from there." Venues live at /venues (not /vendors); events live at /events. Don't guess.
 
 Don't:
 - Don't recommend vendors you don't see in their data.
@@ -50,6 +79,11 @@ interface WorkspaceContextSnapshot {
     name: string | null;
     wedding_date: string | null;
     days_to_wedding: number | null;
+    // Workspace's display currency. The internal "_eur" suffix on price
+    // fields below is legacy — the actual value is stored in this currency.
+    // Same pattern as /(app)/payments/page.tsx + /(app)/budget/page.tsx.
+    base_currency: string;
+    currency_symbol: string;
   };
   venues: Array<{
     name: string;
@@ -58,9 +92,14 @@ interface WorkspaceContextSnapshot {
     capacity_max: number | null;
     is_lead_pick: boolean;
     event_roles: string[];
+    // Money fields are stored in workspace.base_currency. The "_eur" suffix
+    // is legacy; the formatted versions below are what to quote to users.
     hire_fee_weekend_eur: number | null;
+    hire_fee_weekend_display: string | null;
     hire_fee_sunday_eur: number | null;
+    hire_fee_sunday_display: string | null;
     hire_fee_weekday_eur: number | null;
+    hire_fee_weekday_display: string | null;
     minimum_pax_weekend: number | null;
     minimum_pax_sunday: number | null;
   }>;
@@ -68,15 +107,19 @@ interface WorkspaceContextSnapshot {
     name: string;
     description: string;
     calculated_total_eur: number;
+    calculated_total_display: string;
   }>;
   vendors: Array<{
     name: string;
     category: string;
     status: string;
     quoted_price_eur: number | null;
+    quoted_price_display: string | null;
     deposit_amount_eur: number | null;
+    deposit_amount_display: string | null;
     deposit_paid: boolean;
     final_balance_eur: number | null;
+    final_balance_display: string | null;
     final_paid: boolean;
   }>;
   guests: {
@@ -106,11 +149,13 @@ interface WorkspaceContextSnapshot {
     name: string;
     summary: string | null;
     baseline_total_eur: number | null;
+    baseline_total_display: string | null;
   }>;
   // Upcoming + recent payment milestones
   payments: Array<{
     label: string;
     amount_eur: number | null;
+    amount_display: string | null;
     due_at: string | null;
     paid_at: string | null;
   }>;
@@ -179,7 +224,7 @@ async function buildContext(workspaceId: string): Promise<WorkspaceContextSnapsh
   ] = await Promise.all([
     supabase
       .from("workspaces")
-      .select("name, wedding_date")
+      .select("name, wedding_date, base_currency")
       .eq("id", workspaceId)
       .maybeSingle(),
     supabase
@@ -230,6 +275,17 @@ async function buildContext(workspaceId: string): Promise<WorkspaceContextSnapsh
   const daysTo = weddingDate
     ? Math.ceil((new Date(weddingDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
     : null;
+
+  // Currency-neutral money formatting. The DB columns still end in
+  // "_eur" (legacy) but the stored value is in workspace.base_currency.
+  // We surface a `*_display` string alongside each raw number so the
+  // model can quote money verbatim without guessing the symbol.
+  const baseCurrency = normalizeCurrency(
+    (workspaceRow as { base_currency: string | null } | null)?.base_currency,
+  );
+  const sym = currencySymbol(baseCurrency);
+  const fmtMoney = (n: number | null | undefined): string | null =>
+    n == null ? null : `${sym}${Number(n).toLocaleString("en-US")}`;
 
   const guestList = (guestsRow ?? []) as Array<{ overall_rsvp: string }>;
   const guestCounts = {
@@ -293,6 +349,8 @@ async function buildContext(workspaceId: string): Promise<WorkspaceContextSnapsh
       name: (workspaceRow as { name: string | null } | null)?.name ?? null,
       wedding_date: weddingDate,
       days_to_wedding: daysTo,
+      base_currency: baseCurrency,
+      currency_symbol: sym,
     },
     venues: ((venues ?? []) as Array<Record<string, unknown>>).map((v) => ({
       name: String(v.name),
@@ -302,24 +360,34 @@ async function buildContext(workspaceId: string): Promise<WorkspaceContextSnapsh
       is_lead_pick: Boolean(v.is_lead_pick),
       event_roles: (v.event_roles as string[]) ?? [],
       hire_fee_weekend_eur: (v.hire_fee_weekend_eur as number | null) ?? null,
+      hire_fee_weekend_display: fmtMoney(v.hire_fee_weekend_eur as number | null),
       hire_fee_sunday_eur: (v.hire_fee_sunday_eur as number | null) ?? null,
+      hire_fee_sunday_display: fmtMoney(v.hire_fee_sunday_eur as number | null),
       hire_fee_weekday_eur: (v.hire_fee_weekday_eur as number | null) ?? null,
+      hire_fee_weekday_display: fmtMoney(v.hire_fee_weekday_eur as number | null),
       minimum_pax_weekend: (v.minimum_pax_weekend as number | null) ?? null,
       minimum_pax_sunday: (v.minimum_pax_sunday as number | null) ?? null,
     })),
-    scenarios: ((scenarios ?? []) as Array<Record<string, unknown>>).map((s) => ({
-      name: String(s.name),
-      description: String((s.inputs as { description?: string })?.description ?? ""),
-      calculated_total_eur: Number(s.calculated_total ?? 0),
-    })),
+    scenarios: ((scenarios ?? []) as Array<Record<string, unknown>>).map((s) => {
+      const total = Number(s.calculated_total ?? 0);
+      return {
+        name: String(s.name),
+        description: String((s.inputs as { description?: string })?.description ?? ""),
+        calculated_total_eur: total,
+        calculated_total_display: `${sym}${total.toLocaleString("en-US")}`,
+      };
+    }),
     vendors: ((vendors ?? []) as Array<Record<string, unknown>>).map((v) => ({
       name: String(v.name),
       category: String(v.category),
       status: String(v.status),
       quoted_price_eur: (v.quoted_price_eur as number | null) ?? null,
+      quoted_price_display: fmtMoney(v.quoted_price_eur as number | null),
       deposit_amount_eur: (v.deposit_amount_eur as number | null) ?? null,
+      deposit_amount_display: fmtMoney(v.deposit_amount_eur as number | null),
       deposit_paid: Boolean(v.deposit_paid_at),
       final_balance_eur: (v.final_balance_eur as number | null) ?? null,
+      final_balance_display: fmtMoney(v.final_balance_eur as number | null),
       final_paid: Boolean(v.final_paid_at),
     })),
     guests: guestCounts,
@@ -343,27 +411,33 @@ async function buildContext(workspaceId: string): Promise<WorkspaceContextSnapsh
       name: String(e.name ?? ""),
       summary: (e.scenario_summary as string | null) ?? null,
       baseline_total_eur: (e.baseline_total_eur as number | null) ?? null,
+      baseline_total_display: fmtMoney(e.baseline_total_eur as number | null),
     })),
     payments: ((paymentsRow ?? []) as Array<Record<string, unknown>>).flatMap(
       (v) => {
         const out: Array<{
           label: string;
           amount_eur: number | null;
+          amount_display: string | null;
           due_at: string | null;
           paid_at: string | null;
         }> = [];
         if (v.deposit_amount_eur != null) {
+          const amt = (v.deposit_amount_eur as number | null) ?? null;
           out.push({
             label: `${String(v.name)} — deposit`,
-            amount_eur: (v.deposit_amount_eur as number | null) ?? null,
+            amount_eur: amt,
+            amount_display: fmtMoney(amt),
             due_at: (v.deposit_due_at as string | null) ?? null,
             paid_at: (v.deposit_paid_at as string | null) ?? null,
           });
         }
         if (v.final_balance_eur != null) {
+          const amt = (v.final_balance_eur as number | null) ?? null;
           out.push({
             label: `${String(v.name)} — final balance`,
-            amount_eur: (v.final_balance_eur as number | null) ?? null,
+            amount_eur: amt,
+            amount_display: fmtMoney(amt),
             due_at: (v.final_due_at as string | null) ?? null,
             paid_at: (v.final_paid_at as string | null) ?? null,
           });
@@ -520,8 +594,11 @@ export async function POST(request: NextRequest) {
     eventsPrelude = `The user's wedding has the following events:\n${bullets}\n\nWhen the user asks about "the wedding" without specifying an event, default to the ceremony unless context clearly suggests otherwise. When the user asks about specific events, scope your answers to that event's data.`;
   }
 
+  const currencyPrelude = `The user's workspace currency is ${context.workspace.base_currency} (symbol "${context.workspace.currency_symbol}"). All money values in CONTEXT have a *_display string pre-formatted with this symbol — quote those verbatim. Do NOT say "EUR" unless workspace.base_currency is "EUR". Do NOT say "USD" unless workspace.base_currency is "USD".`;
+
   const systemBlocks: Anthropic.TextBlockParam[] = [
     { type: "text", text: SYSTEM_PROMPT },
+    { type: "text", text: currencyPrelude },
     ...(eventsPrelude
       ? [{ type: "text" as const, text: eventsPrelude }]
       : []),
