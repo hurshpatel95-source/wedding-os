@@ -6,6 +6,8 @@ import { isFeatureReady } from "@/lib/feature-flags";
 import { Card, CardContent } from "@/components/ui/card";
 import { normalizeSkin } from "@/lib/workspace-skin";
 import { resolveWorkspaceMode, isPlannerServed } from "@/lib/workspace-mode";
+import { VENDOR_CATEGORIES } from "@/lib/vendor-categories";
+import type { VendorCategory } from "@/lib/vendor-types";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +17,24 @@ interface WorkspaceWaveRow {
   guest_count_estimate: number | null;
 }
 
-export default async function VendorFindPage() {
+// Helper to coerce a string from ?category= into a valid VendorCategory.
+// Returns null if the param is missing or doesn't match any known category.
+function coerceCategoryParam(raw: string | undefined): VendorCategory | null {
+  if (!raw) return null;
+  return (VENDOR_CATEGORIES as readonly string[]).includes(raw)
+    ? (raw as VendorCategory)
+    : null;
+}
+
+export default async function VendorFindPage({
+  searchParams,
+}: {
+  searchParams: { category?: string };
+}) {
+  // Allow other pages (e.g. /visualize's "Find local vendors" CTA) to
+  // deep-link straight to a pre-filled category. The form already
+  // accepts `defaultCategory`; we just need to pipe the search param.
+  const defaultCategory = coerceCategoryParam(searchParams?.category);
   const supabase = createClient();
   const {
     data: { user },
@@ -107,7 +126,10 @@ export default async function VendorFindPage() {
       </header>
 
       {searchReady ? (
-        <VendorSearchForm defaultRegion={defaultRegion} />
+        <VendorSearchForm
+          defaultRegion={defaultRegion}
+          defaultCategory={defaultCategory ?? undefined}
+        />
       ) : (
         <Card className="border-stone-200 bg-stone-50/60">
           <CardContent className="space-y-4 py-6">
