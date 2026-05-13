@@ -9,6 +9,7 @@ import {
   Calculator,
   Calendar,
   CalendarDays,
+  Camera,
   CheckSquare,
   ChevronDown,
   Clock,
@@ -57,6 +58,10 @@ const primaryLinks: NavLink[] = [
 // /timeline?event=<role>) so existing bookmarks + the per-event "View
 // timeline" buttons on /events keep working.
 const moreLinks: NavLink[] = [
+  // Move 2 — Photo → Pricing. Most magical entry in this menu, so it
+  // leads. AI vision identifies wedding elements + estimates local
+  // pricing in the workspace currency.
+  { href: "/visualize", label: "Visualize", icon: Camera },
   { href: "/events", label: "Events", icon: CalendarDays },
   { href: "/map", label: "Map", icon: Globe },
   { href: "/availability", label: "Availability", icon: Calendar },
