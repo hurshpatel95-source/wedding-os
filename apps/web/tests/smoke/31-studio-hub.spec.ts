@@ -55,12 +55,18 @@ test.describe("31 — /studio hub renders for B2C couple", () => {
       page.getByRole("heading", { name: /Mood board/i }),
     ).toBeVisible({ timeout: 10_000 });
 
-    // Eyebrow "AI Studio · beta" should appear.
-    expect(body).toContain("AI Studio");
+    // Verify the eyebrow via getByText (auto-waits) instead of a body
+    // innerText snapshot — innerText on prod was returning only the
+    // layout chrome even after the heading assertions passed, which
+    // suggests a hydration / snapshot timing quirk we can't fight from
+    // here. getByText is robust.
+    await expect(page.getByText(/AI Studio/i).first()).toBeVisible({
+      timeout: 10_000,
+    });
 
-    // Copy-leak guard — re-snapshot AFTER hydration.
-    const hydrated = await page.locator("body").innerText();
-    expect(hydrated).not.toContain("Claude");
-    expect(hydrated).not.toContain("Anthropic");
+    // Copy-leak guard. Use getByText for the negative case too —
+    // re-snapshotting body.innerText is unreliable on this surface.
+    await expect(page.getByText(/Claude/i)).toHaveCount(0);
+    await expect(page.getByText(/Anthropic/i)).toHaveCount(0);
   });
 });
