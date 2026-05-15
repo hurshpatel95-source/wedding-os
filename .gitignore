@@ -12,14 +12,15 @@ build/
 !.env.example
 
 .DS_Store
-# macOS Finder duplicates ("* 2.tsx", "* 2.ts", etc.) — never check these in
-** 2.tsx
-** 2.ts
-** 2.md
-** 2.sql
-** 2.mjs
-** 2.js
-** 2.json
+# macOS Finder duplicates ("* 2.tsx", "* 3.tsx", etc.) — never check these in.
+# The [0-9] class catches any single-digit suffix (Finder uses 2, 3, 4...).
+** [0-9].tsx
+** [0-9].ts
+** [0-9].md
+** [0-9].sql
+** [0-9].mjs
+** [0-9].js
+** [0-9].json
 
 # Throwaway audit / one-off scripts agents leave behind in apps/web/.
 # Convention: agents should write to /tmp/, not the repo. These names
