@@ -67,6 +67,9 @@ export interface ClarificationTemplate {
   questions: ClarificationQuestion[];
 }
 
+/** Higgsfield aspect-ratio choice. */
+export type StudioAspect = "16:9" | "1:1" | "9:16";
+
 /** Metadata for a single tool — drives the hub grid + per-tool routes. */
 export interface StudioTool {
   slug: StudioToolSlug;
@@ -79,6 +82,12 @@ export interface StudioTool {
   status: "live" | "coming_soon";
   /** Lucide-react icon name (e.g., "Palette", "Shirt"). */
   icon: string;
+  /**
+   * Aspect ratio passed to Higgsfield. Tool-specific because a mood
+   * board wants 16:9 collage but a cake render wants square; an
+   * invitation wants portrait. Defaults to "1:1" when unset.
+   */
+  default_aspect?: StudioAspect;
 }
 
 /** Shape returned by the generate endpoint after a successful render. */

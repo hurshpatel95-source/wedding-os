@@ -34,6 +34,31 @@ import {
   MOOD_BOARD_CLARIFY_SYSTEM,
   MOOD_BOARD_FINALIZE_SYSTEM,
 } from "./tools/mood-board";
+import {
+  FLORALS_CLARIFICATION_FALLBACK,
+  FLORALS_CLARIFY_SYSTEM,
+  FLORALS_FINALIZE_SYSTEM,
+} from "./tools/florals";
+import {
+  CAKE_CLARIFICATION_FALLBACK,
+  CAKE_CLARIFY_SYSTEM,
+  CAKE_FINALIZE_SYSTEM,
+} from "./tools/cake";
+import {
+  COLOR_PALETTE_CLARIFICATION_FALLBACK,
+  COLOR_PALETTE_CLARIFY_SYSTEM,
+  COLOR_PALETTE_FINALIZE_SYSTEM,
+} from "./tools/color-palette";
+import {
+  INVITATION_CLARIFICATION_FALLBACK,
+  INVITATION_CLARIFY_SYSTEM,
+  INVITATION_FINALIZE_SYSTEM,
+} from "./tools/invitation-mockup";
+import {
+  DAY_OF_VIZ_CLARIFICATION_FALLBACK,
+  DAY_OF_VIZ_CLARIFY_SYSTEM,
+  DAY_OF_VIZ_FINALIZE_SYSTEM,
+} from "./tools/day-of-viz";
 
 // ─── Per-tool prompt resolver ──────────────────────────────────────────
 // As new tools graduate, add a case here that returns the right system
@@ -55,19 +80,48 @@ function getToolPrompts(tool: StudioToolSlug): ToolPrompts | null {
         finalize_system: MOOD_BOARD_FINALIZE_SYSTEM,
         fallback_questions: MOOD_BOARD_CLARIFICATION_FALLBACK.questions,
       };
+    case "florals":
+      return {
+        clarify_system: FLORALS_CLARIFY_SYSTEM,
+        finalize_system: FLORALS_FINALIZE_SYSTEM,
+        fallback_questions: FLORALS_CLARIFICATION_FALLBACK.questions,
+      };
+    case "cake":
+      return {
+        clarify_system: CAKE_CLARIFY_SYSTEM,
+        finalize_system: CAKE_FINALIZE_SYSTEM,
+        fallback_questions: CAKE_CLARIFICATION_FALLBACK.questions,
+      };
+    case "color-palette":
+      return {
+        clarify_system: COLOR_PALETTE_CLARIFY_SYSTEM,
+        finalize_system: COLOR_PALETTE_FINALIZE_SYSTEM,
+        fallback_questions: COLOR_PALETTE_CLARIFICATION_FALLBACK.questions,
+      };
+    case "invitation-mockup":
+      return {
+        clarify_system: INVITATION_CLARIFY_SYSTEM,
+        finalize_system: INVITATION_FINALIZE_SYSTEM,
+        fallback_questions: INVITATION_CLARIFICATION_FALLBACK.questions,
+      };
+    case "day-of-viz":
+      return {
+        clarify_system: DAY_OF_VIZ_CLARIFY_SYSTEM,
+        finalize_system: DAY_OF_VIZ_FINALIZE_SYSTEM,
+        fallback_questions: DAY_OF_VIZ_CLARIFICATION_FALLBACK.questions,
+      };
     case "dress-on-me":
     case "venue-mockup":
-    case "florals":
-    case "cake":
     case "hair-makeup":
-    case "invitation-mockup":
-    case "color-palette":
-    case "day-of-viz":
+      // Phase 2 (Hermes-queue) — these long-running tools aren't wired
+      // to the synchronous clarify/generate path. Returning null forces
+      // the route handler to 404, which matches the registry status.
+      return null;
     case "pricing-analyzer":
-      // Day 1-2 only ships mood-board. The other tools are
-      // status="coming_soon" in the registry and shouldn't reach this
-      // path. Returning null forces the caller to 404, which is
-      // honest UX for a route that doesn't yet exist.
+      // Pricing-analyzer uses the dedicated /api/visualize/photo-to-pricing
+      // endpoint. The studio clarify/generate routes explicitly skip it.
+      // Returning null is a defensive belt-and-braces — the route already
+      // guards on slug before reaching this code path.
       return null;
   }
 }

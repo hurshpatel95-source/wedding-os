@@ -27,6 +27,7 @@ export const STUDIO_TOOLS: Record<StudioToolSlug, StudioTool> = {
     default_variant_count: 12,
     status: "live",
     icon: "Palette",
+    default_aspect: "16:9",
   },
   "dress-on-me": {
     slug: "dress-on-me",
@@ -39,6 +40,7 @@ export const STUDIO_TOOLS: Record<StudioToolSlug, StudioTool> = {
     default_variant_count: 4,
     status: "coming_soon",
     icon: "Shirt",
+    default_aspect: "9:16",
   },
   "venue-mockup": {
     slug: "venue-mockup",
@@ -51,6 +53,7 @@ export const STUDIO_TOOLS: Record<StudioToolSlug, StudioTool> = {
     default_variant_count: 4,
     status: "coming_soon",
     icon: "Building2",
+    default_aspect: "16:9",
   },
   florals: {
     slug: "florals",
@@ -61,8 +64,9 @@ export const STUDIO_TOOLS: Record<StudioToolSlug, StudioTool> = {
     input_kind: "text",
     output_kind: "image_grid",
     default_variant_count: 4,
-    status: "coming_soon",
+    status: "live",
     icon: "Flower2",
+    default_aspect: "1:1",
   },
   cake: {
     slug: "cake",
@@ -73,8 +77,9 @@ export const STUDIO_TOOLS: Record<StudioToolSlug, StudioTool> = {
     input_kind: "text",
     output_kind: "image_grid",
     default_variant_count: 4,
-    status: "coming_soon",
+    status: "live",
     icon: "Cake",
+    default_aspect: "1:1",
   },
   "hair-makeup": {
     slug: "hair-makeup",
@@ -87,6 +92,7 @@ export const STUDIO_TOOLS: Record<StudioToolSlug, StudioTool> = {
     default_variant_count: 4,
     status: "coming_soon",
     icon: "Sparkles",
+    default_aspect: "9:16",
   },
   "invitation-mockup": {
     slug: "invitation-mockup",
@@ -97,8 +103,9 @@ export const STUDIO_TOOLS: Record<StudioToolSlug, StudioTool> = {
     input_kind: "image+text",
     output_kind: "image_grid",
     default_variant_count: 4,
-    status: "coming_soon",
+    status: "live",
     icon: "Mail",
+    default_aspect: "1:1",
   },
   "color-palette": {
     slug: "color-palette",
@@ -108,9 +115,11 @@ export const STUDIO_TOOLS: Record<StudioToolSlug, StudioTool> = {
     cost_credits: 2,
     input_kind: "image+text",
     output_kind: "image",
+    // Special single-image composite — NOT a grid.
     default_variant_count: 1,
-    status: "coming_soon",
+    status: "live",
     icon: "Swatch",
+    default_aspect: "16:9",
   },
   "day-of-viz": {
     slug: "day-of-viz",
@@ -120,9 +129,10 @@ export const STUDIO_TOOLS: Record<StudioToolSlug, StudioTool> = {
     cost_credits: 3,
     input_kind: "text",
     output_kind: "image_grid",
-    default_variant_count: 6,
-    status: "coming_soon",
+    default_variant_count: 4,
+    status: "live",
     icon: "Clock",
+    default_aspect: "1:1",
   },
   "pricing-analyzer": {
     slug: "pricing-analyzer",
@@ -133,11 +143,11 @@ export const STUDIO_TOOLS: Record<StudioToolSlug, StudioTool> = {
     input_kind: "image+text",
     output_kind: "image",
     default_variant_count: 1,
-    // Lives at /visualize today — migrating to /studio/pricing-analyzer
-    // in Day 3. Marked "live" so the card is clickable; the link target
-    // resolves to /visualize for now (handled in the hub page).
+    // Migrated to /studio/pricing-analyzer in Day 3. The legacy
+    // /visualize route redirects here.
     status: "live",
     icon: "Camera",
+    default_aspect: "1:1",
   },
 };
 

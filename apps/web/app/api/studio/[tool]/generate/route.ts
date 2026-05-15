@@ -203,14 +203,14 @@ export async function POST(
   }
 
   // ── Image generation (Higgsfield call — stub today) ────────────────
-  // Aspect ratio choice is tool-specific. Mood board → 16:9 collage.
-  const dimensions = tool.slug === "mood-board" ? "16:9" : "1:1";
+  // Aspect ratio choice is tool-specific via registry.default_aspect.
+  const dimensions = tool.default_aspect ?? "1:1";
   let images;
   try {
     images = await generateImage({
       prompt: finalized.optimized_prompt,
       variant_count: requestedVariants,
-      dimensions: dimensions as "16:9" | "1:1",
+      dimensions,
     });
   } catch (err) {
     return NextResponse.json(

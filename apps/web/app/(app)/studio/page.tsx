@@ -54,9 +54,10 @@ const ICONS: Record<string, LucideIcon> = {
 };
 
 function toolHref(tool: StudioTool): string {
-  // Special case: pricing-analyzer lives at /visualize today.
-  // Day 3 migrates it to /studio/pricing-analyzer.
-  if (tool.slug === "pricing-analyzer") return "/visualize";
+  // All live tools route through the studio framework now. The
+  // pricing-analyzer special-case pointed at /visualize before the
+  // Day 3 migration; the legacy /visualize route redirects to
+  // /studio/pricing-analyzer.
   return `/studio/${tool.slug}`;
 }
 
