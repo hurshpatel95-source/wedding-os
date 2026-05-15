@@ -12,9 +12,22 @@ build/
 !.env.example
 
 .DS_Store
-# macOS Finder duplicates ("* 2.tsx", "* 2.ts") — never check these in
+# macOS Finder duplicates ("* 2.tsx", "* 2.ts", etc.) — never check these in
 ** 2.tsx
 ** 2.ts
+** 2.md
+** 2.sql
+** 2.mjs
+** 2.js
+** 2.json
+
+# Throwaway audit / one-off scripts agents leave behind in apps/web/.
+# Convention: agents should write to /tmp/, not the repo. These names
+# came up in real spills 2026-05-13.
+apps/web/check-*.mjs
+apps/web/ground-truth-*.mjs
+apps/web/*-scratch.mjs
+
 *.log
 npm-debug.log*
 pnpm-debug.log*
